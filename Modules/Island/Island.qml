@@ -8,7 +8,7 @@ PanelWindow {
 
     readonly property int pillHeight: 44
     readonly property int panelSize: 400
-    readonly property bool expanded: State.expanded
+    readonly property bool expanded: ShellState.expanded
 
     anchors.top: true
     margins.top: 8
@@ -25,7 +25,7 @@ PanelWindow {
     Item {
         anchors.fill: parent
         focus: true
-        Keys.onEscapePressed: State.expanded = false
+        Keys.onEscapePressed: ShellState.expanded = false
     }
 
     Rectangle {
@@ -71,7 +71,7 @@ PanelWindow {
             anchors.top: parent.top
             height: win.pillHeight
             cursorShape: Qt.PointingHandCursor
-            onClicked: State.expanded = !State.expanded
+            onClicked: ShellState.expanded = !ShellState.expanded
         }
 
         Row {
@@ -92,7 +92,7 @@ PanelWindow {
 
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: Qt.formatDateTime(State.clock.date, "HH:mm")
+                text: Qt.formatDateTime(ShellState.clock.date, "HH:mm")
                 color: Theme.onSurface
                 font.family: Theme.fontUi
                 font.pixelSize: 15
@@ -101,7 +101,7 @@ PanelWindow {
 
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: Qt.formatDateTime(State.clock.date, "ddd MMM d")
+                text: Qt.formatDateTime(ShellState.clock.date, "ddd MMM d")
                 color: Theme.onSurfaceVariant
                 font.family: Theme.fontUi
                 font.pixelSize: 13

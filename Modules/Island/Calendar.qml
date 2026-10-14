@@ -5,7 +5,7 @@ import qs.Commons
 ColumnLayout {
     id: root
 
-    property date shown: new Date(State.clock.date.getFullYear(), State.clock.date.getMonth(), 1)
+    property date shown: new Date(ShellState.clock.date.getFullYear(), ShellState.clock.date.getMonth(), 1)
     readonly property date firstOfMonth: new Date(shown.getFullYear(), shown.getMonth(), 1)
     readonly property int offset: (firstOfMonth.getDay() + 6) % 7
 
@@ -102,7 +102,7 @@ ColumnLayout {
                 required property int index
                 readonly property date day: root.cellDate(index)
                 readonly property bool inMonth: day.getMonth() === root.shown.getMonth()
-                readonly property bool isToday: day.toDateString() === State.clock.date.toDateString()
+                readonly property bool isToday: day.toDateString() === ShellState.clock.date.toDateString()
 
                 Layout.fillWidth: true
                 Layout.preferredHeight: 40

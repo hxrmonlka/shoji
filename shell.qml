@@ -17,15 +17,15 @@ ShellRoot {
         target: "island"
 
         function toggle(): void {
-            State.expanded = !State.expanded;
+            ShellState.expanded = !ShellState.expanded;
         }
 
         function open(): void {
-            State.expanded = true;
+            ShellState.expanded = true;
         }
 
         function close(): void {
-            State.expanded = false;
+            ShellState.expanded = false;
         }
     }
 }
