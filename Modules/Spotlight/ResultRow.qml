@@ -35,14 +35,12 @@ Item {
         anchors.bottomMargin: 2
         visible: !row.isHeader
         radius: 16
-        color: row.selected ? Theme.m3PrimaryContainer : "transparent"
+        color: rowFill.color
 
-        Behavior on color {
-            ColorAnimation {
-                duration: Motion.short3
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.standard
-            }
+        ColorSpring {
+            id: rowFill
+
+            target: row.selected ? Theme.m3PrimaryContainer : "transparent"
         }
 
         AppIcon {

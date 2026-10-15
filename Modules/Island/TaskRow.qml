@@ -37,16 +37,20 @@ Item {
         width: 22
         height: 22
         radius: 11
-        color: row.task.done ? Theme.m3Primary : "transparent"
+        color: checkFill.color
         border.width: 2
-        border.color: row.task.done ? Theme.m3Primary : Theme.m3OutlineVariant
+        border.color: checkBorder.color
 
-        Behavior on color {
-            ColorAnimation {
-                duration: Motion.short4
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.standard
-            }
+        ColorSpring {
+            id: checkFill
+
+            target: row.task.done ? Theme.m3Primary : "transparent"
+        }
+
+        ColorSpring {
+            id: checkBorder
+
+            target: row.task.done ? Theme.m3Primary : Theme.m3OutlineVariant
         }
 
         Text {
@@ -113,15 +117,14 @@ Item {
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         spacing: 2
-        opacity: hover.hovered && !row.editing ? 1 : 0
-        visible: opacity > 0
+        opacity: actionsFade.value
+        visible: opacity > 0.001
 
-        Behavior on opacity {
-            NumberAnimation {
-                duration: Motion.short3
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.standard
-            }
+        Spring {
+            id: actionsFade
+
+            target: hover.hovered && !row.editing ? 1 : 0
+            token: Motion.effectsFast
         }
 
         Repeater {
@@ -135,7 +138,13 @@ Item {
                 width: 28
                 height: 28
                 radius: 14
-                color: btnArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                color: btnFill.color
+
+                ColorSpring {
+                    id: btnFill
+
+                    target: btnArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                }
 
                 Text {
                     anchors.centerIn: parent

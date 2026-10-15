@@ -39,14 +39,12 @@ Item {
                     anchors.fill: parent
                     anchors.margins: 4
                     radius: 16
-                    color: area.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                    color: tileFill.color
 
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: Motion.short3
-                            easing.type: Easing.BezierSpline
-                            easing.bezierCurve: Motion.standard
-                        }
+                    ColorSpring {
+                        id: tileFill
+
+                        target: area.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
                     }
 
                     Column {

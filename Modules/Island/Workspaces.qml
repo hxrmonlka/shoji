@@ -19,25 +19,23 @@ Row {
             required property var modelData
 
             visible: modelData.shouldDisplay
-            width: modelData.active ? 22 : 8
+            width: grow.value
             height: 8
             radius: 4
-            color: modelData.active ? Theme.m3Primary : modelData.urgent ? Theme.m3OnPrimaryContainer : Theme.m3SurfaceContainerHighest
+            color: tint.color
 
-            Behavior on width {
-                NumberAnimation {
-                    duration: Motion.medium2
-                    easing.type: Easing.BezierSpline
-                    easing.bezierCurve: Motion.emphasized
-                }
+            Spring {
+                id: grow
+
+                target: dot.modelData.active ? 22 : 8
+                token: Motion.spatialFast
+                epsilon: 0.02
             }
 
-            Behavior on color {
-                ColorAnimation {
-                    duration: Motion.short4
-                    easing.type: Easing.BezierSpline
-                    easing.bezierCurve: Motion.standard
-                }
+            ColorSpring {
+                id: tint
+
+                target: dot.modelData.active ? Theme.m3Primary : dot.modelData.urgent ? Theme.m3OnPrimaryContainer : Theme.m3SurfaceContainerHighest
             }
 
             MouseArea {

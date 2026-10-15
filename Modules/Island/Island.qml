@@ -10,18 +10,27 @@ PanelWindow {
     readonly property int panelWidth: 720
     readonly property int panelHeight: 460
     readonly property bool expanded: ShellState.expanded
+    readonly property real progress: Math.max(0, morph.value)
 
     anchors.top: true
     margins.top: 8
     exclusionMode: ExclusionMode.Ignore
-    implicitWidth: panelWidth
-    implicitHeight: panelHeight
+    implicitWidth: panelWidth + 96
+    implicitHeight: panelHeight + 56
     color: "transparent"
     mask: Region { item: island }
 
     WlrLayershell.namespace: "shoji-island"
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+
+    Spring {
+        id: morph
+
+        target: win.expanded ? 1 : 0
+        token: Motion.spatialDefault
+        epsilon: 0.0005
+    }
 
     Item {
         anchors.fill: parent
@@ -43,37 +52,13 @@ PanelWindow {
 
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        width: win.expanded ? win.panelWidth : header.implicitWidth + 32
-        height: win.expanded ? win.panelHeight : win.pillHeight
-        radius: win.expanded ? 32 : height / 2
+        width: Motion.lerp(header.implicitWidth + 32, win.panelWidth, win.progress)
+        height: Motion.lerp(win.pillHeight, win.panelHeight, win.progress)
+        radius: Motion.lerp(win.pillHeight / 2, 32, win.progress)
         color: Theme.m3SurfaceContainer
         border.width: 1
         border.color: Theme.m3OutlineVariant
         clip: true
-
-        Behavior on width {
-            NumberAnimation {
-                duration: Motion.medium4
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.emphasized
-            }
-        }
-
-        Behavior on height {
-            NumberAnimation {
-                duration: Motion.medium4
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.emphasized
-            }
-        }
-
-        Behavior on radius {
-            NumberAnimation {
-                duration: Motion.medium4
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.emphasized
-            }
-        }
 
         MouseArea {
             anchors.left: parent.left
@@ -92,16 +77,8 @@ PanelWindow {
             y: 0
             height: win.pillHeight
             spacing: 14
-            opacity: win.expanded ? 0 : 1
+            opacity: 1 - Motion.clamp01(win.progress / 0.25)
             visible: opacity > 0
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: win.expanded ? Motion.short3 : Motion.medium2
-                    easing.type: Easing.BezierSpline
-                    easing.bezierCurve: win.expanded ? Motion.emphasizedAccelerate : Motion.emphasizedDecelerate
-                }
-            }
 
             Text {
                 anchors.verticalCenter: parent.verticalCenter
@@ -135,17 +112,12 @@ PanelWindow {
         }
 
         Body {
-            anchors.fill: parent
-            opacity: win.expanded ? 1 : 0
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            width: win.panelWidth
+            height: win.panelHeight
+            opacity: Motion.clamp01((win.progress - 0.4) / 0.4)
             visible: opacity > 0
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: win.expanded ? Motion.medium2 : Motion.short3
-                    easing.type: Easing.BezierSpline
-                    easing.bezierCurve: win.expanded ? Motion.emphasizedDecelerate : Motion.emphasizedAccelerate
-                }
-            }
         }
     }
 }

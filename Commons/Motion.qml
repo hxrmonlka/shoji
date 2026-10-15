@@ -3,15 +3,24 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    readonly property list<real> standard: [0.2, 0.0, 0.0, 1.0, 1.0, 1.0]
-    readonly property list<real> emphasized: [0.2, 0.0, 0.0, 1.0, 1.0, 1.0]
-    readonly property list<real> emphasizedDecelerate: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
-    readonly property list<real> emphasizedAccelerate: [0.3, 0.0, 0.8, 0.15, 1.0, 1.0]
+    readonly property var spatialFast: ({ stiffness: 800, damping: 0.6 })
+    readonly property var spatialDefault: ({ stiffness: 380, damping: 0.8 })
+    readonly property var spatialSlow: ({ stiffness: 200, damping: 0.8 })
+    readonly property var effectsFast: ({ stiffness: 3800, damping: 1 })
+    readonly property var effectsDefault: ({ stiffness: 1600, damping: 1 })
+    readonly property var effectsSlow: ({ stiffness: 800, damping: 1 })
 
-    readonly property int short3: 150
-    readonly property int short4: 200
-    readonly property int medium1: 250
-    readonly property int medium2: 300
-    readonly property int medium4: 400
-    readonly property int long2: 500
+    function clamp01(x) {
+        return Math.max(0, Math.min(1, x));
+    }
+
+    function lerp(a, b, t) {
+        return a + (b - a) * t;
+    }
+
+    function mix(a, b, t) {
+        const from = a.a === 0 ? Qt.rgba(b.r, b.g, b.b, 0) : a;
+        const to = b.a === 0 ? Qt.rgba(a.r, a.g, a.b, 0) : b;
+        return Qt.rgba(lerp(from.r, to.r, t), lerp(from.g, to.g, t), lerp(from.b, to.b, t), lerp(from.a, to.a, t));
+    }
 }

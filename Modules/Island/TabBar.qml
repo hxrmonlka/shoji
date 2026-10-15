@@ -28,14 +28,12 @@ Item {
                 width: chipRow.implicitWidth + 28
                 height: 32
                 radius: 16
-                color: active ? Theme.m3PrimaryContainer : chipArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                color: chipFill.color
 
-                Behavior on color {
-                    ColorAnimation {
-                        duration: Motion.short4
-                        easing.type: Easing.BezierSpline
-                        easing.bezierCurve: Motion.standard
-                    }
+                ColorSpring {
+                    id: chipFill
+
+                    target: chip.active ? Theme.m3PrimaryContainer : chipArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
                 }
 
                 Row {

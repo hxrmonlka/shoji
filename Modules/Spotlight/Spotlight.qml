@@ -65,7 +65,7 @@ PanelWindow {
     anchors.right: true
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
-    visible: open || card.opacity > 0
+    visible: open || fade.value > 0.001 || pop.running
 
     WlrLayershell.namespace: "shoji-spotlight"
     WlrLayershell.layer: WlrLayer.Overlay
@@ -80,6 +80,30 @@ PanelWindow {
     }
     onResultsChanged: selected = firstItem()
 
+    Spring {
+        id: pop
+
+        target: win.open ? 1 : 0
+        token: Motion.spatialDefault
+        epsilon: 0.0005
+    }
+
+    Spring {
+        id: fade
+
+        target: win.open ? 1 : 0
+        token: Motion.effectsDefault
+        epsilon: 0.0005
+    }
+
+    Spring {
+        id: grow
+
+        target: win.barHeight + (win.listHeight > 0 ? win.listHeight + 21 : 0)
+        token: Motion.spatialDefault
+        epsilon: 0.05
+    }
+
     MouseArea {
         anchors.fill: parent
         onClicked: ShellState.spotlight = false
@@ -89,7 +113,7 @@ PanelWindow {
         id: card
 
         width: 680
-        height: win.barHeight + (win.listHeight > 0 ? win.listHeight + 21 : 0)
+        height: Math.max(win.barHeight, grow.value)
         x: (win.width - width) / 2
         y: win.height * 0.45 - win.barHeight / 2
         radius: 30
@@ -97,33 +121,9 @@ PanelWindow {
         border.width: 1
         border.color: Theme.m3OutlineVariant
         clip: true
-        opacity: win.open ? 1 : 0
-        scale: win.open ? 1 : 0.96
+        opacity: Motion.clamp01(fade.value)
+        scale: Motion.lerp(0.94, 1, pop.value)
         transformOrigin: Item.Top
-
-        Behavior on height {
-            NumberAnimation {
-                duration: Motion.medium2
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.emphasized
-            }
-        }
-
-        Behavior on opacity {
-            NumberAnimation {
-                duration: win.open ? Motion.medium2 : Motion.short3
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: win.open ? Motion.emphasizedDecelerate : Motion.emphasizedAccelerate
-            }
-        }
-
-        Behavior on scale {
-            NumberAnimation {
-                duration: win.open ? Motion.medium2 : Motion.short3
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: win.open ? Motion.emphasizedDecelerate : Motion.emphasizedAccelerate
-            }
-        }
 
         MouseArea {
             anchors.fill: parent

@@ -45,14 +45,12 @@ ColumnLayout {
                 Layout.preferredWidth: 32
                 Layout.preferredHeight: 32
                 radius: 16
-                color: navArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                color: navFill.color
 
-                Behavior on color {
-                    ColorAnimation {
-                        duration: Motion.short3
-                        easing.type: Easing.BezierSpline
-                        easing.bezierCurve: Motion.standard
-                    }
+                ColorSpring {
+                    id: navFill
+
+                    target: navArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
                 }
 
                 Text {
@@ -112,22 +110,21 @@ ColumnLayout {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 40
 
+                ColorSpring {
+                    id: cellFill
+
+                    target: cell.isToday ? Theme.m3Primary : cellArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                }
+
                 Rectangle {
                     anchors.centerIn: parent
                     width: 36
                     height: 36
                     radius: 18
-                    color: cell.isToday ? Theme.m3Primary : cellArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                    color: cellFill.color
                     border.width: cell.isSelected && !cell.isToday ? 2 : 0
                     border.color: Theme.m3Primary
 
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: Motion.short3
-                            easing.type: Easing.BezierSpline
-                            easing.bezierCurve: Motion.standard
-                        }
-                    }
                 }
 
                 Text {

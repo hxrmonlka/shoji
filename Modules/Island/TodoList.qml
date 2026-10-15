@@ -119,14 +119,12 @@ ColumnLayout {
         radius: 20
         color: "transparent"
         border.width: 1
-        border.color: addInput.activeFocus ? Theme.m3Primary : Theme.m3OutlineVariant
+        border.color: addBorder.color
 
-        Behavior on border.color {
-            ColorAnimation {
-                duration: Motion.short4
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.standard
-            }
+        ColorSpring {
+            id: addBorder
+
+            target: addInput.activeFocus ? Theme.m3Primary : Theme.m3OutlineVariant
         }
 
         TextInput {
