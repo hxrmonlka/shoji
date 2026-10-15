@@ -15,7 +15,6 @@ Item {
         tabs: ShellState.tabs
         current: ShellState.tab
         onPicked: tabId => ShellState.tab = tabId
-        onCloseRequested: ShellState.expanded = false
     }
 
     Loader {
@@ -28,12 +27,18 @@ Item {
         anchors.rightMargin: 16
         anchors.bottomMargin: 16
         active: root.visible
-        sourceComponent: ShellState.tab === "calendar" ? calendarTab : null
+        sourceComponent: ({ calendar: calendarTab, launcher: launcherTab })[ShellState.tab] ?? null
     }
 
     Component {
         id: calendarTab
 
         CalendarTab {}
+    }
+
+    Component {
+        id: launcherTab
+
+        LauncherTab {}
     }
 }

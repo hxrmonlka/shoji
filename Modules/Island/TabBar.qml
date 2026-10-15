@@ -8,7 +8,6 @@ Item {
     required property string current
 
     signal picked(string tabId)
-    signal closeRequested
 
     implicitHeight: 44
 
@@ -72,40 +71,6 @@ Item {
                     onClicked: root.picked(chip.modelData.id)
                 }
             }
-        }
-    }
-
-    Rectangle {
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        width: 32
-        height: 32
-        radius: 16
-        color: closeArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
-
-        Behavior on color {
-            ColorAnimation {
-                duration: Motion.short4
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.standard
-            }
-        }
-
-        Text {
-            anchors.centerIn: parent
-            text: "\uf00d"
-            color: Theme.m3OnSurfaceVariant
-            font.family: Theme.fontIcon
-            font.pixelSize: 14
-        }
-
-        MouseArea {
-            id: closeArea
-
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.closeRequested()
         }
     }
 }
