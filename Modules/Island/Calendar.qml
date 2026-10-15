@@ -5,9 +5,12 @@ import qs.Commons
 ColumnLayout {
     id: root
 
+    property date selected: new Date()
     property date shown: new Date(ShellState.clock.date.getFullYear(), ShellState.clock.date.getMonth(), 1)
     readonly property date firstOfMonth: new Date(shown.getFullYear(), shown.getMonth(), 1)
     readonly property int offset: (firstOfMonth.getDay() + 6) % 7
+
+    signal daySelected(date picked)
 
     function shift(months) {
         shown = new Date(shown.getFullYear(), shown.getMonth() + months, 1);
@@ -25,7 +28,7 @@ ColumnLayout {
         Text {
             Layout.fillWidth: true
             text: Qt.formatDate(root.shown, "MMMM yyyy")
-            color: Theme.onSurface
+            color: Theme.m3OnSurface
             font.family: Theme.fontUi
             font.pixelSize: 18
             font.weight: Font.DemiBold
@@ -42,7 +45,7 @@ ColumnLayout {
                 Layout.preferredWidth: 32
                 Layout.preferredHeight: 32
                 radius: 16
-                color: navArea.containsMouse ? Theme.surfaceContainerHighest : "transparent"
+                color: navArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
 
                 Behavior on color {
                     ColorAnimation {
@@ -55,7 +58,7 @@ ColumnLayout {
                 Text {
                     anchors.centerIn: parent
                     text: nav.modelData.glyph
-                    color: Theme.onSurfaceVariant
+                    color: Theme.m3OnSurfaceVariant
                     font.family: Theme.fontIcon
                     font.pixelSize: 16
                 }
@@ -77,6 +80,7 @@ ColumnLayout {
         columns: 7
         rowSpacing: 4
         columnSpacing: 0
+        uniformCellWidths: true
 
         Repeater {
             model: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
@@ -87,7 +91,7 @@ ColumnLayout {
                 Layout.fillWidth: true
                 horizontalAlignment: Text.AlignHCenter
                 text: modelData
-                color: Theme.onSurfaceVariant
+                color: Theme.m3OnSurfaceVariant
                 font.family: Theme.fontUi
                 font.pixelSize: 12
             }
@@ -102,7 +106,8 @@ ColumnLayout {
                 required property int index
                 readonly property date day: root.cellDate(index)
                 readonly property bool inMonth: day.getMonth() === root.shown.getMonth()
-                readonly property bool isToday: day.toDateString() === ShellState.clock.date.toDateString()
+                readonly property bool isToday: Todos.key(day) === Todos.key(ShellState.clock.date)
+                readonly property bool isSelected: Todos.key(day) === Todos.key(root.selected)
 
                 Layout.fillWidth: true
                 Layout.preferredHeight: 40
@@ -112,16 +117,50 @@ ColumnLayout {
                     width: 36
                     height: 36
                     radius: 18
-                    color: cell.isToday ? Theme.primary : "transparent"
+                    color: cell.isToday ? Theme.m3Primary : cellArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                    border.width: cell.isSelected && !cell.isToday ? 2 : 0
+                    border.color: Theme.m3Primary
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: Motion.short3
+                            easing.type: Easing.BezierSpline
+                            easing.bezierCurve: Motion.standard
+                        }
+                    }
                 }
 
                 Text {
                     anchors.centerIn: parent
+                    anchors.verticalCenterOffset: Todos.hasAny(cell.day) ? -2 : 0
                     text: cell.day.getDate()
-                    color: cell.isToday ? Theme.onPrimary : cell.inMonth ? Theme.onSurface : Theme.outlineVariant
+                    color: cell.isToday ? Theme.m3OnPrimary : cell.inMonth ? Theme.m3OnSurface : Theme.m3OutlineVariant
                     font.family: Theme.fontUi
                     font.pixelSize: 14
-                    font.weight: cell.isToday ? Font.DemiBold : Font.Normal
+                    font.weight: cell.isToday || cell.isSelected ? Font.DemiBold : Font.Normal
+                }
+
+                Rectangle {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: 11
+                    width: 4
+                    height: 4
+                    radius: 2
+                    visible: Todos.hasAny(cell.day)
+                    color: Todos.hasOpen(cell.day) ? (cell.isToday ? Theme.m3OnPrimary : Theme.m3Primary) : Theme.m3OutlineVariant
+                }
+
+                MouseArea {
+                    id: cellArea
+
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        root.shown = new Date(cell.day.getFullYear(), cell.day.getMonth(), 1);
+                        root.daySelected(cell.day);
+                    }
                 }
             }
         }

@@ -22,7 +22,7 @@ Row {
             width: modelData.active ? 22 : 8
             height: 8
             radius: 4
-            color: modelData.active ? Theme.primary : modelData.urgent ? Theme.onPrimaryContainer : Theme.surfaceContainerHighest
+            color: modelData.active ? Theme.m3Primary : modelData.urgent ? Theme.m3OnPrimaryContainer : Theme.m3SurfaceContainerHighest
 
             Behavior on width {
                 NumberAnimation {

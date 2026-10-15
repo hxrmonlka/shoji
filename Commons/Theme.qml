@@ -10,17 +10,17 @@ QtObject {
     readonly property string fontUi: "Roboto Flex"
     readonly property string fontIcon: "JetBrainsMono Nerd Font"
 
-    readonly property color primary: file.adapter.primary
-    readonly property color onPrimary: file.adapter.on_primary
-    readonly property color primaryContainer: file.adapter.primary_container
-    readonly property color onPrimaryContainer: file.adapter.on_primary_container
-    readonly property color surface: file.adapter.surface
-    readonly property color onSurface: file.adapter.on_surface
-    readonly property color onSurfaceVariant: file.adapter.on_surface_variant
-    readonly property color surfaceContainer: file.adapter.surface_container
-    readonly property color surfaceContainerHigh: file.adapter.surface_container_high
-    readonly property color surfaceContainerHighest: file.adapter.surface_container_highest
-    readonly property color outlineVariant: file.adapter.outline_variant
+    readonly property color m3Primary: file.adapter.primary
+    readonly property color m3OnPrimary: file.adapter.on_primary
+    readonly property color m3PrimaryContainer: file.adapter.primary_container
+    readonly property color m3OnPrimaryContainer: file.adapter.on_primary_container
+    readonly property color m3Surface: file.adapter.surface
+    readonly property color m3OnSurface: file.adapter.on_surface
+    readonly property color m3OnSurfaceVariant: file.adapter.on_surface_variant
+    readonly property color m3SurfaceContainer: file.adapter.surface_container
+    readonly property color m3SurfaceContainerHigh: file.adapter.surface_container_high
+    readonly property color m3SurfaceContainerHighest: file.adapter.surface_container_highest
+    readonly property color m3OutlineVariant: file.adapter.outline_variant
 
     readonly property FileView file: FileView {
         path: Quickshell.env("HOME") + "/.local/state/shoji/colors.json"

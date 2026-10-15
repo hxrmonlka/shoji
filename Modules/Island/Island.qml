@@ -7,20 +7,21 @@ PanelWindow {
     id: win
 
     readonly property int pillHeight: 44
-    readonly property int panelSize: 400
+    readonly property int panelWidth: 720
+    readonly property int panelHeight: 460
     readonly property bool expanded: ShellState.expanded
 
     anchors.top: true
     margins.top: 8
     exclusionMode: ExclusionMode.Ignore
-    implicitWidth: panelSize
-    implicitHeight: panelSize
+    implicitWidth: panelWidth
+    implicitHeight: panelHeight
     color: "transparent"
     mask: Region { item: island }
 
     WlrLayershell.namespace: "shoji-island"
     WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.keyboardFocus: expanded ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
 
     Item {
         anchors.fill: parent
@@ -28,17 +29,26 @@ PanelWindow {
         Keys.onEscapePressed: ShellState.expanded = false
     }
 
+    Connections {
+        target: ToplevelManager
+
+        function onActiveToplevelChanged(): void {
+            if (win.expanded && ToplevelManager.activeToplevel)
+                ShellState.expanded = false;
+        }
+    }
+
     Rectangle {
         id: island
 
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        width: win.expanded ? win.panelSize : header.implicitWidth + 32
-        height: win.expanded ? win.panelSize : win.pillHeight
+        width: win.expanded ? win.panelWidth : header.implicitWidth + 32
+        height: win.expanded ? win.panelHeight : win.pillHeight
         radius: win.expanded ? 32 : height / 2
-        color: Theme.surfaceContainer
+        color: Theme.m3SurfaceContainer
         border.width: 1
-        border.color: Theme.outlineVariant
+        border.color: Theme.m3OutlineVariant
         clip: true
 
         Behavior on width {
@@ -70,6 +80,7 @@ PanelWindow {
             anchors.right: parent.right
             anchors.top: parent.top
             height: win.pillHeight
+            enabled: !win.expanded
             cursorShape: Qt.PointingHandCursor
             onClicked: ShellState.expanded = !ShellState.expanded
         }
@@ -81,11 +92,21 @@ PanelWindow {
             y: 0
             height: win.pillHeight
             spacing: 14
+            opacity: win.expanded ? 0 : 1
+            visible: opacity > 0
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: win.expanded ? Motion.short3 : Motion.medium2
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: win.expanded ? Motion.emphasizedAccelerate : Motion.emphasizedDecelerate
+                }
+            }
 
             Text {
                 anchors.verticalCenter: parent.verticalCenter
                 text: "\uf313"
-                color: Theme.primary
+                color: Theme.m3Primary
                 font.family: Theme.fontIcon
                 font.pixelSize: 20
             }
@@ -93,7 +114,7 @@ PanelWindow {
             Text {
                 anchors.verticalCenter: parent.verticalCenter
                 text: Qt.formatDateTime(ShellState.clock.date, "HH:mm")
-                color: Theme.onSurface
+                color: Theme.m3OnSurface
                 font.family: Theme.fontUi
                 font.pixelSize: 15
                 font.weight: Font.DemiBold
@@ -102,7 +123,7 @@ PanelWindow {
             Text {
                 anchors.verticalCenter: parent.verticalCenter
                 text: Qt.formatDateTime(ShellState.clock.date, "ddd MMM d")
-                color: Theme.onSurfaceVariant
+                color: Theme.m3OnSurfaceVariant
                 font.family: Theme.fontUi
                 font.pixelSize: 13
             }
@@ -113,13 +134,8 @@ PanelWindow {
             }
         }
 
-        Calendar {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.topMargin: win.pillHeight + 8
-            anchors.leftMargin: 24
-            anchors.rightMargin: 24
+        Body {
+            anchors.fill: parent
             opacity: win.expanded ? 1 : 0
             visible: opacity > 0
 

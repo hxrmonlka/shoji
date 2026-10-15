@@ -27,5 +27,12 @@ ShellRoot {
         function close(): void {
             ShellState.expanded = false;
         }
+
+        function tab(name: string): void {
+            if (ShellState.tabs.some(t => t.id === name)) {
+                ShellState.tab = name;
+                ShellState.expanded = true;
+            }
+        }
     }
 }

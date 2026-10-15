@@ -1,0 +1,111 @@
+import QtQuick
+import qs.Commons
+
+Item {
+    id: root
+
+    required property var tabs
+    required property string current
+
+    signal picked(string tabId)
+    signal closeRequested
+
+    implicitHeight: 44
+
+    Row {
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 6
+
+        Repeater {
+            model: root.tabs
+
+            Rectangle {
+                id: chip
+
+                required property var modelData
+                readonly property bool active: modelData.id === root.current
+
+                width: chipRow.implicitWidth + 28
+                height: 32
+                radius: 16
+                color: active ? Theme.m3PrimaryContainer : chipArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+
+                Behavior on color {
+                    ColorAnimation {
+                        duration: Motion.short4
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Motion.standard
+                    }
+                }
+
+                Row {
+                    id: chipRow
+
+                    anchors.centerIn: parent
+                    spacing: 8
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: chip.modelData.icon
+                        color: chip.active ? Theme.m3OnPrimaryContainer : Theme.m3OnSurfaceVariant
+                        font.family: Theme.fontIcon
+                        font.pixelSize: 14
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: chip.modelData.label
+                        color: chip.active ? Theme.m3OnPrimaryContainer : Theme.m3OnSurfaceVariant
+                        font.family: Theme.fontUi
+                        font.pixelSize: 13
+                        font.weight: Font.Medium
+                    }
+                }
+
+                MouseArea {
+                    id: chipArea
+
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.picked(chip.modelData.id)
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        width: 32
+        height: 32
+        radius: 16
+        color: closeArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+
+        Behavior on color {
+            ColorAnimation {
+                duration: Motion.short4
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Motion.standard
+            }
+        }
+
+        Text {
+            anchors.centerIn: parent
+            text: "\uf00d"
+            color: Theme.m3OnSurfaceVariant
+            font.family: Theme.fontIcon
+            font.pixelSize: 14
+        }
+
+        MouseArea {
+            id: closeArea
+
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.closeRequested()
+        }
+    }
+}
