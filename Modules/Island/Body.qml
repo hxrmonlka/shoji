@@ -27,7 +27,7 @@ Item {
         anchors.rightMargin: 16
         anchors.bottomMargin: 16
         active: root.visible
-        sourceComponent: ({ calendar: calendarTab, launcher: launcherTab })[ShellState.tab] ?? null
+        sourceComponent: ({ calendar: calendarTab, launcher: launcherTab, wallpapers: wallpaperTab })[ShellState.tab] ?? null
     }
 
     Component {
@@ -40,5 +40,11 @@ Item {
         id: launcherTab
 
         LauncherTab {}
+    }
+
+    Component {
+        id: wallpaperTab
+
+        WallpaperTab {}
     }
 }

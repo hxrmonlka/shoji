@@ -1,0 +1,196 @@
+import QtQuick
+import QtQuick.Layouts
+import qs.Commons
+
+Item {
+    id: root
+
+    Keys.onEscapePressed: ShellState.expanded = false
+
+    Rectangle {
+        anchors.fill: parent
+        radius: 20
+        color: "transparent"
+        border.width: 1
+        border.color: Theme.m3OutlineVariant
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: 14
+            spacing: 10
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 2
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "Wallpapers"
+                        color: Theme.m3OnSurface
+                        font.family: Theme.fontUi
+                        font.pixelSize: 18
+                        font.weight: Font.DemiBold
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: Wallpapers.busy ? "Applying theme..." : Wallpapers.count + (Wallpapers.count === 1 ? " image" : " images")
+                        color: Theme.m3OnSurfaceVariant
+                        font.family: Theme.fontUi
+                        font.pixelSize: 12
+                    }
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: 32
+                    Layout.preferredHeight: 32
+                    radius: 16
+                    color: shuffleFill.color
+
+                    ColorSpring {
+                        id: shuffleFill
+
+                        target: shuffleArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "\uf074"
+                        color: Theme.m3OnSurfaceVariant
+                        font.family: Theme.fontIcon
+                        font.pixelSize: 14
+                    }
+
+                    MouseArea {
+                        id: shuffleArea
+
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Wallpapers.random()
+                    }
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 1
+                color: Theme.m3OutlineVariant
+            }
+
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                GridView {
+                    id: grid
+
+                    readonly property int columns: 4
+
+                    anchors.fill: parent
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    cellWidth: Math.floor(width / columns)
+                    cellHeight: Math.round(cellWidth * 0.64)
+                    opacity: dim.value
+                    model: Wallpapers.folder
+
+                    delegate: Item {
+                        id: cell
+
+                        required property string filePath
+                        required property url fileUrl
+                        readonly property bool selected: Wallpapers.current === filePath
+
+                        width: grid.cellWidth
+                        height: grid.cellHeight
+
+                        Item {
+                            anchors.fill: parent
+                            anchors.margins: 5
+                            scale: lift.value
+
+                            RoundedImage {
+                                anchors.fill: parent
+                                radius: 14
+                                source: cell.fileUrl
+                                sourceSize: Qt.size(360, 240)
+                            }
+
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: 14
+                                color: "transparent"
+                                border.width: 3
+                                border.color: ring.color
+
+                                ColorSpring {
+                                    id: ring
+
+                                    target: cell.selected ? Theme.m3Primary : "transparent"
+                                }
+                            }
+
+                            Rectangle {
+                                anchors.right: parent.right
+                                anchors.top: parent.top
+                                anchors.margins: 8
+                                width: 22
+                                height: 22
+                                radius: 11
+                                color: Theme.m3Primary
+                                visible: cell.selected
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "\uf00c"
+                                    color: Theme.m3OnPrimary
+                                    font.family: Theme.fontIcon
+                                    font.pixelSize: 11
+                                }
+                            }
+
+                            Spring {
+                                id: lift
+
+                                target: tileArea.containsMouse ? 1.03 : 1
+                                token: Motion.spatialFast
+                                epsilon: 0.0005
+                            }
+
+                            MouseArea {
+                                id: tileArea
+
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: Wallpapers.apply(cell.filePath)
+                            }
+                        }
+                    }
+
+                    Spring {
+                        id: dim
+
+                        target: Wallpapers.busy ? 0.6 : 1
+                        token: Motion.effectsDefault
+                    }
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: Wallpapers.count === 0
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "No images in ~/Pictures/Wallpapers"
+                    color: Theme.m3OnSurfaceVariant
+                    font.family: Theme.fontUi
+                    font.pixelSize: 13
+                }
+            }
+        }
+    }
+}

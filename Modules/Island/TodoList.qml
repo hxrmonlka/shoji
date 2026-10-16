@@ -28,6 +28,7 @@ ColumnLayout {
             spacing: 2
 
             Text {
+                Layout.fillWidth: true
                 text: "Tasks"
                 color: Theme.m3OnSurface
                 font.family: Theme.fontUi
@@ -36,6 +37,7 @@ ColumnLayout {
             }
 
             Text {
+                Layout.fillWidth: true
                 text: Qt.formatDate(root.day, "dddd, MMM d")
                 color: Theme.m3OnSurfaceVariant
                 font.family: Theme.fontUi
