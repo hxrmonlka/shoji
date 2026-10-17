@@ -18,7 +18,7 @@ PanelWindow {
 
     anchors.top: true
     margins.top: 8
-    exclusionMode: ExclusionMode.Ignore
+    exclusiveZone: pillHeight
     implicitWidth: panelWidth + 96
     implicitHeight: panelHeight + 56
     color: "transparent"
