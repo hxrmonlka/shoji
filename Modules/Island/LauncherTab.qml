@@ -25,7 +25,9 @@ Item {
             boundsBehavior: Flickable.StopAtBounds
             cellWidth: Math.floor(width / columns)
             cellHeight: 92
-            model: Apps.all
+            model: ScriptModel {
+                values: Apps.all
+            }
 
             delegate: Item {
                 id: tile

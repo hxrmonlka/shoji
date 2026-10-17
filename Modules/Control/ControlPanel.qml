@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Bluetooth
+import Quickshell.Services.SystemTray
 import qs.Commons
 
 Item {
@@ -8,6 +9,10 @@ Item {
 
     property string detail: ""
     property bool appsOpen: false
+    property string trayId: ""
+
+    readonly property var trayItems: SystemTray.items.values
+    readonly property var trayItem: trayItems.find(i => i.id === trayId) ?? null
 
     readonly property var btAdapter: Bluetooth.defaultAdapter
     readonly property var btPaired: Bluetooth.devices.values.filter(d => d.paired)
@@ -15,6 +20,19 @@ Item {
 
     function toggleDetail(name) {
         detail = detail === name ? "" : name;
+    }
+
+    function toggleTray(id) {
+        trayId = trayId === id ? "" : id;
+        if (trayId !== "")
+            trayScroll.restart();
+    }
+
+    Timer {
+        id: trayScroll
+
+        interval: 40
+        onTriggered: flick.contentY = Math.max(0, flick.contentHeight - flick.height)
     }
 
     Flickable {
@@ -283,6 +301,43 @@ Item {
                         active: modelData.active
                         onClicked: Network.setVpn(modelData.name, !modelData.active)
                     }
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                visible: root.trayItems.length > 0
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    color: Theme.m3OutlineVariant
+                }
+
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    Repeater {
+                        model: SystemTray.items
+
+                        delegate: TrayIcon {
+                            required property var modelData
+
+                            item: modelData
+                            active: root.trayId === modelData.id
+                            onMenuRequested: root.toggleTray(modelData.id)
+                        }
+                    }
+                }
+
+                TrayMenu {
+                    Layout.fillWidth: true
+                    visible: root.trayItem !== null && root.trayItem.hasMenu
+                    handle: root.trayItem ? root.trayItem.menu : null
+                    title: root.trayItem ? (root.trayItem.tooltipTitle || root.trayItem.title) : ""
+                    onDone: root.trayId = ""
                 }
             }
         }

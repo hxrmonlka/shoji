@@ -105,6 +105,8 @@ Item {
                         required property string filePath
                         required property url fileUrl
                         readonly property bool selected: Wallpapers.current === filePath
+                        property int failedRev: -1
+                        readonly property bool useThumb: Wallpapers.thumbsReady && failedRev !== Wallpapers.thumbsRev
 
                         width: grid.cellWidth
                         height: grid.cellHeight
@@ -117,8 +119,9 @@ Item {
                             RoundedImage {
                                 anchors.fill: parent
                                 radius: 14
-                                source: cell.fileUrl
-                                sourceSize: Qt.size(360, 240)
+                                source: cell.useThumb ? Wallpapers.thumbUrl(cell.filePath) : cell.fileUrl
+                                sourceSize: Qt.size(400, 256)
+                                onStatusChanged: if (status === Image.Error && cell.useThumb) cell.failedRev = Wallpapers.thumbsRev
                             }
 
                             Rectangle {

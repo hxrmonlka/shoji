@@ -16,7 +16,7 @@ Item {
         id: img
 
         anchors.fill: parent
-        source: root.icon ? Quickshell.iconPath(root.icon, true) : ""
+        source: root.icon ? Apps.iconSource(root.icon) : ""
         sourceSize: Qt.size(root.size * 2, root.size * 2)
         fillMode: Image.PreserveAspectFit
         asynchronous: true

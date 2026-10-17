@@ -1,3 +1,4 @@
+import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
@@ -6,6 +7,8 @@ import qs.Modules.Spotlight
 import qs.Modules.Wallpaper
 
 ShellRoot {
+    Component.onCompleted: Apps.warm()
+
     Variants {
         model: Quickshell.screens
 

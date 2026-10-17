@@ -4,6 +4,8 @@ import qs.Commons
 Item {
     id: root
 
+    readonly property var warm: ({ launcher: 1500, wallpapers: 3000 })
+
     TabBar {
         id: bar
 
@@ -17,7 +19,7 @@ Item {
         onPicked: tabId => ShellState.tab = tabId
     }
 
-    Loader {
+    Item {
         anchors.top: bar.bottom
         anchors.topMargin: 4
         anchors.left: parent.left
@@ -26,8 +28,31 @@ Item {
         anchors.leftMargin: 16
         anchors.rightMargin: 16
         anchors.bottomMargin: 16
-        active: root.visible
-        sourceComponent: ({ calendar: calendarTab, launcher: launcherTab, wallpapers: wallpaperTab, settings: settingsTab })[ShellState.tab] ?? null
+
+        Repeater {
+            model: ShellState.tabs
+
+            delegate: Loader {
+                id: slot
+
+                required property var modelData
+                readonly property bool current: ShellState.tab === modelData.id
+                readonly property int warmDelay: root.warm[modelData.id] ?? 0
+                property bool kept: false
+
+                anchors.fill: parent
+                active: kept || current
+                visible: current
+                sourceComponent: ({ calendar: calendarTab, launcher: launcherTab, wallpapers: wallpaperTab, settings: settingsTab })[modelData.id] ?? null
+                onLoaded: if (warmDelay > 0) kept = true
+
+                Timer {
+                    interval: slot.warmDelay
+                    running: slot.warmDelay > 0
+                    onTriggered: slot.kept = true
+                }
+            }
+        }
     }
 
     Component {

@@ -11,6 +11,8 @@ QtObject {
     readonly property string home: Quickshell.env("HOME")
     readonly property string dir: home + "/Pictures/Wallpapers"
     readonly property string stateDir: home + "/.local/state/shoji"
+    readonly property string cacheHome: Quickshell.env("XDG_CACHE_HOME") || home + "/.cache"
+    readonly property string thumbDir: cacheHome + "/shoji/thumbs"
     readonly property int count: folder.count
     readonly property string script: 'cfg="$HOME/.config/matugen/config.toml"; if grep -qs "templates.shoji" "$cfg"; then exec matugen image "$1" --mode dark --source-color-index 0; else exec matugen image "$1" --mode dark --source-color-index 0 --config "$2"; fi'
 
@@ -18,6 +20,22 @@ QtObject {
     property string pending: ""
     property bool dirty: false
     property bool busy: false
+    property bool thumbsReady: false
+    property bool thumbsAgain: false
+    property int thumbsRev: 0
+
+    function thumbUrl(path) {
+        const t = thumbDir + "/" + path.replace(/\//g, "+") + ".jpg";
+        return "file://" + encodeURI(t).replace(/#/g, "%23").replace(/\?/g, "%3F");
+    }
+
+    function buildThumbs() {
+        if (thumbs.running) {
+            thumbsAgain = true;
+            return;
+        }
+        thumbs.exec(["nice", "-n", "15", "sh", Quickshell.shellPath("scripts/thumbs.sh"), dir, thumbDir]);
+    }
 
     function apply(path) {
         if (!path)
@@ -62,7 +80,10 @@ QtObject {
         apply(folder.get(i, "filePath"));
     }
 
-    Component.onCompleted: standalone.setText("[config]\n\n[templates.shoji]\ninput_path = '" + Quickshell.shellDir + "/matugen/colors.json'\noutput_path = '" + stateDir + "/colors.json'\n")
+    Component.onCompleted: {
+        thumbDebounce.start();
+        standalone.setText("[config]\n\n[templates.shoji]\ninput_path = '" + Quickshell.shellDir + "/matugen/colors.json'\noutput_path = '" + stateDir + "/colors.json'\n");
+    }
 
     readonly property FolderListModel folder: FolderListModel {
         folder: "file://" + root.dir
@@ -71,6 +92,24 @@ QtObject {
         showDirs: false
         showDotAndDotDot: false
         sortField: FolderListModel.Name
+        onCountChanged: root.thumbDebounce.restart()
+    }
+
+    readonly property Timer thumbDebounce: Timer {
+        interval: 600
+        onTriggered: root.buildThumbs()
+    }
+
+    readonly property Process thumbs: Process {
+        onExited: (code, status) => {
+            root.thumbsReady = code === 0;
+            if (code === 0)
+                root.thumbsRev++;
+            if (root.thumbsAgain) {
+                root.thumbsAgain = false;
+                root.buildThumbs();
+            }
+        }
     }
 
     readonly property FileView store: FileView {
