@@ -3,30 +3,41 @@ import Quickshell
 import Quickshell.Wayland
 import qs.Commons
 import qs.Modules.Media
+import qs.Modules.Control
 
 PanelWindow {
     id: win
 
-    readonly property int pillHeight: 44
-    readonly property int panelWidth: 720
-    readonly property int panelHeight: 460
+    readonly property int pillHeight: Settings.pillHeight
+    readonly property int panelWidth: Settings.panelWidth
+    readonly property int panelHeight: Settings.panelHeight
+    readonly property int circleSize: Settings.circleSize
+    readonly property int circleGap: Settings.circleGap
+    readonly property int contentWidth: Math.max(panelWidth, Settings.mediaPanelWidth, Settings.controlPanelWidth, pillWidth + 2 * (circleGap + circleSize))
+    readonly property int contentHeight: Math.max(panelHeight, Settings.mediaPanelHeight, Settings.controlPanelHeight, circleSize)
     readonly property bool expanded: ShellState.expanded
     readonly property real progress: Math.max(0, morph.value)
     readonly property bool mediaOpen: ShellState.media
     readonly property real mediaProgress: Math.max(0, mediaSpring.value)
-    readonly property real pillWidth: header.implicitWidth + 32
+    readonly property bool controlOpen: ShellState.control
+    readonly property real controlProgress: Math.max(0, controlSpring.value)
+    readonly property real pillWidth: header.implicitWidth + Settings.pillPadding * 2
 
     anchors.top: true
-    margins.top: 8
+    margins.top: Settings.topMargin
     exclusiveZone: pillHeight
-    implicitWidth: panelWidth + 96
-    implicitHeight: panelHeight + 56
+    implicitWidth: contentWidth + 96
+    implicitHeight: contentHeight + 56
     color: "transparent"
     mask: Region {
         item: island
 
         Region {
             item: media
+        }
+
+        Region {
+            item: control
         }
     }
 
@@ -50,12 +61,21 @@ PanelWindow {
         epsilon: 0.0005
     }
 
+    Spring {
+        id: controlSpring
+
+        target: win.controlOpen ? 1 : 0
+        token: Motion.spatialDefault
+        epsilon: 0.0005
+    }
+
     Item {
         anchors.fill: parent
         focus: true
         Keys.onEscapePressed: {
             ShellState.expanded = false;
             ShellState.media = false;
+            ShellState.control = false;
         }
     }
 
@@ -67,6 +87,7 @@ PanelWindow {
                 return;
             ShellState.expanded = false;
             ShellState.media = false;
+            ShellState.control = false;
         }
     }
 
@@ -77,12 +98,12 @@ PanelWindow {
         anchors.top: parent.top
         width: Motion.lerp(win.pillWidth, win.panelWidth, win.progress)
         height: Motion.lerp(win.pillHeight, win.panelHeight, win.progress)
-        radius: Motion.lerp(win.pillHeight / 2, 32, win.progress)
+        radius: Motion.lerp(win.pillHeight / 2, Settings.panelRadius, win.progress)
         color: Theme.m3SurfaceContainer
         border.width: 1
         border.color: Theme.m3OutlineVariant
         clip: true
-        opacity: 1 - Motion.clamp01(win.mediaProgress / 0.3)
+        opacity: 1 - Motion.clamp01(Math.max(win.mediaProgress, win.controlProgress) / 0.3)
         visible: opacity > 0
 
         MouseArea {
@@ -90,7 +111,7 @@ PanelWindow {
             anchors.right: parent.right
             anchors.top: parent.top
             height: win.pillHeight
-            enabled: !win.expanded && win.mediaProgress < 0.05
+            enabled: !win.expanded && win.mediaProgress < 0.05 && win.controlProgress < 0.05
             cursorShape: Qt.PointingHandCursor
             onClicked: ShellState.expanded = !ShellState.expanded
         }
@@ -101,7 +122,7 @@ PanelWindow {
             anchors.horizontalCenter: parent.horizontalCenter
             y: 0
             height: win.pillHeight
-            spacing: 14
+            spacing: Settings.pillSpacing
             opacity: 1 - Motion.clamp01(win.progress / 0.25)
             visible: opacity > 0
 
@@ -110,7 +131,7 @@ PanelWindow {
                 text: "\uf313"
                 color: Theme.m3Primary
                 font.family: Theme.fontIcon
-                font.pixelSize: 20
+                font.pixelSize: Math.round(win.pillHeight * 0.45)
             }
 
             Text {
@@ -118,7 +139,7 @@ PanelWindow {
                 text: Qt.formatDateTime(ShellState.clock.date, "HH:mm")
                 color: Theme.m3OnSurface
                 font.family: Theme.fontUi
-                font.pixelSize: 15
+                font.pixelSize: Math.round(win.pillHeight * 0.34)
                 font.weight: Font.DemiBold
             }
 
@@ -127,7 +148,7 @@ PanelWindow {
                 text: Qt.formatDateTime(ShellState.clock.date, "ddd MMM d")
                 color: Theme.m3OnSurfaceVariant
                 font.family: Theme.fontUi
-                font.pixelSize: 13
+                font.pixelSize: Math.round(win.pillHeight * 0.3)
             }
 
             Workspaces {
@@ -149,13 +170,28 @@ PanelWindow {
     MediaCircle {
         id: media
 
-        size: win.pillHeight
-        restX: win.width / 2 - win.pillWidth / 2 - 10 - win.pillHeight
-        openX: win.width / 2 - 300
-        panelWidth: 600
-        panelHeight: 300
+        size: win.circleSize
+        restX: win.width / 2 - win.pillWidth / 2 - win.circleGap - win.circleSize
+        openX: win.width / 2 - Settings.mediaPanelWidth / 2
+        panelWidth: Settings.mediaPanelWidth
+        panelHeight: Settings.mediaPanelHeight
+        panelRadius: Settings.panelRadius
         progress: win.mediaProgress
-        hiddenBy: win.progress / 0.3
+        hiddenBy: Math.max(win.progress, win.controlProgress) / 0.3
         onClicked: ShellState.media = true
+    }
+
+    ControlCircle {
+        id: control
+
+        size: win.circleSize
+        restX: win.width / 2 + win.pillWidth / 2 + win.circleGap
+        openX: win.width / 2 - Settings.controlPanelWidth / 2
+        panelWidth: Settings.controlPanelWidth
+        panelHeight: Settings.controlPanelHeight
+        panelRadius: Settings.panelRadius
+        progress: win.controlProgress
+        hiddenBy: Math.max(win.progress, win.mediaProgress) / 0.3
+        onClicked: ShellState.control = true
     }
 }

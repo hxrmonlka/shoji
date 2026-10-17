@@ -101,6 +101,42 @@ ShellRoot {
     }
 
     IpcHandler {
+        target: "control"
+
+        function toggle(): void {
+            ShellState.control = !ShellState.control;
+        }
+
+        function open(): void {
+            ShellState.control = true;
+        }
+
+        function close(): void {
+            ShellState.control = false;
+        }
+    }
+
+    IpcHandler {
+        target: "settings"
+
+        function set(key: string, value: string): bool {
+            return Settings.set(key, value);
+        }
+
+        function get(key: string): string {
+            return Settings.defs[key] ? String(Settings.get(key)) : "";
+        }
+
+        function reset(): void {
+            Settings.reset();
+        }
+
+        function reload(): void {
+            Settings.reload();
+        }
+    }
+
+    IpcHandler {
         target: "island"
 
         function toggle(): void {

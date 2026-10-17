@@ -12,9 +12,10 @@ Item {
     required property real size
     required property real panelWidth
     required property real panelHeight
+    property real panelRadius: 32
     property real hiddenBy: 0
 
-    readonly property real radiusNow: Motion.lerp(size / 2, 32, progress)
+    readonly property real radiusNow: Motion.lerp(size / 2, panelRadius, progress)
 
     signal clicked
 
@@ -119,7 +120,7 @@ Item {
             text: "\uf001"
             color: Media.playing ? Theme.m3Primary : Theme.m3OnSurfaceVariant
             font.family: Theme.fontIcon
-            font.pixelSize: 16
+            font.pixelSize: Math.round(root.size * 0.36)
         }
 
         Spring {
