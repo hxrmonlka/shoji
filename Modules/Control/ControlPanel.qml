@@ -10,6 +10,7 @@ Item {
     property string detail: ""
     property bool appsOpen: false
     property string trayId: ""
+    property var trayAnchor: null
 
     readonly property var trayItems: SystemTray.items.values
     readonly property var trayItem: trayItems.find(i => i.id === trayId) ?? null
@@ -22,17 +23,54 @@ Item {
         detail = detail === name ? "" : name;
     }
 
-    function toggleTray(id) {
-        trayId = trayId === id ? "" : id;
-        if (trayId !== "")
-            trayScroll.restart();
+    function toggleTray(id, anchorItem) {
+        if (trayId === id) {
+            trayId = "";
+            return;
+        }
+        trayAnchor = anchorItem;
+        trayId = id;
+    }
+
+    Connections {
+        target: ShellState
+
+        function onControlChanged(): void {
+            if (!ShellState.control)
+                root.trayId = "";
+        }
+    }
+
+    readonly property bool menuWanted: trayItem !== null && trayItem.hasMenu && trayAnchor !== null
+    property bool menuShown: false
+
+    onMenuWantedChanged: {
+        if (menuWanted) {
+            showTimer.restart();
+        } else {
+            showTimer.stop();
+            menuShown = false;
+        }
     }
 
     Timer {
-        id: trayScroll
+        id: showTimer
 
-        interval: 40
-        onTriggered: flick.contentY = Math.max(0, flick.contentHeight - flick.height)
+        interval: 80
+        onTriggered: root.menuShown = true
+    }
+
+    TrayCatcher {
+        active: root.menuWanted
+        onDismissed: root.trayId = ""
+    }
+
+    TrayContextMenu {
+        target: root.trayAnchor
+        visible: root.menuShown
+        handle: root.trayItem ? root.trayItem.menu : null
+        title: root.trayItem ? (root.trayItem.tooltipTitle || root.trayItem.title) : ""
+        onDone: root.trayId = ""
     }
 
     Flickable {
@@ -377,21 +415,15 @@ Item {
                         model: SystemTray.items
 
                         delegate: TrayIcon {
+                            id: trayIcon
+
                             required property var modelData
 
                             item: modelData
                             active: root.trayId === modelData.id
-                            onMenuRequested: root.toggleTray(modelData.id)
+                            onMenuRequested: root.toggleTray(modelData.id, trayIcon)
                         }
                     }
-                }
-
-                TrayMenu {
-                    Layout.fillWidth: true
-                    visible: root.trayItem !== null && root.trayItem.hasMenu
-                    handle: root.trayItem ? root.trayItem.menu : null
-                    title: root.trayItem ? (root.trayItem.tooltipTitle || root.trayItem.title) : ""
-                    onDone: root.trayId = ""
                 }
             }
         }

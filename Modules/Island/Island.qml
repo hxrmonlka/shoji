@@ -195,13 +195,13 @@ PanelWindow {
         id: media
 
         size: win.circleSize
-        restX: win.width / 2 - win.restWidth / 2 - win.circleGap - win.circleSize
+        restX: Motion.lerp(win.width / 2 - win.pillWidth / 2 - win.circleGap - win.circleSize, win.width / 2 - win.circleSize / 2, win.popupProgress)
         openX: win.width / 2 - Settings.mediaPanelWidth / 2
         panelWidth: Settings.mediaPanelWidth
         panelHeight: Settings.mediaPanelHeight
         panelRadius: Settings.panelRadius
         progress: win.mediaProgress
-        hiddenBy: Math.max(win.progress, win.controlProgress) / 0.3
+        hiddenBy: Math.max(win.progress / 0.3, win.controlProgress / 0.3, win.popupProgress / 0.7)
         onClicked: ShellState.media = true
     }
 
@@ -209,13 +209,13 @@ PanelWindow {
         id: control
 
         size: win.circleSize
-        restX: win.width / 2 + win.restWidth / 2 + win.circleGap
+        restX: Motion.lerp(win.width / 2 + win.pillWidth / 2 + win.circleGap, win.width / 2 - win.circleSize / 2, win.popupProgress)
         openX: win.width / 2 - Settings.controlPanelWidth / 2
         panelWidth: Settings.controlPanelWidth
         panelHeight: Settings.controlPanelHeight
         panelRadius: Settings.panelRadius
         progress: win.controlProgress
-        hiddenBy: Math.max(win.progress, win.mediaProgress) / 0.3
+        hiddenBy: Math.max(win.progress / 0.3, win.mediaProgress / 0.3, win.popupProgress / 0.7)
         onClicked: ShellState.control = true
     }
 }

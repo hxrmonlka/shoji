@@ -15,6 +15,7 @@ QtObject {
     readonly property int count: server.trackedNotifications.values.length
 
     function received(n) {
+        console.log("shoji-notif", n.appName, n.summary, "dnd=" + dnd);
         n.tracked = true;
         if (dnd && n.urgency !== NotificationUrgency.Critical)
             return;
@@ -60,6 +61,7 @@ QtObject {
         actionsSupported: true
         imageSupported: true
         onNotification: n => root.received(n)
+        Component.onCompleted: console.log("shoji-notif server up")
     }
 
     readonly property Timer popupTimer: Timer {
