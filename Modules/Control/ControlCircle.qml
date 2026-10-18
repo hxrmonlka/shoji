@@ -15,7 +15,7 @@ Item {
     property real hiddenBy: 0
 
     readonly property real radiusNow: Motion.lerp(size / 2, panelRadius, progress)
-    readonly property var icons: ["\uf1eb", "\uf028", "\uf06e", "\uf293", "\uf023", "\uf186", "\uf185"]
+    readonly property var icons: ["\uf1eb", "\uf028", "\uf06e", "\uf293", "\uf023", "\uf186", "\uf185", "\uf0f3"]
     readonly property int count: icons.length
     property int index: 0
 

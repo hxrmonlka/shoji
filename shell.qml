@@ -7,7 +7,10 @@ import qs.Modules.Spotlight
 import qs.Modules.Wallpaper
 
 ShellRoot {
-    Component.onCompleted: Apps.warm()
+    Component.onCompleted: {
+        Apps.warm();
+        Notifs.hidePopup();
+    }
 
     Variants {
         model: Quickshell.screens
@@ -116,6 +119,26 @@ ShellRoot {
 
         function close(): void {
             ShellState.control = false;
+        }
+    }
+
+    IpcHandler {
+        target: "notifications"
+
+        function toggleDnd(): void {
+            Notifs.toggleDnd();
+        }
+
+        function dnd(on: bool): void {
+            Notifs.setDnd(on);
+        }
+
+        function clear(): void {
+            Notifs.clear();
+        }
+
+        function hidePopup(): void {
+            Notifs.hidePopup();
         }
     }
 

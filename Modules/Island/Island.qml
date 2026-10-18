@@ -4,6 +4,7 @@ import Quickshell.Wayland
 import qs.Commons
 import qs.Modules.Media
 import qs.Modules.Control
+import qs.Modules.Notifications
 
 PanelWindow {
     id: win
@@ -22,6 +23,12 @@ PanelWindow {
     readonly property bool controlOpen: ShellState.control
     readonly property real controlProgress: Math.max(0, controlSpring.value)
     readonly property real pillWidth: header.implicitWidth + Settings.pillPadding * 2
+    readonly property int popupWidth: 440
+    readonly property int popupHeight: 84
+    readonly property bool popupOpen: Notifs.popup !== null && !expanded && !mediaOpen && !controlOpen
+    readonly property real popupProgress: Math.max(0, popupSpring.value)
+    readonly property real restWidth: Motion.lerp(pillWidth, popupWidth, popupProgress)
+    readonly property real restHeight: Motion.lerp(pillHeight, popupHeight, popupProgress)
 
     anchors.top: true
     margins.top: Settings.topMargin
@@ -49,6 +56,14 @@ PanelWindow {
         id: morph
 
         target: win.expanded ? 1 : 0
+        token: Motion.spatialDefault
+        epsilon: 0.0005
+    }
+
+    Spring {
+        id: popupSpring
+
+        target: win.popupOpen ? 1 : 0
         token: Motion.spatialDefault
         epsilon: 0.0005
     }
@@ -96,9 +111,9 @@ PanelWindow {
 
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        width: Motion.lerp(win.pillWidth, win.panelWidth, win.progress)
-        height: Motion.lerp(win.pillHeight, win.panelHeight, win.progress)
-        radius: Motion.lerp(win.pillHeight / 2, Settings.panelRadius, win.progress)
+        width: Motion.lerp(win.restWidth, win.panelWidth, win.progress)
+        height: Motion.lerp(win.restHeight, win.panelHeight, win.progress)
+        radius: Motion.lerp(Motion.lerp(win.pillHeight / 2, Math.min(Settings.panelRadius, 28), win.popupProgress), Settings.panelRadius, win.progress)
         color: Theme.m3SurfaceContainer
         border.width: 1
         border.color: Theme.m3OutlineVariant
@@ -123,7 +138,7 @@ PanelWindow {
             y: 0
             height: win.pillHeight
             spacing: Settings.pillSpacing
-            opacity: 1 - Motion.clamp01(win.progress / 0.25)
+            opacity: (1 - Motion.clamp01(win.progress / 0.25)) * (1 - Motion.clamp01(win.popupProgress / 0.3))
             visible: opacity > 0
 
             Text {
@@ -157,6 +172,15 @@ PanelWindow {
             }
         }
 
+        NotificationPopup {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            width: win.popupWidth
+            height: win.popupHeight
+            opacity: Motion.clamp01((win.popupProgress - 0.4) / 0.4) * (1 - Motion.clamp01(win.progress / 0.25))
+            visible: opacity > 0
+        }
+
         Body {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
@@ -171,7 +195,7 @@ PanelWindow {
         id: media
 
         size: win.circleSize
-        restX: win.width / 2 - win.pillWidth / 2 - win.circleGap - win.circleSize
+        restX: win.width / 2 - win.restWidth / 2 - win.circleGap - win.circleSize
         openX: win.width / 2 - Settings.mediaPanelWidth / 2
         panelWidth: Settings.mediaPanelWidth
         panelHeight: Settings.mediaPanelHeight
@@ -185,7 +209,7 @@ PanelWindow {
         id: control
 
         size: win.circleSize
-        restX: win.width / 2 + win.pillWidth / 2 + win.circleGap
+        restX: win.width / 2 + win.restWidth / 2 + win.circleGap
         openX: win.width / 2 - Settings.controlPanelWidth / 2
         panelWidth: Settings.controlPanelWidth
         panelHeight: Settings.controlPanelHeight

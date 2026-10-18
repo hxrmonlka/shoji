@@ -64,6 +64,8 @@ Item {
 
                 ValueSlider {
                     Layout.fillWidth: true
+                    label: "Volume"
+                    showValue: true
                     value: Audio.volume
                     enabled: Audio.ready
                     onMoved: v => Audio.setVolume(v)
@@ -102,17 +104,10 @@ Item {
                         Layout.fillWidth: true
                         spacing: 8
 
-                        Text {
-                            Layout.preferredWidth: 96
-                            text: Audio.streamName(appRow.modelData)
-                            elide: Text.ElideRight
-                            color: Theme.m3OnSurfaceVariant
-                            font.family: Theme.fontUi
-                            font.pixelSize: 12
-                        }
-
                         ValueSlider {
                             Layout.fillWidth: true
+                            label: Audio.streamName(appRow.modelData)
+                            showValue: true
                             value: appRow.modelData.audio.volume
                             onMoved: v => Audio.setStreamVolume(appRow.modelData, v)
                         }
@@ -145,6 +140,8 @@ Item {
 
                 ValueSlider {
                     Layout.fillWidth: true
+                    label: "Brightness"
+                    showValue: true
                     value: Brightness.value
                     onMoved: v => Brightness.set(v)
                 }
@@ -300,6 +297,63 @@ Item {
                         trailing: modelData.active ? "\uf00c" : ""
                         active: modelData.active
                         onClicked: Network.setVpn(modelData.name, !modelData.active)
+                    }
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: Notifs.count > 0 ? "Notifications  " + Notifs.count : "Notifications"
+                        color: Theme.m3OnSurface
+                        font.family: Theme.fontUi
+                        font.pixelSize: 14
+                        font.weight: Font.DemiBold
+                    }
+
+                    IconButton {
+                        implicitWidth: 32
+                        implicitHeight: 32
+                        iconSize: 13
+                        icon: Notifs.dnd ? "\uf1f6" : "\uf0f3"
+                        active: Notifs.dnd
+                        onClicked: Notifs.toggleDnd()
+                    }
+
+                    IconButton {
+                        implicitWidth: 32
+                        implicitHeight: 32
+                        iconSize: 13
+                        icon: "\uf1f8"
+                        visible: Notifs.count > 0
+                        onClicked: Notifs.clear()
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    visible: Notifs.count === 0
+                    text: Notifs.dnd ? "Do not disturb is on" : "No notifications"
+                    color: Theme.m3OnSurfaceVariant
+                    font.family: Theme.fontUi
+                    font.pixelSize: 12
+                }
+
+                Repeater {
+                    model: Notifs.items
+
+                    NotificationCard {
+                        required property var modelData
+
+                        Layout.fillWidth: true
+                        notif: modelData
                     }
                 }
             }
