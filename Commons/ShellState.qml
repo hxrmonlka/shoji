@@ -4,11 +4,16 @@ import QtQuick
 import Quickshell
 
 QtObject {
+    id: root
+
     property bool expanded: false
     property bool spotlight: false
     property bool media: false
     property bool control: false
     property string tab: "calendar"
+    property int pointersInside: 0
+
+    readonly property bool panelsOpen: expanded || media || control
 
     readonly property var tabs: [
         { id: "launcher", label: "Launcher", icon: "\uf00a" },
@@ -16,6 +21,31 @@ QtObject {
         { id: "wallpapers", label: "Wallpapers", icon: "\uf03e" },
         { id: "settings", label: "Settings", icon: "\uf013" }
     ]
+
+    function hidePanels(): void {
+        expanded = false;
+        media = false;
+        control = false;
+    }
+
+    function pointerEntered(): void {
+        pointersInside++;
+        root.syncAutoHide();
+    }
+
+    function pointerExited(): void {
+        pointersInside = Math.max(0, pointersInside - 1);
+        root.syncAutoHide();
+    }
+
+    function syncAutoHide(): void {
+        if (panelsOpen && pointersInside === 0)
+            autoHide.restart();
+        else
+            autoHide.stop();
+    }
+
+    onPanelsOpenChanged: root.syncAutoHide()
 
     onExpandedChanged: {
         if (expanded) {
@@ -48,6 +78,11 @@ QtObject {
             media = false;
             control = false;
         }
+    }
+
+    readonly property Timer autoHide: Timer {
+        interval: Settings.autoHideDelay
+        onTriggered: root.hidePanels()
     }
 
     readonly property SystemClock clock: SystemClock {

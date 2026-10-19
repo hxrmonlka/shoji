@@ -94,15 +94,22 @@ PanelWindow {
         }
     }
 
-    Connections {
-        target: ToplevelManager
+    component PointerWatcher: HoverHandler {
+        property bool pointing: false
 
-        function onActiveToplevelChanged(): void {
-            if (!ToplevelManager.activeToplevel)
+        onHoveredChanged: {
+            if (hovered === pointing)
                 return;
-            ShellState.expanded = false;
-            ShellState.media = false;
-            ShellState.control = false;
+            pointing = hovered;
+            if (hovered)
+                ShellState.pointerEntered();
+            else
+                ShellState.pointerExited();
+        }
+
+        Component.onDestruction: {
+            if (pointing)
+                ShellState.pointerExited();
         }
     }
 
@@ -189,6 +196,8 @@ PanelWindow {
             opacity: Motion.clamp01((win.progress - 0.4) / 0.4)
             visible: opacity > 0
         }
+
+        PointerWatcher {}
     }
 
     MediaCircle {
@@ -203,6 +212,8 @@ PanelWindow {
         progress: win.mediaProgress
         hiddenBy: Math.max(win.progress / 0.3, win.controlProgress / 0.3, win.popupProgress / 0.7)
         onClicked: ShellState.media = true
+
+        PointerWatcher {}
     }
 
     ControlCircle {
@@ -217,5 +228,7 @@ PanelWindow {
         progress: win.controlProgress
         hiddenBy: Math.max(win.progress / 0.3, win.mediaProgress / 0.3, win.popupProgress / 0.7)
         onClicked: ShellState.control = true
+
+        PointerWatcher {}
     }
 }
