@@ -9,14 +9,19 @@ QtObject {
     id: root
 
     readonly property string home: Quickshell.env("HOME")
-    readonly property string dir: home + "/Pictures/Wallpapers"
+    readonly property string defaultDir: home + "/Pictures/Wallpapers"
+    readonly property string dirLabel: dir.startsWith(home) ? "~" + dir.slice(home.length) : dir
+    readonly property string chooseScript: 'd="$1"; if command -v zenity >/dev/null 2>&1; then exec zenity --file-selection --directory --title="Wallpaper folder" --filename="$d/"; elif command -v kdialog >/dev/null 2>&1; then exec kdialog --getexistingdirectory "$d"; elif command -v yad >/dev/null 2>&1; then exec yad --file --directory --title="Wallpaper folder" --filename="$d/"; else exit 127; fi'
     readonly property string stateDir: home + "/.local/state/shoji"
     readonly property string cacheHome: Quickshell.env("XDG_CACHE_HOME") || home + "/.cache"
     readonly property string thumbDir: cacheHome + "/shoji/thumbs"
     readonly property int count: folder.count
     readonly property string script: 'cfg="$HOME/.config/matugen/config.toml"; if grep -qs "templates.shoji" "$cfg"; then exec matugen image "$1" --mode dark --source-color-index 0; else exec matugen image "$1" --mode dark --source-color-index 0 --config "$2"; fi'
 
+    property string dir: defaultDir
     property string current: ""
+    property bool choosing: false
+    property bool chooserMissing: false
     property string pending: ""
     property bool dirty: false
     property bool busy: false
@@ -37,11 +42,31 @@ QtObject {
         thumbs.exec(["nice", "-n", "15", "sh", Quickshell.shellPath("scripts/thumbs.sh"), dir, thumbDir]);
     }
 
+    function save() {
+        store.setText(JSON.stringify({ path: current, dir: dir }));
+    }
+
+    function setDir(d) {
+        const clean = d.length > 1 ? d.replace(/\/+$/, "") : d;
+        if (!clean || clean === dir)
+            return;
+        dir = clean;
+        save();
+    }
+
+    function choose() {
+        if (chooser.running)
+            return;
+        choosing = true;
+        chooserMissing = false;
+        chooser.exec(["sh", "-c", chooseScript, "shoji-choose", dir]);
+    }
+
     function apply(path) {
         if (!path)
             return;
         current = path;
-        store.setText(JSON.stringify({ path: path }));
+        save();
         pending = path;
         if (matugen.running) {
             dirty = true;
@@ -79,6 +104,8 @@ QtObject {
             i = (i + 1) % folder.count;
         apply(folder.get(i, "filePath"));
     }
+
+    onDirChanged: thumbDebounce.restart()
 
     Component.onCompleted: {
         thumbDebounce.start();
@@ -118,7 +145,10 @@ QtObject {
         printErrors: false
         onLoaded: {
             try {
-                root.current = JSON.parse(text()).path || "";
+                const saved = JSON.parse(text());
+                root.current = saved.path || "";
+                if (saved.dir)
+                    root.dir = saved.dir;
             } catch (e) {
                 root.current = "";
             }
@@ -129,6 +159,16 @@ QtObject {
         path: root.stateDir + "/matugen.toml"
         atomicWrites: true
         printErrors: false
+    }
+
+    readonly property Process chooser: Process {
+        stdout: StdioCollector {
+            onStreamFinished: root.setDir(text.trim())
+        }
+        onExited: (code, status) => {
+            root.choosing = false;
+            root.chooserMissing = code === 127;
+        }
     }
 
     readonly property Process matugen: Process {

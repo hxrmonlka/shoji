@@ -38,10 +38,41 @@ Item {
 
                     Text {
                         Layout.fillWidth: true
-                        text: Wallpapers.busy ? "Applying theme..." : Wallpapers.count + (Wallpapers.count === 1 ? " image" : " images")
+                        text: Wallpapers.busy ? "Applying theme..." : Wallpapers.chooserMissing ? "Install zenity or kdialog to pick a folder" : Wallpapers.count + (Wallpapers.count === 1 ? " image in " : " images in ") + Wallpapers.dirLabel
+                        elide: Text.ElideMiddle
                         color: Theme.m3OnSurfaceVariant
                         font.family: Theme.fontUi
                         font.pixelSize: 12
+                    }
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: 32
+                    Layout.preferredHeight: 32
+                    radius: 16
+                    color: folderFill.color
+
+                    ColorSpring {
+                        id: folderFill
+
+                        target: Wallpapers.choosing ? Theme.m3PrimaryContainer : folderArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "\uf07b"
+                        color: Wallpapers.choosing ? Theme.m3OnPrimaryContainer : Theme.m3OnSurfaceVariant
+                        font.family: Theme.fontIcon
+                        font.pixelSize: 14
+                    }
+
+                    MouseArea {
+                        id: folderArea
+
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Wallpapers.choose()
                     }
                 }
 
@@ -188,7 +219,7 @@ Item {
                     anchors.centerIn: parent
                     visible: Wallpapers.count === 0
                     horizontalAlignment: Text.AlignHCenter
-                    text: "No images in ~/Pictures/Wallpapers"
+                    text: "No images in " + Wallpapers.dirLabel
                     color: Theme.m3OnSurfaceVariant
                     font.family: Theme.fontUi
                     font.pixelSize: 13

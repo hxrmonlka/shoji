@@ -165,6 +165,30 @@ Item {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
+                visible: Audio.micReady
+
+                IconButton {
+                    icon: Audio.micIcon()
+                    active: !Audio.micMuted
+                    onClicked: Audio.toggleMicMute()
+                }
+
+                ValueSlider {
+                    Layout.fillWidth: true
+                    label: "Microphone"
+                    showValue: true
+                    value: Audio.micVolume
+                    onMoved: v => Audio.setMicVolume(v)
+                }
+
+                Item {
+                    Layout.preferredWidth: 36
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
                 visible: Brightness.available
 
                 Text {

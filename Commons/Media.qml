@@ -9,7 +9,15 @@ QtObject {
     id: root
 
     readonly property var players: Mpris.players.values
-    readonly property var player: players.find(p => p.isPlaying) ?? players[0] ?? null
+    readonly property var playingPlayer: players.find(p => p.isPlaying) ?? null
+    readonly property var player: playingPlayer ?? (lastPlayer && players.includes(lastPlayer) ? lastPlayer : (players.find(p => p.trackTitle) ?? players[0] ?? null))
+    property var lastPlayer: null
+
+    onPlayingPlayerChanged: {
+        if (playingPlayer)
+            lastPlayer = playingPlayer;
+    }
+
     readonly property bool available: player !== null
     readonly property bool playing: available && player.isPlaying
     readonly property string title: available ? (player.trackTitle || "Unknown title") : ""
@@ -21,7 +29,7 @@ QtObject {
     readonly property real progress: length > 0 ? Motion.clamp01(position / length) : 0
     readonly property bool canSeek: available && player.canSeek && player.positionSupported && length > 0
 
-    readonly property var streams: Pipewire.nodes.values.filter(n => n.isStream && !n.isSink && n.audio)
+    readonly property var streams: Pipewire.nodes.values.filter(n => n.isStream && n.isSink && n.audio)
     readonly property var matched: streams.filter(n => root.matches(n))
     readonly property string volumeMode: matched.length > 0 ? "pipewire" : (available && player.volumeSupported ? "mpris" : "none")
     readonly property real volume: volumeMode === "pipewire" ? matched.reduce((s, n) => s + n.audio.volume, 0) / matched.length : volumeMode === "mpris" ? player.volume : 0

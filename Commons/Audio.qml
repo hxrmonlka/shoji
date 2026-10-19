@@ -10,7 +10,11 @@ QtObject {
     readonly property bool ready: sink !== null && sink.audio !== null
     readonly property real volume: ready ? sink.audio.volume : 0
     readonly property bool muted: ready && sink.audio.muted
-    readonly property var streams: Pipewire.nodes.values.filter(n => n.isStream && !n.isSink && n.audio)
+    readonly property var source: Pipewire.defaultAudioSource
+    readonly property bool micReady: source !== null && source.audio !== null
+    readonly property real micVolume: micReady ? source.audio.volume : 0
+    readonly property bool micMuted: micReady && source.audio.muted
+    readonly property var streams: Pipewire.nodes.values.filter(n => n.isStream && n.isSink && n.audio)
 
     function setVolume(v) {
         if (ready)
@@ -20,6 +24,20 @@ QtObject {
     function toggleMute() {
         if (ready)
             sink.audio.muted = !sink.audio.muted;
+    }
+
+    function setMicVolume(v) {
+        if (micReady)
+            source.audio.volume = Motion.clamp01(v);
+    }
+
+    function toggleMicMute() {
+        if (micReady)
+            source.audio.muted = !source.audio.muted;
+    }
+
+    function micIcon() {
+        return micMuted ? "\uf131" : "\uf130";
     }
 
     function streamName(node) {
@@ -42,6 +60,6 @@ QtObject {
     }
 
     readonly property PwObjectTracker tracker: PwObjectTracker {
-        objects: root.sink ? [root.sink].concat(root.streams) : root.streams
+        objects: [root.sink, root.source].filter(n => n).concat(root.streams)
     }
 }

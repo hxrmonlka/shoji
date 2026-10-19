@@ -65,7 +65,10 @@ Item {
                 width: (parent.width - (Cava.bars - 1) * 4) / Cava.bars
                 height: Math.max(4, (Cava.values[index] ?? 0) * 80)
                 anchors.bottom: parent.bottom
-                radius: width / 2
+                topLeftRadius: width / 2
+                topRightRadius: width / 2
+                bottomLeftRadius: 0
+                bottomRightRadius: 0
                 color: Theme.m3Primary
             }
         }
