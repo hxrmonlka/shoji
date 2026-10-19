@@ -10,12 +10,15 @@ PanelWindow {
     id: win
 
     readonly property int pillHeight: Settings.pillHeight
-    readonly property int panelWidth: Settings.panelWidth
-    readonly property int panelHeight: Settings.panelHeight
     readonly property int circleSize: Settings.circleSize
     readonly property int circleGap: Settings.circleGap
-    readonly property int contentWidth: Math.max(panelWidth, Settings.mediaPanelWidth, Settings.controlPanelWidth, pillWidth + 2 * (circleGap + circleSize))
-    readonly property int contentHeight: Math.max(panelHeight, Settings.mediaPanelHeight, Settings.controlPanelHeight, circleSize)
+    readonly property var tabEntry: ShellState.tabs.find(t => t.id === ShellState.tab) ?? ({})
+    readonly property int tabWidth: tabEntry.w ?? Settings.panelWidth
+    readonly property int tabHeight: tabEntry.h ?? Settings.panelHeight
+    readonly property int maxTabWidth: ShellState.tabs.reduce((m, t) => Math.max(m, t.w ?? Settings.panelWidth), 0)
+    readonly property int maxTabHeight: ShellState.tabs.reduce((m, t) => Math.max(m, t.h ?? Settings.panelHeight), 0)
+    readonly property int contentWidth: Math.max(maxTabWidth, Settings.mediaPanelWidth, Settings.controlPanelWidth, pillWidth + 2 * (circleGap + circleSize))
+    readonly property int contentHeight: Math.max(maxTabHeight, Settings.mediaPanelHeight, Settings.controlPanelHeight, circleSize)
     readonly property bool expanded: ShellState.expanded
     readonly property real progress: Math.max(0, morph.value)
     readonly property bool mediaOpen: ShellState.media
@@ -84,6 +87,22 @@ PanelWindow {
         epsilon: 0.0005
     }
 
+    Spring {
+        id: panelW
+
+        target: win.tabWidth
+        token: Motion.spatialDefault
+        epsilon: 0.05
+    }
+
+    Spring {
+        id: panelH
+
+        target: win.tabHeight
+        token: Motion.spatialDefault
+        epsilon: 0.05
+    }
+
     Item {
         anchors.fill: parent
         focus: true
@@ -118,8 +137,8 @@ PanelWindow {
 
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        width: Motion.lerp(win.restWidth, win.panelWidth, win.progress)
-        height: Motion.lerp(win.restHeight, win.panelHeight, win.progress)
+        width: Motion.lerp(win.restWidth, panelW.value, win.progress)
+        height: Motion.lerp(win.restHeight, panelH.value, win.progress)
         radius: Motion.lerp(Motion.lerp(win.pillHeight / 2, Math.min(Settings.panelRadius, 28), win.popupProgress), Settings.panelRadius, win.progress)
         color: Theme.m3SurfaceContainer
         border.width: 1
@@ -191,8 +210,8 @@ PanelWindow {
         Body {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
-            width: win.panelWidth
-            height: win.panelHeight
+            width: panelW.value
+            height: panelH.value
             opacity: Motion.clamp01((win.progress - 0.4) / 0.4)
             visible: opacity > 0
         }

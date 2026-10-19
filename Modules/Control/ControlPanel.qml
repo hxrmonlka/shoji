@@ -45,6 +45,7 @@ Item {
     property bool menuShown: false
 
     onMenuWantedChanged: {
+        ShellState.hold(menuWanted);
         if (menuWanted) {
             showTimer.restart();
         } else {
@@ -52,6 +53,8 @@ Item {
             menuShown = false;
         }
     }
+
+    Component.onDestruction: if (root.menuWanted) ShellState.hold(false)
 
     Timer {
         id: showTimer

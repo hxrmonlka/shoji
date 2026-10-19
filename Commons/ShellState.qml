@@ -12,12 +12,14 @@ QtObject {
     property bool control: false
     property string tab: "calendar"
     property int pointersInside: 0
+    property int holds: 0
 
     readonly property bool panelsOpen: expanded || media || control
 
     readonly property var tabs: [
         { id: "launcher", label: "Launcher", icon: "\uf00a" },
         { id: "calendar", label: "Calendar", icon: "\uf073" },
+        { id: "monitor", label: "Monitor", icon: "\uf200", w: 820, h: 500 },
         { id: "wallpapers", label: "Wallpapers", icon: "\uf03e" },
         { id: "settings", label: "Settings", icon: "\uf013" }
     ]
@@ -38,8 +40,13 @@ QtObject {
         root.syncAutoHide();
     }
 
+    function hold(on: bool): void {
+        holds = Math.max(0, holds + (on ? 1 : -1));
+        root.syncAutoHide();
+    }
+
     function syncAutoHide(): void {
-        if (panelsOpen && pointersInside === 0)
+        if (panelsOpen && pointersInside === 0 && holds === 0)
             autoHide.restart();
         else
             autoHide.stop();

@@ -43,7 +43,7 @@ Item {
                 anchors.fill: parent
                 active: kept || current
                 visible: current
-                sourceComponent: ({ calendar: calendarTab, launcher: launcherTab, wallpapers: wallpaperTab, settings: settingsTab })[modelData.id] ?? null
+                sourceComponent: ({ calendar: calendarTab, launcher: launcherTab, monitor: monitorTab, wallpapers: wallpaperTab, settings: settingsTab })[modelData.id] ?? null
                 onLoaded: if (warmDelay > 0) kept = true
 
                 Timer {
@@ -65,6 +65,12 @@ Item {
         id: launcherTab
 
         LauncherTab {}
+    }
+
+    Component {
+        id: monitorTab
+
+        MonitorTab {}
     }
 
     Component {
