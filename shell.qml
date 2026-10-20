@@ -9,6 +9,7 @@ import qs.Modules.Wallpaper
 ShellRoot {
     Component.onCompleted: {
         Apps.warm();
+        Brightness.refresh();
         Notifs.hidePopup();
     }
 

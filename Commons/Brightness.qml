@@ -10,10 +10,22 @@ QtObject {
     property real value: 0
     property bool available: false
     property real pending: -1
+    property real queued: 0
 
     function refresh() {
         if (!reader.running)
             reader.running = true;
+    }
+
+    function nudge(delta) {
+        queued += delta;
+        if (pending >= 0) {
+            const q = queued;
+            queued = 0;
+            set(value + q);
+            return;
+        }
+        refresh();
     }
 
     function set(v) {
@@ -32,6 +44,11 @@ QtObject {
         available = true;
         if (pending < 0)
             value = pct / 100;
+        if (queued !== 0) {
+            const q = queued;
+            queued = 0;
+            set(value + q);
+        }
     }
 
     readonly property Process reader: Process {

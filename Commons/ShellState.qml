@@ -50,12 +50,12 @@ QtObject {
             if (!Audio.ready)
                 return;
             Audio.setVolume(Audio.volume + delta);
-        } else if (Brightness.available) {
-            if (!scrolling)
-                Brightness.refresh();
-            Brightness.set(Brightness.value + delta);
         } else {
-            return;
+            if (!Brightness.available) {
+                Brightness.refresh();
+                return;
+            }
+            Brightness.nudge(delta);
         }
         markScroll(kind);
     }

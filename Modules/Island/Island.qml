@@ -32,7 +32,7 @@ PanelWindow {
     readonly property int osdHeight: 56
     readonly property bool osdOpen: ShellState.scrolling && !ShellState.panelsOpen
     readonly property bool popupOpen: Notifs.popup !== null && !ShellState.panelsOpen && !ShellState.scrolling
-    readonly property bool hoverArmed: !ShellState.panelsOpen && !ShellState.spotlight && !ShellState.scrolling && !popupOpen
+    readonly property bool hoverArmed: !ShellState.panelsOpen && !ShellState.spotlight && !ShellState.scrolling && !keysGrabbed && !popupOpen
     readonly property real popupProgress: Math.max(0, popupSpring.value)
     readonly property real osdProgress: Math.max(0, osdSpring.value)
     readonly property real mergeProgress: Math.max(popupProgress, osdProgress)
@@ -43,13 +43,14 @@ PanelWindow {
 
     function onWheelEvent(event) {
         const mods = event.modifiers;
-        console.log("shoji-wheel dy=" + event.angleDelta.y + " mods=" + mods + " grabbed=" + keysGrabbed);
+        const dy = event.angleDelta.y !== 0 ? event.angleDelta.y : event.angleDelta.x;
+        console.log("shoji-wheel dy=" + event.angleDelta.y + " dx=" + event.angleDelta.x + " mods=" + mods + " grabbed=" + keysGrabbed);
         keysGrabbed = true;
         keyTimer.restart();
         if (mods & Qt.ControlModifier)
-            ShellState.adjust("volume", event.angleDelta.y);
+            ShellState.adjust("volume", dy);
         else if (mods & Qt.AltModifier)
-            ShellState.adjust("brightness", event.angleDelta.y);
+            ShellState.adjust("brightness", dy);
     }
 
     anchors.top: true
@@ -209,10 +210,14 @@ PanelWindow {
         opacity: 1 - Motion.clamp01(Math.max(win.mediaProgress, win.controlProgress) / 0.3)
         visible: opacity > 0
 
-        WheelHandler {
+        MouseArea {
+            anchors.fill: parent
             enabled: !ShellState.panelsOpen
-            acceptedModifiers: Qt.KeyboardModifierMask
-            onWheel: event => win.onWheelEvent(event)
+            acceptedButtons: Qt.NoButton
+            onWheel: wheel => {
+                win.onWheelEvent(wheel);
+                wheel.accepted = true;
+            }
         }
 
         MouseArea {
