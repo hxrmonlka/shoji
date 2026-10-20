@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Modules.Island
+import qs.Modules.Lock
 import qs.Modules.Spotlight
 import qs.Modules.Wallpaper
 
@@ -37,6 +38,16 @@ ShellRoot {
         Spotlight {
             required property var modelData
             screen: modelData
+        }
+    }
+
+    Lock {}
+
+    IpcHandler {
+        target: "lock"
+
+        function activate(): void {
+            LockState.lock();
         }
     }
 

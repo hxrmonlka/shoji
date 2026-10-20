@@ -27,7 +27,8 @@ QtObject {
         { key: "controlPanelWidth", group: "circles", label: "Control width", min: 320, max: 560, step: 10, def: 380 },
         { key: "controlPanelHeight", group: "circles", label: "Control height", min: 360, max: 640, step: 10, def: 500 },
         { key: "nightTemperature", group: "display", label: "Night temperature", min: 2500, max: 6000, step: 100, def: 4000 },
-        { key: "lockCommand", type: "string", def: "loginctl lock-session" },
+        { key: "lockPamConfig", type: "string", def: "login" },
+        { key: "logoutCommand", type: "string", def: "loginctl terminate-session \"$XDG_SESSION_ID\"" },
         { key: "focusOnCommand", type: "string", def: "" },
         { key: "focusOffCommand", type: "string", def: "" },
         { key: "nightCommand", type: "string", def: "gammastep -m wayland -O {temp}" }
@@ -57,7 +58,8 @@ QtObject {
     readonly property int controlPanelWidth: get("controlPanelWidth")
     readonly property int controlPanelHeight: get("controlPanelHeight")
     readonly property int nightTemperature: get("nightTemperature")
-    readonly property string lockCommand: get("lockCommand")
+    readonly property string lockPamConfig: get("lockPamConfig")
+    readonly property string logoutCommand: get("logoutCommand")
     readonly property string focusOnCommand: get("focusOnCommand")
     readonly property string focusOffCommand: get("focusOffCommand")
     readonly property string nightCommand: get("nightCommand")

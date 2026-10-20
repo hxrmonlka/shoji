@@ -53,6 +53,7 @@ PanelWindow {
             ShellState.adjust("brightness", dy);
     }
 
+    visible: !LockState.locked
     anchors.top: true
     margins.top: Settings.topMargin
     exclusiveZone: pillHeight

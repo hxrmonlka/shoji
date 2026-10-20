@@ -26,7 +26,7 @@ QtObject {
 
     function lock() {
         ShellState.control = false;
-        Quickshell.execDetached(["sh", "-c", Settings.lockCommand]);
+        LockState.lock();
     }
 
     onNightCommandChanged: {
