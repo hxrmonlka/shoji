@@ -18,6 +18,8 @@ QtObject {
         { key: "panelHeight", group: "island", label: "Panel height", min: 360, max: 700, step: 10, def: 460 },
         { key: "panelRadius", group: "island", label: "Panel radius", min: 12, max: 48, step: 1, def: 32 },
         { key: "autoHideDelay", group: "island", label: "Auto-hide ms", min: 200, max: 10000, step: 250, def: 2000 },
+        { key: "hoverOpenDelay", group: "island", label: "Hover to open ms (0 = off)", min: 0, max: 2000, step: 50, def: 500 },
+        { key: "scrollStep", group: "island", label: "Scroll step (%)", min: 1, max: 20, step: 1, def: 2 },
         { key: "circleSize", group: "circles", label: "Circle size", min: 32, max: 72, step: 1, def: 44 },
         { key: "circleGap", group: "circles", label: "Circle gap", min: 4, max: 32, step: 1, def: 10 },
         { key: "mediaPanelWidth", group: "circles", label: "Media width", min: 400, max: 900, step: 10, def: 600 },
@@ -46,6 +48,8 @@ QtObject {
     readonly property int panelHeight: get("panelHeight")
     readonly property int panelRadius: get("panelRadius")
     readonly property int autoHideDelay: get("autoHideDelay")
+    readonly property int hoverOpenDelay: get("hoverOpenDelay")
+    readonly property int scrollStep: get("scrollStep")
     readonly property int circleSize: get("circleSize")
     readonly property int circleGap: get("circleGap")
     readonly property int mediaPanelWidth: get("mediaPanelWidth")

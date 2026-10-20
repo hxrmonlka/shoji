@@ -28,10 +28,29 @@ PanelWindow {
     readonly property real pillWidth: header.implicitWidth + Settings.pillPadding * 2
     readonly property int popupWidth: 440
     readonly property int popupHeight: 84
-    readonly property bool popupOpen: Notifs.popup !== null && !expanded && !mediaOpen && !controlOpen
+    readonly property int osdWidth: 340
+    readonly property int osdHeight: 56
+    readonly property bool osdOpen: ShellState.scrolling && !ShellState.panelsOpen
+    readonly property bool popupOpen: Notifs.popup !== null && !ShellState.panelsOpen && !ShellState.scrolling
+    readonly property bool hoverArmed: !ShellState.panelsOpen && !ShellState.spotlight && !ShellState.scrolling && !popupOpen
     readonly property real popupProgress: Math.max(0, popupSpring.value)
-    readonly property real restWidth: Motion.lerp(pillWidth, popupWidth, popupProgress)
-    readonly property real restHeight: Motion.lerp(pillHeight, popupHeight, popupProgress)
+    readonly property real osdProgress: Math.max(0, osdSpring.value)
+    readonly property real mergeProgress: Math.max(popupProgress, osdProgress)
+    readonly property real restWidth: Motion.lerp(Motion.lerp(pillWidth, popupWidth, popupProgress), osdWidth, osdProgress)
+    readonly property real restHeight: Motion.lerp(Motion.lerp(pillHeight, popupHeight, popupProgress), osdHeight, osdProgress)
+
+    property bool keysGrabbed: false
+
+    function onWheelEvent(event) {
+        const mods = event.modifiers;
+        console.log("shoji-wheel dy=" + event.angleDelta.y + " mods=" + mods + " grabbed=" + keysGrabbed);
+        keysGrabbed = true;
+        keyTimer.restart();
+        if (mods & Qt.ControlModifier)
+            ShellState.adjust("volume", event.angleDelta.y);
+        else if (mods & Qt.AltModifier)
+            ShellState.adjust("brightness", event.angleDelta.y);
+    }
 
     anchors.top: true
     margins.top: Settings.topMargin
@@ -53,7 +72,7 @@ PanelWindow {
 
     WlrLayershell.namespace: "shoji-island"
     WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: keysGrabbed ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
 
     Spring {
         id: morph
@@ -67,6 +86,21 @@ PanelWindow {
         id: popupSpring
 
         target: win.popupOpen ? 1 : 0
+        token: Motion.spatialDefault
+        epsilon: 0.0005
+    }
+
+    Timer {
+        id: keyTimer
+
+        interval: 1200
+        onTriggered: win.keysGrabbed = false
+    }
+
+    Spring {
+        id: osdSpring
+
+        target: win.osdOpen ? 1 : 0
         token: Motion.spatialDefault
         epsilon: 0.0005
     }
@@ -132,6 +166,34 @@ PanelWindow {
         }
     }
 
+    component HoverOpener: HoverHandler {
+        id: opener
+
+        property bool armed: false
+
+        signal triggered
+
+        readonly property Timer openTimer: Timer {
+            interval: Settings.hoverOpenDelay
+            onTriggered: {
+                if (opener.hovered && opener.armed)
+                    opener.triggered();
+            }
+        }
+
+        onHoveredChanged: {
+            if (hovered && armed && Settings.hoverOpenDelay > 0)
+                openTimer.restart();
+            else
+                openTimer.stop();
+        }
+
+        onArmedChanged: {
+            if (!armed)
+                openTimer.stop();
+        }
+    }
+
     Rectangle {
         id: island
 
@@ -139,13 +201,19 @@ PanelWindow {
         anchors.top: parent.top
         width: Motion.lerp(win.restWidth, panelW.value, win.progress)
         height: Motion.lerp(win.restHeight, panelH.value, win.progress)
-        radius: Motion.lerp(Motion.lerp(win.pillHeight / 2, Math.min(Settings.panelRadius, 28), win.popupProgress), Settings.panelRadius, win.progress)
+        radius: Motion.lerp(Motion.lerp(Motion.lerp(win.pillHeight / 2, Math.min(Settings.panelRadius, 28), win.popupProgress), win.osdHeight / 2, win.osdProgress), Settings.panelRadius, win.progress)
         color: Theme.m3SurfaceContainer
         border.width: 1
         border.color: Theme.m3OutlineVariant
         clip: true
         opacity: 1 - Motion.clamp01(Math.max(win.mediaProgress, win.controlProgress) / 0.3)
         visible: opacity > 0
+
+        WheelHandler {
+            enabled: !ShellState.panelsOpen
+            acceptedModifiers: Qt.KeyboardModifierMask
+            onWheel: event => win.onWheelEvent(event)
+        }
 
         MouseArea {
             anchors.left: parent.left
@@ -164,7 +232,7 @@ PanelWindow {
             y: 0
             height: win.pillHeight
             spacing: Settings.pillSpacing
-            opacity: (1 - Motion.clamp01(win.progress / 0.25)) * (1 - Motion.clamp01(win.popupProgress / 0.3))
+            opacity: (1 - Motion.clamp01(win.progress / 0.25)) * (1 - Motion.clamp01(win.mergeProgress / 0.3))
             visible: opacity > 0
 
             Text {
@@ -207,6 +275,15 @@ PanelWindow {
             visible: opacity > 0
         }
 
+        OsdBar {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            width: win.osdWidth
+            height: win.osdHeight
+            opacity: Motion.clamp01((win.osdProgress - 0.4) / 0.4) * (1 - Motion.clamp01(win.progress / 0.25))
+            visible: opacity > 0
+        }
+
         Body {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
@@ -217,37 +294,52 @@ PanelWindow {
         }
 
         PointerWatcher {}
+
+        HoverOpener {
+            armed: win.hoverArmed
+            onTriggered: ShellState.expanded = true
+        }
     }
 
     MediaCircle {
         id: media
 
         size: win.circleSize
-        restX: Motion.lerp(win.width / 2 - win.pillWidth / 2 - win.circleGap - win.circleSize, win.width / 2 - win.circleSize / 2, win.popupProgress)
+        restX: Motion.lerp(win.width / 2 - win.pillWidth / 2 - win.circleGap - win.circleSize, win.width / 2 - win.circleSize / 2, win.mergeProgress)
         openX: win.width / 2 - Settings.mediaPanelWidth / 2
         panelWidth: Settings.mediaPanelWidth
         panelHeight: Settings.mediaPanelHeight
         panelRadius: Settings.panelRadius
         progress: win.mediaProgress
-        hiddenBy: Math.max(win.progress / 0.3, win.controlProgress / 0.3, win.popupProgress / 0.7)
+        hiddenBy: Math.max(win.progress / 0.3, win.controlProgress / 0.3, win.mergeProgress / 0.7)
         onClicked: ShellState.media = true
 
         PointerWatcher {}
+
+        HoverOpener {
+            armed: win.hoverArmed
+            onTriggered: ShellState.media = true
+        }
     }
 
     ControlCircle {
         id: control
 
         size: win.circleSize
-        restX: Motion.lerp(win.width / 2 + win.pillWidth / 2 + win.circleGap, win.width / 2 - win.circleSize / 2, win.popupProgress)
+        restX: Motion.lerp(win.width / 2 + win.pillWidth / 2 + win.circleGap, win.width / 2 - win.circleSize / 2, win.mergeProgress)
         openX: win.width / 2 - Settings.controlPanelWidth / 2
         panelWidth: Settings.controlPanelWidth
         panelHeight: Settings.controlPanelHeight
         panelRadius: Settings.panelRadius
         progress: win.controlProgress
-        hiddenBy: Math.max(win.progress / 0.3, win.mediaProgress / 0.3, win.popupProgress / 0.7)
+        hiddenBy: Math.max(win.progress / 0.3, win.mediaProgress / 0.3, win.mergeProgress / 0.7)
         onClicked: ShellState.control = true
 
         PointerWatcher {}
+
+        HoverOpener {
+            armed: win.hoverArmed
+            onTriggered: ShellState.control = true
+        }
     }
 }

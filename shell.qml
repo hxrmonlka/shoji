@@ -143,6 +143,18 @@ ShellRoot {
     }
 
     IpcHandler {
+        target: "osd"
+
+        function volume(steps: int): void {
+            ShellState.adjust("volume", steps * 120);
+        }
+
+        function brightness(steps: int): void {
+            ShellState.adjust("brightness", steps * 120);
+        }
+    }
+
+    IpcHandler {
         target: "settings"
 
         function set(key: string, value: string): bool {

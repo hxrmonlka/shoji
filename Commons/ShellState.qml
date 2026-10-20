@@ -13,6 +13,8 @@ QtObject {
     property string tab: "calendar"
     property int pointersInside: 0
     property int holds: 0
+    property bool scrolling: false
+    property string osdKind: "volume"
 
     readonly property bool panelsOpen: expanded || media || control
 
@@ -38,6 +40,30 @@ QtObject {
     function pointerExited(): void {
         pointersInside = Math.max(0, pointersInside - 1);
         root.syncAutoHide();
+    }
+
+    function adjust(kind: string, dy: real): void {
+        if (dy === 0)
+            return;
+        const delta = dy / 120 * Settings.scrollStep / 100;
+        if (kind === "volume") {
+            if (!Audio.ready)
+                return;
+            Audio.setVolume(Audio.volume + delta);
+        } else if (Brightness.available) {
+            if (!scrolling)
+                Brightness.refresh();
+            Brightness.set(Brightness.value + delta);
+        } else {
+            return;
+        }
+        markScroll(kind);
+    }
+
+    function markScroll(kind: string): void {
+        osdKind = kind;
+        scrolling = true;
+        scrollTimer.restart();
     }
 
     function hold(on: bool): void {
@@ -85,6 +111,11 @@ QtObject {
             media = false;
             control = false;
         }
+    }
+
+    readonly property Timer scrollTimer: Timer {
+        interval: 900
+        onTriggered: root.scrolling = false
     }
 
     readonly property Timer autoHide: Timer {
