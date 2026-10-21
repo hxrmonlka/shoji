@@ -17,12 +17,16 @@ PanelWindow {
     readonly property int tabHeight: tabEntry.h ?? Settings.panelHeight
     readonly property int maxTabWidth: ShellState.tabs.reduce((m, t) => Math.max(m, t.w ?? Settings.panelWidth), 0)
     readonly property int maxTabHeight: ShellState.tabs.reduce((m, t) => Math.max(m, t.h ?? Settings.panelHeight), 0)
-    readonly property int contentWidth: Math.max(maxTabWidth, Settings.mediaPanelWidth, Settings.controlPanelWidth, pillWidth + 2 * (circleGap + circleSize))
-    readonly property int contentHeight: Math.max(maxTabHeight, Settings.mediaPanelHeight, Settings.controlPanelHeight, circleSize)
+    readonly property int powerWidth: 540
+    readonly property int powerHeight: 240
+    readonly property int contentWidth: Math.max(maxTabWidth, powerWidth, Settings.mediaPanelWidth, Settings.controlPanelWidth, pillWidth + 2 * (circleGap + circleSize))
+    readonly property int contentHeight: Math.max(maxTabHeight, powerHeight, Settings.mediaPanelHeight, Settings.controlPanelHeight, circleSize)
     readonly property bool expanded: ShellState.expanded
     readonly property real progress: Math.max(0, morph.value)
     readonly property bool mediaOpen: ShellState.media
     readonly property real mediaProgress: Math.max(0, mediaSpring.value)
+    readonly property bool powerOpen: ShellState.power
+    readonly property real powerProgress: Math.max(0, powerSpring.value)
     readonly property bool controlOpen: ShellState.control
     readonly property real controlProgress: Math.max(0, controlSpring.value)
     readonly property real pillWidth: header.implicitWidth + Settings.pillPadding * 2
@@ -35,7 +39,7 @@ PanelWindow {
     readonly property bool hoverArmed: !ShellState.panelsOpen && !ShellState.spotlight && !ShellState.scrolling && !keysGrabbed && !popupOpen
     readonly property real popupProgress: Math.max(0, popupSpring.value)
     readonly property real osdProgress: Math.max(0, osdSpring.value)
-    readonly property real mergeProgress: Math.max(popupProgress, osdProgress)
+    readonly property real mergeProgress: Math.max(popupProgress, osdProgress, powerProgress)
     readonly property real restWidth: Motion.lerp(Motion.lerp(pillWidth, popupWidth, popupProgress), osdWidth, osdProgress)
     readonly property real restHeight: Motion.lerp(Motion.lerp(pillHeight, popupHeight, popupProgress), osdHeight, osdProgress)
 
@@ -74,7 +78,7 @@ PanelWindow {
 
     WlrLayershell.namespace: "shoji-island"
     WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.keyboardFocus: keysGrabbed ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: keysGrabbed || ShellState.power ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
 
     Spring {
         id: morph
@@ -116,6 +120,14 @@ PanelWindow {
     }
 
     Spring {
+        id: powerSpring
+
+        target: win.powerOpen ? 1 : 0
+        token: Motion.spatialDefault
+        epsilon: 0.0005
+    }
+
+    Spring {
         id: controlSpring
 
         target: win.controlOpen ? 1 : 0
@@ -142,7 +154,12 @@ PanelWindow {
     Item {
         anchors.fill: parent
         focus: true
+        Keys.onPressed: event => {
+            if (ShellState.power)
+                powerMenu.handleKey(event);
+        }
         Keys.onEscapePressed: {
+            ShellState.power = false;
             ShellState.expanded = false;
             ShellState.media = false;
             ShellState.control = false;
@@ -201,9 +218,9 @@ PanelWindow {
 
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        width: Motion.lerp(win.restWidth, panelW.value, win.progress)
-        height: Motion.lerp(win.restHeight, panelH.value, win.progress)
-        radius: Motion.lerp(Motion.lerp(Motion.lerp(win.pillHeight / 2, Math.min(Settings.panelRadius, 28), win.popupProgress), win.osdHeight / 2, win.osdProgress), Settings.panelRadius, win.progress)
+        width: Motion.lerp(Motion.lerp(win.restWidth, panelW.value, win.progress), win.powerWidth, win.powerProgress)
+        height: Motion.lerp(Motion.lerp(win.restHeight, panelH.value, win.progress), win.powerHeight, win.powerProgress)
+        radius: Motion.lerp(Motion.lerp(Motion.lerp(win.pillHeight / 2, Math.min(Settings.panelRadius, 28), win.popupProgress), win.osdHeight / 2, win.osdProgress), Settings.panelRadius, Math.max(win.progress, win.powerProgress))
         color: Theme.m3SurfaceContainer
         border.width: 1
         border.color: Theme.m3OutlineVariant
@@ -226,7 +243,7 @@ PanelWindow {
             anchors.right: parent.right
             anchors.top: parent.top
             height: win.pillHeight
-            enabled: !win.expanded && win.mediaProgress < 0.05 && win.controlProgress < 0.05
+            enabled: !win.expanded && !win.powerOpen && win.mediaProgress < 0.05 && win.controlProgress < 0.05
             cursorShape: Qt.PointingHandCursor
             onClicked: ShellState.expanded = !ShellState.expanded
         }
@@ -296,6 +313,17 @@ PanelWindow {
             width: panelW.value
             height: panelH.value
             opacity: Motion.clamp01((win.progress - 0.4) / 0.4)
+            visible: opacity > 0
+        }
+
+        PowerMenu {
+            id: powerMenu
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            width: win.powerWidth
+            height: win.powerHeight
+            opacity: Motion.clamp01((win.powerProgress - 0.5) / 0.4)
             visible: opacity > 0
         }
 

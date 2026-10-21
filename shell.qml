@@ -12,6 +12,7 @@ ShellRoot {
         Apps.warm();
         Brightness.refresh();
         Notifs.hidePopup();
+        ClipboardHistory.start();
     }
 
     Variants {
@@ -131,6 +132,22 @@ ShellRoot {
 
         function close(): void {
             ShellState.control = false;
+        }
+    }
+
+    IpcHandler {
+        target: "power"
+
+        function toggle(): void {
+            ShellState.power = !ShellState.power;
+        }
+
+        function open(): void {
+            ShellState.power = true;
+        }
+
+        function close(): void {
+            ShellState.power = false;
         }
     }
 

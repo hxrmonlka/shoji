@@ -284,14 +284,6 @@ Item {
                     active: Display.night
                     onToggled: Display.setNight(!Display.night)
                 }
-
-                Tile {
-                    Layout.fillWidth: true
-                    icon: "\uf084"
-                    title: "Lock"
-                    subtitle: "Lock screen"
-                    onToggled: Display.lock()
-                }
             }
 
             ColumnLayout {
