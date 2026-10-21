@@ -36,8 +36,10 @@ Item {
         target: ShellState
 
         function onControlChanged(): void {
-            if (!ShellState.control)
+            if (!ShellState.control) {
                 root.trayId = "";
+                root.detail = "";
+            }
         }
     }
 
@@ -76,10 +78,54 @@ Item {
         onDone: root.trayId = ""
     }
 
+    readonly property real sideWidth: Settings.controlSideWidth
+    readonly property real mainWidth: Settings.controlPanelWidth
+    readonly property real detailWidth: Math.max(0, width - sideWidth - mainWidth)
+    readonly property real detailProgress: Math.min(1, detailWidth / Math.max(1, sideWidth))
+
+    NotificationsColumn {
+        x: 0
+        y: 0
+        width: root.sideWidth
+        height: root.height
+    }
+
+    Rectangle {
+        x: root.sideWidth
+        y: 16
+        width: 1
+        height: root.height - 32
+        color: Theme.m3OutlineVariant
+    }
+
+    Rectangle {
+        x: root.sideWidth + root.mainWidth
+        y: 16
+        width: 1
+        height: root.height - 32
+        color: Theme.m3OutlineVariant
+        opacity: Motion.clamp01(root.detailProgress * 3)
+    }
+
+    DetailColumn {
+        x: root.sideWidth + root.mainWidth
+        y: 0
+        width: root.sideWidth
+        height: root.height
+        detail: root.detail
+        btPaired: root.btPaired
+        opacity: Motion.clamp01((root.detailProgress - 0.3) / 0.5)
+        visible: root.detailWidth > 1
+        onCloseRequested: root.detail = ""
+    }
+
     Flickable {
         id: flick
 
-        anchors.fill: parent
+        x: root.sideWidth
+        y: 0
+        width: root.mainWidth
+        height: root.height
         contentWidth: width
         contentHeight: col.implicitHeight + 40
         clip: true
@@ -283,135 +329,6 @@ Item {
                     subtitle: Settings.nightTemperature + "K"
                     active: Display.night
                     onToggled: Display.setNight(!Display.night)
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 2
-                visible: root.detail === "wifi"
-
-                Repeater {
-                    model: root.detail === "wifi" ? Network.networks.slice(0, 8) : []
-
-                    ListRow {
-                        required property var modelData
-
-                        Layout.fillWidth: true
-                        icon: "\uf1eb"
-                        label: modelData.ssid
-                        trailing: modelData.active ? "\uf00c" : modelData.secure ? "\uf023" : ""
-                        active: modelData.active
-                        onClicked: Network.connect(modelData.ssid)
-                    }
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 2
-                visible: root.detail === "bt"
-
-                Text {
-                    Layout.fillWidth: true
-                    visible: root.btPaired.length === 0
-                    text: "No paired devices"
-                    color: Theme.m3OnSurfaceVariant
-                    font.family: Theme.fontUi
-                    font.pixelSize: 12
-                }
-
-                Repeater {
-                    model: root.detail === "bt" ? root.btPaired : []
-
-                    ListRow {
-                        required property var modelData
-
-                        Layout.fillWidth: true
-                        icon: "\uf293"
-                        label: modelData.name
-                        trailing: modelData.connected ? "\uf00c" : ""
-                        active: modelData.connected
-                        onClicked: modelData.connected = !modelData.connected
-                    }
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 2
-                visible: root.detail === "vpn"
-
-                Repeater {
-                    model: root.detail === "vpn" ? Network.vpns : []
-
-                    ListRow {
-                        required property var modelData
-
-                        Layout.fillWidth: true
-                        icon: "\uf023"
-                        label: modelData.name
-                        trailing: modelData.active ? "\uf00c" : ""
-                        active: modelData.active
-                        onClicked: Network.setVpn(modelData.name, !modelData.active)
-                    }
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 6
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: Notifs.count > 0 ? "Notifications  " + Notifs.count : "Notifications"
-                        color: Theme.m3OnSurface
-                        font.family: Theme.fontUi
-                        font.pixelSize: 14
-                        font.weight: Font.DemiBold
-                    }
-
-                    IconButton {
-                        implicitWidth: 32
-                        implicitHeight: 32
-                        iconSize: 13
-                        icon: Notifs.dnd ? "\uf1f6" : "\uf0f3"
-                        active: Notifs.dnd
-                        onClicked: Notifs.toggleDnd()
-                    }
-
-                    IconButton {
-                        implicitWidth: 32
-                        implicitHeight: 32
-                        iconSize: 13
-                        icon: "\uf1f8"
-                        visible: Notifs.count > 0
-                        onClicked: Notifs.clear()
-                    }
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    visible: Notifs.count === 0
-                    text: Notifs.dnd ? "Do not disturb is on" : "No notifications"
-                    color: Theme.m3OnSurfaceVariant
-                    font.family: Theme.fontUi
-                    font.pixelSize: 12
-                }
-
-                Repeater {
-                    model: Notifs.items
-
-                    NotificationCard {
-                        required property var modelData
-
-                        Layout.fillWidth: true
-                        notif: modelData
-                    }
                 }
             }
 

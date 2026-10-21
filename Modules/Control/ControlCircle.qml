@@ -10,10 +10,13 @@ Item {
     required property real openX
     required property real size
     required property real panelWidth
+    property real detailWidth: 0
     required property real panelHeight
     required property real panelRadius
     property real hiddenBy: 0
 
+    readonly property real extraWidth: Math.max(0, detailSpring.value)
+    readonly property real fullWidth: panelWidth + extraWidth
     readonly property real radiusNow: Motion.lerp(size / 2, panelRadius, progress)
     readonly property var icons: ["\uf1eb", "\uf028", "\uf06e", "\uf293", "\uf023", "\uf186", "\uf185", "\uf0f3"]
     readonly property int count: icons.length
@@ -22,7 +25,7 @@ Item {
     signal clicked
 
     x: Motion.lerp(restX, openX, progress)
-    width: Motion.lerp(size, panelWidth, progress)
+    width: Motion.lerp(size, fullWidth, progress)
     height: Motion.lerp(size, panelHeight, progress)
     opacity: 1 - Motion.clamp01(hiddenBy)
     visible: opacity > 0
@@ -48,13 +51,23 @@ Item {
         }
 
         ControlPanel {
+            id: panel
+
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
-            width: root.panelWidth
+            width: root.fullWidth
             height: root.panelHeight
             opacity: Motion.clamp01((root.progress - 0.4) / 0.4)
             visible: opacity > 0
         }
+    }
+
+    Spring {
+        id: detailSpring
+
+        target: panel.detail !== "" ? root.detailWidth : 0
+        token: Motion.spatialDefault
+        epsilon: 0.05
     }
 
     Item {

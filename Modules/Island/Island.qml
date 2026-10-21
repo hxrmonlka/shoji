@@ -17,9 +17,10 @@ PanelWindow {
     readonly property int tabHeight: tabEntry.h ?? Settings.panelHeight
     readonly property int maxTabWidth: ShellState.tabs.reduce((m, t) => Math.max(m, t.w ?? Settings.panelWidth), 0)
     readonly property int maxTabHeight: ShellState.tabs.reduce((m, t) => Math.max(m, t.h ?? Settings.panelHeight), 0)
+    readonly property int controlBaseWidth: Settings.controlSideWidth + Settings.controlPanelWidth
     readonly property int powerWidth: 540
     readonly property int powerHeight: 240
-    readonly property int contentWidth: Math.max(maxTabWidth, powerWidth, Settings.mediaPanelWidth, Settings.controlPanelWidth, pillWidth + 2 * (circleGap + circleSize))
+    readonly property int contentWidth: Math.max(maxTabWidth, powerWidth, Settings.mediaPanelWidth, controlBaseWidth + 2 * Settings.controlSideWidth, pillWidth + 2 * (circleGap + circleSize))
     readonly property int contentHeight: Math.max(maxTabHeight, powerHeight, Settings.mediaPanelHeight, Settings.controlPanelHeight, circleSize)
     readonly property bool expanded: ShellState.expanded
     readonly property real progress: Math.max(0, morph.value)
@@ -361,8 +362,9 @@ PanelWindow {
 
         size: win.circleSize
         restX: Motion.lerp(win.width / 2 + win.pillWidth / 2 + win.circleGap, win.width / 2 - win.circleSize / 2, win.mergeProgress)
-        openX: win.width / 2 - Settings.controlPanelWidth / 2
-        panelWidth: Settings.controlPanelWidth
+        openX: win.width / 2 - win.controlBaseWidth / 2
+        panelWidth: win.controlBaseWidth
+        detailWidth: Settings.controlSideWidth
         panelHeight: Settings.controlPanelHeight
         panelRadius: Settings.panelRadius
         progress: win.controlProgress

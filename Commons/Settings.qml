@@ -25,6 +25,7 @@ QtObject {
         { key: "mediaPanelWidth", group: "circles", label: "Media width", min: 400, max: 900, step: 10, def: 600 },
         { key: "mediaPanelHeight", group: "circles", label: "Media height", min: 240, max: 520, step: 10, def: 300 },
         { key: "controlPanelWidth", group: "circles", label: "Control width", min: 320, max: 560, step: 10, def: 380 },
+        { key: "controlSideWidth", group: "circles", label: "Control side width", min: 240, max: 480, step: 10, def: 300 },
         { key: "controlPanelHeight", group: "circles", label: "Control height", min: 360, max: 640, step: 10, def: 500 },
         { key: "nightTemperature", group: "display", label: "Night temperature", min: 2500, max: 6000, step: 100, def: 4000 },
         { key: "lockPamConfig", type: "string", def: "login" },
@@ -56,6 +57,7 @@ QtObject {
     readonly property int mediaPanelWidth: get("mediaPanelWidth")
     readonly property int mediaPanelHeight: get("mediaPanelHeight")
     readonly property int controlPanelWidth: get("controlPanelWidth")
+    readonly property int controlSideWidth: get("controlSideWidth")
     readonly property int controlPanelHeight: get("controlPanelHeight")
     readonly property int nightTemperature: get("nightTemperature")
     readonly property string lockPamConfig: get("lockPamConfig")

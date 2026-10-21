@@ -9,6 +9,7 @@ QtObject {
 
     property bool dnd: false
     property var popup: null
+    property bool clearing: false
     property var popupInfo: ({ summary: "", body: "", appName: "", icon: "", image: "" })
 
     readonly property var items: server.trackedNotifications.values.slice(-30).reverse()
@@ -37,6 +38,22 @@ QtObject {
         popup = null;
     }
 
+    function dismissPopup() {
+        const n = popup;
+        hidePopup();
+        if (n)
+            n.dismiss();
+    }
+
+    function clearAnimated() {
+        if (count === 0)
+            return;
+        hidePopup();
+        clearing = true;
+        clearTimer.interval = Math.min(count, 9) * 45 + 520;
+        clearTimer.restart();
+    }
+
     function toggleDnd() {
         dnd = !dnd;
         if (dnd)
@@ -62,6 +79,13 @@ QtObject {
         imageSupported: true
         onNotification: n => root.received(n)
         Component.onCompleted: console.log("shoji-notif server up")
+    }
+
+    readonly property Timer clearTimer: Timer {
+        onTriggered: {
+            root.clear();
+            root.clearing = false;
+        }
     }
 
     readonly property Timer popupTimer: Timer {
