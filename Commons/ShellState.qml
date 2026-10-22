@@ -14,6 +14,7 @@ QtObject {
     property string tab: "calendar"
     property int pointersInside: 0
     property int holds: 0
+    property bool pinned: false
     property bool scrolling: false
     property string osdKind: "volume"
 
@@ -42,6 +43,8 @@ QtObject {
 
     function pointerExited(): void {
         pointersInside = Math.max(0, pointersInside - 1);
+        if (pointersInside === 0)
+            pinned = false;
         root.syncAutoHide();
     }
 
@@ -74,14 +77,23 @@ QtObject {
         root.syncAutoHide();
     }
 
+    function pin(): void {
+        pinned = panelsOpen;
+        root.syncAutoHide();
+    }
+
     function syncAutoHide(): void {
-        if (panelsOpen && !power && pointersInside === 0 && holds === 0)
+        if (panelsOpen && !power && !pinned && pointersInside === 0 && holds === 0)
             autoHide.restart();
         else
             autoHide.stop();
     }
 
-    onPanelsOpenChanged: root.syncAutoHide()
+    onPanelsOpenChanged: {
+        if (!panelsOpen)
+            pinned = false;
+        root.syncAutoHide();
+    }
 
     onExpandedChanged: {
         if (expanded) {

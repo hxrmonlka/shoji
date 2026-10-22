@@ -9,8 +9,36 @@ Item {
     readonly property string needle: query.trim().toLowerCase()
     readonly property var shown: needle.length === 0 ? ClipboardHistory.entries : ClipboardHistory.entries.filter(e => e.preview.toLowerCase().includes(needle))
 
+    property int selected: -1
+    readonly property var current: selected >= 0 && selected < shown.length ? shown[selected] : null
+
+    function move(step) {
+        if (shown.length === 0)
+            return;
+        selected = Math.max(0, Math.min(shown.length - 1, selected + step));
+        list.positionViewAtIndex(selected, ListView.Contain);
+    }
+
+    function use() {
+        if (!current)
+            return;
+        ClipboardHistory.copy(current);
+        ShellState.expanded = false;
+    }
+
+    function discard() {
+        if (current)
+            ClipboardHistory.remove(current);
+    }
+
+    onShownChanged: selected = shown.length === 0 ? -1 : Math.max(0, Math.min(selected, shown.length - 1))
+    onNeedleChanged: selected = shown.length === 0 ? -1 : 0
+
     Keys.onEscapePressed: ShellState.expanded = false
-    Component.onCompleted: ClipboardHistory.refresh()
+    Component.onCompleted: {
+        ClipboardHistory.refresh();
+        field.forceActiveFocus();
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -60,6 +88,11 @@ Item {
                     clip: true
                     selectByMouse: true
                     onTextChanged: root.query = text
+                    Keys.onDownPressed: root.move(1)
+                    Keys.onUpPressed: root.move(-1)
+                    Keys.onReturnPressed: root.use()
+                    Keys.onEnterPressed: root.use()
+                    Keys.onDeletePressed: root.discard()
                     Keys.onEscapePressed: {
                         if (text.length > 0)
                             text = "";
@@ -139,6 +172,8 @@ Item {
                 id: row
 
                 required property var modelData
+                required property int index
+                readonly property bool selected: index === root.selected
                 readonly property bool image: modelData.kind === "image"
 
                 width: list.width
@@ -149,7 +184,7 @@ Item {
                 ColorSpring {
                     id: rowFill
 
-                    target: rowArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                    target: row.selected ? Theme.m3SurfaceContainerHighest : "transparent"
                 }
 
                 Loader {
@@ -229,6 +264,7 @@ Item {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
+                    onPositionChanged: root.selected = row.index
                     onClicked: {
                         ClipboardHistory.copy(row.modelData);
                         ShellState.expanded = false;
@@ -245,7 +281,7 @@ Item {
                     height: 30
                     radius: 15
                     color: delArea.containsMouse ? Theme.m3PrimaryContainer : "transparent"
-                    opacity: rowArea.containsMouse || delArea.containsMouse ? 1 : 0
+                    opacity: row.selected || rowArea.containsMouse || delArea.containsMouse ? 1 : 0
 
                     Behavior on opacity {
                         NumberAnimation {

@@ -79,7 +79,7 @@ PanelWindow {
 
     WlrLayershell.namespace: "shoji-island"
     WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.keyboardFocus: keysGrabbed || ShellState.power || ShellState.media ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: keysGrabbed || ShellState.panelsOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
 
     Spring {
         id: morph

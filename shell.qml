@@ -19,6 +19,15 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
 
+        Backdrop {
+            required property var modelData
+            screen: modelData
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+
         Island {
             required property var modelData
             screen: modelData
@@ -120,10 +129,12 @@ ShellRoot {
 
         function toggle(): void {
             ShellState.media = !ShellState.media;
+            ShellState.pin();
         }
 
         function open(): void {
             ShellState.media = true;
+            ShellState.pin();
         }
 
         function close(): void {
@@ -151,10 +162,12 @@ ShellRoot {
 
         function toggle(): void {
             ShellState.control = !ShellState.control;
+            ShellState.pin();
         }
 
         function open(): void {
             ShellState.control = true;
+            ShellState.pin();
         }
 
         function close(): void {
@@ -235,10 +248,12 @@ ShellRoot {
 
         function toggle(): void {
             ShellState.expanded = !ShellState.expanded;
+            ShellState.pin();
         }
 
         function open(): void {
             ShellState.expanded = true;
+            ShellState.pin();
         }
 
         function close(): void {
@@ -249,6 +264,7 @@ ShellRoot {
             if (ShellState.tabs.some(t => t.id === name)) {
                 ShellState.tab = name;
                 ShellState.expanded = true;
+                ShellState.pin();
             }
         }
     }
