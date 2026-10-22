@@ -44,7 +44,7 @@ Item {
                 active: kept || current
                 visible: current
                 sourceComponent: ({ calendar: calendarTab, launcher: launcherTab, monitor: monitorTab, wallpapers: wallpaperTab, clipboard: clipboardTab, settings: settingsTab })[modelData.id] ?? null
-                onLoaded: if (warmDelay > 0) kept = true
+                onLoaded: if (warmDelay > 0 || modelData.keep) kept = true
 
                 Timer {
                     interval: slot.warmDelay

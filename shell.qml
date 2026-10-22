@@ -4,6 +4,7 @@ import Quickshell.Io
 import qs.Commons
 import qs.Modules.Island
 import qs.Modules.Lock
+import qs.Modules.Screenshot
 import qs.Modules.Spotlight
 import qs.Modules.Wallpaper
 
@@ -43,6 +44,32 @@ ShellRoot {
     }
 
     Lock {}
+
+    Variants {
+        model: Quickshell.screens
+
+        RegionSelector {}
+    }
+
+    IpcHandler {
+        target: "screenshot"
+
+        function fullscreen(): void {
+            Screenshot.fullscreen("");
+        }
+
+        function output(name: string): void {
+            Screenshot.fullscreen(name);
+        }
+
+        function window(): void {
+            Screenshot.window();
+        }
+
+        function region(): void {
+            Screenshot.region();
+        }
+    }
 
     IpcHandler {
         target: "lock"

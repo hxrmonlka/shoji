@@ -79,7 +79,7 @@ PanelWindow {
 
     WlrLayershell.namespace: "shoji-island"
     WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.keyboardFocus: keysGrabbed || ShellState.power ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: keysGrabbed || ShellState.power || ShellState.media ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
 
     Spring {
         id: morph
@@ -156,8 +156,13 @@ PanelWindow {
         anchors.fill: parent
         focus: true
         Keys.onPressed: event => {
-            if (ShellState.power)
+            if (ShellState.power) {
                 powerMenu.handleKey(event);
+            } else if (ShellState.media && event.key === Qt.Key_Space && !event.isAutoRepeat) {
+                if (Media.player)
+                    Media.player.togglePlaying();
+                event.accepted = true;
+            }
         }
         Keys.onEscapePressed: {
             ShellState.power = false;

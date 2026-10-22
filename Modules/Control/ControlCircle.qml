@@ -24,7 +24,7 @@ Item {
 
     signal clicked
 
-    x: Motion.lerp(restX, openX, progress)
+    x: Motion.lerp(restX, openX - extraWidth / 2, progress)
     width: Motion.lerp(size, fullWidth, progress)
     height: Motion.lerp(size, panelHeight, progress)
     opacity: 1 - Motion.clamp01(hiddenBy)

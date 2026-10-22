@@ -191,6 +191,11 @@ Item {
         }
     }
 
+    onVisibleChanged: {
+        if (!visible)
+            menuPid = 0;
+    }
+
     Component.onCompleted: root.refresh()
     Component.onDestruction: if (root.menuWanted) ShellState.hold(false)
 

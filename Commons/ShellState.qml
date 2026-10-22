@@ -22,7 +22,7 @@ QtObject {
     readonly property var tabs: [
         { id: "launcher", label: "Launcher", icon: "\uf00a" },
         { id: "calendar", label: "Calendar", icon: "\uf073" },
-        { id: "monitor", label: "Monitor", icon: "\uf200", w: 820, h: 500 },
+        { id: "monitor", label: "Monitor", icon: "\uf200", w: 820, h: 500, keep: true },
         { id: "wallpapers", label: "Wallpapers", icon: "\uf03e" },
         { id: "clipboard", label: "Clipboard", icon: "\uf0ea" },
         { id: "settings", label: "Settings", icon: "\uf013" }
