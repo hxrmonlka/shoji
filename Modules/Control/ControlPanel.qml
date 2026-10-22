@@ -153,6 +153,8 @@ Item {
                     Layout.fillWidth: true
                     label: "Volume"
                     showValue: true
+                    to: Audio.maxVolume
+                    valueText: Math.round(shown * 100) + "%"
                     value: Audio.volume
                     enabled: Audio.ready
                     onMoved: v => Audio.setVolume(v)

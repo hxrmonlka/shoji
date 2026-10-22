@@ -6,13 +6,14 @@ Item {
     id: root
 
     readonly property bool isVolume: ShellState.osdKind === "volume"
-    readonly property real level: Motion.clamp01(isVolume ? Audio.volume : Brightness.value)
+    readonly property real top: isVolume ? Audio.maxVolume : 1
+    readonly property real level: Math.max(0, Math.min(top, isVolume ? Audio.volume : Brightness.value))
     readonly property bool muted: isVolume && Audio.muted
 
     Spring {
         id: fill
 
-        target: root.level
+        target: root.level / root.top
         token: Motion.effectsFast
         epsilon: 0.0005
     }

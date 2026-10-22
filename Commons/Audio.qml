@@ -6,6 +6,7 @@ import Quickshell.Services.Pipewire
 QtObject {
     id: root
 
+    readonly property real maxVolume: 1.5
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property bool ready: sink !== null && sink.audio !== null
     readonly property real volume: ready ? sink.audio.volume : 0
@@ -18,7 +19,7 @@ QtObject {
 
     function setVolume(v) {
         if (ready)
-            sink.audio.volume = Motion.clamp01(v);
+            sink.audio.volume = Math.max(0, Math.min(maxVolume, v));
     }
 
     function toggleMute() {
