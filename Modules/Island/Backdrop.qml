@@ -8,7 +8,6 @@ PanelWindow {
 
     readonly property bool armed: ShellState.panelsOpen
 
-    visible: !LockState.locked
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     anchors {

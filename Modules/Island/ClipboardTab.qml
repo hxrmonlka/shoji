@@ -34,10 +34,23 @@ Item {
     onShownChanged: selected = shown.length === 0 ? -1 : Math.max(0, Math.min(selected, shown.length - 1))
     onNeedleChanged: selected = shown.length === 0 ? -1 : 0
 
+    function focusField() {
+        field.forceActiveFocus();
+    }
+
     Keys.onEscapePressed: ShellState.expanded = false
     Component.onCompleted: {
         ClipboardHistory.refresh();
         field.forceActiveFocus();
+    }
+
+    Connections {
+        target: ShellState
+
+        function onExpandedChanged() {
+            if (ShellState.expanded)
+                Qt.callLater(root.focusField);
+        }
     }
 
     Rectangle {

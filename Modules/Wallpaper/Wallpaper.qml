@@ -61,7 +61,7 @@ PanelWindow {
         opacity: win.aFront ? 1 : fade.value
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
-        cache: false
+        cache: true
         smooth: true
         sourceSize: Qt.size(Math.max(win.width, win.height), Math.max(win.width, win.height))
         onStatusChanged: win.begin()
@@ -75,7 +75,7 @@ PanelWindow {
         opacity: win.aFront ? fade.value : 1
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
-        cache: false
+        cache: true
         smooth: true
         sourceSize: Qt.size(Math.max(win.width, win.height), Math.max(win.width, win.height))
         onStatusChanged: win.begin()

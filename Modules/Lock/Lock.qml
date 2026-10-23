@@ -14,7 +14,7 @@ Scope {
         }
 
         WlSessionLockSurface {
-            color: Theme.m3Surface
+            color: Wallpapers.current ? "black" : Theme.m3Surface
 
             LockScreen {
                 anchors.fill: parent

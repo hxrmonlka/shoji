@@ -104,6 +104,36 @@ PanelWindow {
         onTriggered: win.keysGrabbed = false
     }
 
+    function claimFocus() {
+        if (ShellState.expanded && ShellState.tab === "clipboard")
+            return;
+        keys.forceActiveFocus();
+    }
+
+    Connections {
+        target: ShellState
+
+        function onExpandedChanged() {
+            Qt.callLater(win.claimFocus);
+        }
+
+        function onMediaChanged() {
+            Qt.callLater(win.claimFocus);
+        }
+
+        function onControlChanged() {
+            Qt.callLater(win.claimFocus);
+        }
+
+        function onPowerChanged() {
+            Qt.callLater(win.claimFocus);
+        }
+
+        function onTabChanged() {
+            Qt.callLater(win.claimFocus);
+        }
+    }
+
     Spring {
         id: osdSpring
 
@@ -153,6 +183,8 @@ PanelWindow {
     }
 
     Item {
+        id: keys
+
         anchors.fill: parent
         focus: true
         Keys.onPressed: event => {
@@ -263,6 +295,11 @@ PanelWindow {
             spacing: Settings.pillSpacing
             opacity: (1 - Motion.clamp01(win.progress / 0.25)) * (1 - Motion.clamp01(win.mergeProgress / 0.3))
             visible: opacity > 0
+
+            UpdateStar {
+                anchors.verticalCenter: parent.verticalCenter
+                size: Math.round(win.pillHeight * 0.7)
+            }
 
             Text {
                 anchors.verticalCenter: parent.verticalCenter

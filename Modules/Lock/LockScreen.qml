@@ -8,7 +8,9 @@ Item {
     id: root
 
     readonly property string wallpaper: Wallpapers.current
+    readonly property int span: Math.max(width, height)
     property bool menuOpen: false
+    property real reveal: 0
 
     function refocus(): void {
         input.forceActiveFocus();
@@ -23,13 +25,11 @@ Item {
         intro.start();
     }
 
-    opacity: 0
-
     NumberAnimation {
         id: intro
 
         target: root
-        property: "opacity"
+        property: "reveal"
         from: 0
         to: 1
         duration: 300
@@ -39,7 +39,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: Theme.m3Surface
+        color: root.wallpaper ? "black" : Theme.m3Surface
     }
 
     Image {
@@ -49,19 +49,26 @@ Item {
         visible: false
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
-        cache: false
-        source: root.wallpaper ? "file://" + root.wallpaper : ""
-        sourceSize: Qt.size(Math.max(root.width, 1), Math.max(root.height, 1))
+        cache: true
+        sourceSize: Qt.size(root.span, root.span)
+        source: root.wallpaper && root.span > 0 ? "file://" + root.wallpaper : ""
     }
 
     MultiEffect {
         anchors.fill: parent
         source: img
-        visible: img.status === Image.Ready
+        visible: opacity > 0
+        opacity: img.status === Image.Ready ? 1 : 0
         blurEnabled: true
         blur: 0.7
         blurMax: 64
         autoPaddingEnabled: false
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 250
+            }
+        }
     }
 
     Rectangle {
@@ -83,6 +90,7 @@ Item {
     Column {
         anchors.centerIn: parent
         spacing: 4
+        opacity: root.reveal
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -108,6 +116,7 @@ Item {
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.margins: 24
+        opacity: root.reveal
         height: 44
         width: statusRow.implicitWidth + 24
         radius: height / 2
@@ -148,6 +157,7 @@ Item {
         anchors.horizontalCenterOffset: shake
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 56
+        opacity: root.reveal
         width: 380
         height: 60
         radius: height / 2
@@ -225,10 +235,13 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
 
                 Repeater {
-                    model: LockState.password.length
+                    model: LockState.shapes
 
                     PasswordShape {
+                        required property int shape
+
                         color: Theme.m3Primary
+                        kind: shape
                     }
                 }
             }
@@ -270,6 +283,7 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         anchors.margins: 24
+        opacity: root.reveal
         width: 52
         height: 52
 

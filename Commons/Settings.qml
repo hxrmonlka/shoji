@@ -33,7 +33,8 @@ QtObject {
         { key: "screenshotDir", type: "string", def: "~/Pictures/Screenshots" },
         { key: "focusOnCommand", type: "string", def: "" },
         { key: "focusOffCommand", type: "string", def: "" },
-        { key: "nightCommand", type: "string", def: "gammastep -m wayland -O {temp}" }
+        { key: "nightCommand", type: "string", def: "gammastep -m wayland -O {temp}" },
+        { key: "aliceDotfiles", type: "string", def: "" }
     ]
 
     readonly property var defs: schema.reduce((m, e) => {
@@ -67,6 +68,7 @@ QtObject {
     readonly property string focusOnCommand: get("focusOnCommand")
     readonly property string focusOffCommand: get("focusOffCommand")
     readonly property string nightCommand: get("nightCommand")
+    readonly property string aliceDotfiles: get("aliceDotfiles")
 
     function get(key) {
         const d = defs[key];

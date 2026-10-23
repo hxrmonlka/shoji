@@ -14,6 +14,16 @@ QtObject {
     property bool failed: false
     property string message: ""
 
+    readonly property ListModel shapes: ListModel {}
+
+    function syncShapes(): void {
+        const n = password.length;
+        while (shapes.count > n)
+            shapes.remove(shapes.count - 1);
+        while (shapes.count < n)
+            shapes.append({ shape: Math.floor(Math.random() * 7) });
+    }
+
     function lock(): void {
         if (locked)
             return;
@@ -51,6 +61,7 @@ QtObject {
     }
 
     onPasswordChanged: {
+        syncShapes();
         if (password.length > 0 && failed) {
             failed = false;
             message = "";

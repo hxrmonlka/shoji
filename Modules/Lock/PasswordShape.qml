@@ -6,7 +6,7 @@ Item {
     id: root
 
     property color color: Theme.m3Primary
-    property int kind: Math.floor(Math.random() * 7)
+    property int kind: 0
     property real size: 18
 
     implicitWidth: 20

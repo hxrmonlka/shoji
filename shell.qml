@@ -19,18 +19,18 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
 
-        Backdrop {
-            required property var modelData
-            screen: modelData
-        }
-    }
+        Scope {
+            id: scope
 
-    Variants {
-        model: Quickshell.screens
-
-        Island {
             required property var modelData
-            screen: modelData
+
+            Backdrop {
+                screen: scope.modelData
+            }
+
+            Island {
+                screen: scope.modelData
+            }
         }
     }
 
