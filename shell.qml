@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import qs.Modules.ColorPicker
 import qs.Modules.Island
 import qs.Modules.Lock
 import qs.Modules.Screenshot
@@ -12,6 +13,7 @@ ShellRoot {
     Component.onCompleted: {
         Apps.warm();
         Brightness.refresh();
+        Display.restore();
         Notifs.hidePopup();
         ClipboardHistory.start();
     }
@@ -53,6 +55,12 @@ ShellRoot {
     }
 
     Lock {}
+
+    Variants {
+        model: Quickshell.screens
+
+        PickerOverlay {}
+    }
 
     Variants {
         model: Quickshell.screens
@@ -121,6 +129,18 @@ ShellRoot {
 
         function random(): void {
             Wallpapers.random();
+        }
+
+        function toggle(): void {
+            ShellState.toggleTab("wallpapers");
+        }
+
+        function open(): void {
+            ShellState.openTab("wallpapers");
+        }
+
+        function close(): void {
+            ShellState.closeTab("wallpapers");
         }
     }
 
@@ -240,6 +260,82 @@ ShellRoot {
 
         function reload(): void {
             Settings.reload();
+        }
+    }
+
+    IpcHandler {
+        target: "clipboard"
+
+        function toggle(): void {
+            ShellState.toggleTab("clipboard");
+        }
+
+        function open(): void {
+            ShellState.openTab("clipboard");
+        }
+
+        function close(): void {
+            ShellState.closeTab("clipboard");
+        }
+    }
+
+    IpcHandler {
+        target: "monitor"
+
+        function toggle(): void {
+            ShellState.toggleTab("monitor");
+        }
+
+        function open(): void {
+            ShellState.openTab("monitor");
+        }
+
+        function close(): void {
+            ShellState.closeTab("monitor");
+        }
+    }
+
+    IpcHandler {
+        target: "colorpicker"
+
+        function copy(): void {
+            ColorPicker.begin("copy");
+        }
+
+        function pick(): void {
+            ColorPicker.begin("gui");
+        }
+
+        function gui(): void {
+            ShellState.toggleTab("color");
+        }
+
+        function cancel(): void {
+            ColorPicker.cancel();
+        }
+
+        function hex(): string {
+            return ColorPicker.hex;
+        }
+    }
+
+    IpcHandler {
+        target: "mic"
+
+        function toggle(): void {
+            Audio.toggleMicMute();
+        }
+
+        function mute(): void {
+            Audio.setMicMuted(true);
+        }
+
+        function unmute(): void {
+            Audio.setMicMuted(false);
+        }
+
+        function state(): string {
+            return Audio.micMuted ? "muted" : "unmuted";
         }
     }
 

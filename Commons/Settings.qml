@@ -31,8 +31,6 @@ QtObject {
         { key: "lockPamConfig", type: "string", def: "login" },
         { key: "logoutCommand", type: "string", def: "loginctl terminate-session \"$XDG_SESSION_ID\"" },
         { key: "screenshotDir", type: "string", def: "~/Pictures/Screenshots" },
-        { key: "focusOnCommand", type: "string", def: "" },
-        { key: "focusOffCommand", type: "string", def: "" },
         { key: "nightCommand", type: "string", def: "gammastep -m wayland -O {temp}" },
         { key: "aliceDotfiles", type: "string", def: "" }
     ]
@@ -65,8 +63,6 @@ QtObject {
     readonly property string lockPamConfig: get("lockPamConfig")
     readonly property string logoutCommand: get("logoutCommand")
     readonly property string screenshotDir: get("screenshotDir")
-    readonly property string focusOnCommand: get("focusOnCommand")
-    readonly property string focusOffCommand: get("focusOffCommand")
     readonly property string nightCommand: get("nightCommand")
     readonly property string aliceDotfiles: get("aliceDotfiles")
 

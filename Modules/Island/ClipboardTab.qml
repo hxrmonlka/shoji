@@ -51,6 +51,11 @@ Item {
             if (ShellState.expanded)
                 Qt.callLater(root.focusField);
         }
+
+        function onTabChanged() {
+            if (ShellState.expanded && ShellState.tab === "clipboard")
+                Qt.callLater(root.focusField);
+        }
     }
 
     Rectangle {

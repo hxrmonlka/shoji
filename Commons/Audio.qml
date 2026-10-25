@@ -32,6 +32,11 @@ QtObject {
             source.audio.volume = Motion.clamp01(v);
     }
 
+    function setMicMuted(m) {
+        if (micReady)
+            source.audio.muted = m;
+    }
+
     function toggleMicMute() {
         if (micReady)
             source.audio.muted = !source.audio.muted;

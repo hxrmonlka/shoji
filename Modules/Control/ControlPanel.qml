@@ -318,7 +318,7 @@ Item {
                     Layout.fillWidth: true
                     icon: "\uf06e"
                     title: "Focus"
-                    subtitle: Display.focusAvailable ? "Grayscale" : "No backend set"
+                    subtitle: Display.focusAvailable ? "Grayscale" : "Unavailable"
                     active: Display.focus
                     enabled: Display.focusAvailable
                     onToggled: Display.setFocus(!Display.focus)

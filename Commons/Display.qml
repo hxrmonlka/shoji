@@ -9,15 +9,39 @@ QtObject {
 
     property bool focus: false
     property bool night: false
+    property bool focusAvailable: false
+    property bool focusWanted: false
+    property bool focusLoaded: false
+    property bool focusProbed: false
 
-    readonly property bool focusAvailable: Settings.focusOnCommand.length > 0 && Settings.focusOffCommand.length > 0
     readonly property string nightCommand: Settings.nightCommand.replace("{temp}", String(Settings.nightTemperature))
+
+    function restore() {
+        focusProbe.running = true;
+    }
 
     function setFocus(on) {
         if (!focusAvailable)
             return;
+        focusWanted = on;
         focus = on;
-        Quickshell.execDetached(["sh", "-c", on ? Settings.focusOnCommand : Settings.focusOffCommand]);
+        focusStore.setText(JSON.stringify({ focus: on }) + "\n");
+        applyFocus();
+    }
+
+    function applyFocus() {
+        Quickshell.execDetached(["mmsg", "dispatch", focus ? "setgray,on" : "setgray,off"]);
+    }
+
+    function settleFocus() {
+        if (!focusLoaded || !focusProbed)
+            return;
+        if (focusWanted && focusAvailable) {
+            focus = true;
+            applyFocus();
+        } else if (!focusAvailable) {
+            focus = false;
+        }
     }
 
     function setNight(on) {
@@ -39,6 +63,34 @@ QtObject {
     readonly property Timer restart: Timer {
         interval: 200
         onTriggered: root.night = true
+    }
+
+    readonly property Process focusProbe: Process {
+        command: ["sh", "-c", "command -v mmsg >/dev/null 2>&1"]
+        onExited: code => {
+            root.focusAvailable = code === 0;
+            root.focusProbed = true;
+            root.settleFocus();
+        }
+    }
+
+    readonly property FileView focusStore: FileView {
+        path: Quickshell.env("HOME") + "/.local/state/shoji/display.json"
+        atomicWrites: true
+        printErrors: false
+        onLoaded: {
+            try {
+                root.focusWanted = JSON.parse(text()).focus === true;
+            } catch (e) {
+                root.focusWanted = false;
+            }
+            root.focusLoaded = true;
+            root.settleFocus();
+        }
+        onLoadFailed: {
+            root.focusLoaded = true;
+            root.settleFocus();
+        }
     }
 
     readonly property Process nightProc: Process {

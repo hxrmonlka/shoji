@@ -26,6 +26,7 @@ QtObject {
         { id: "monitor", label: "Monitor", icon: "\uf200", w: 820, h: 500, keep: true },
         { id: "wallpapers", label: "Wallpapers", icon: "\uf03e" },
         { id: "clipboard", label: "Clipboard", icon: "\uf0ea" },
+        { id: "color", label: "Color", icon: "\uf1fb" },
         { id: "settings", label: "Settings", icon: "\uf013" }
     ]
 
@@ -34,6 +35,26 @@ QtObject {
         media = false;
         control = false;
         power = false;
+    }
+
+    function openTab(id: string): void {
+        if (!tabs.some(t => t.id === id))
+            return;
+        tab = id;
+        expanded = true;
+        pin();
+    }
+
+    function closeTab(id: string): void {
+        if (expanded && tab === id)
+            expanded = false;
+    }
+
+    function toggleTab(id: string): void {
+        if (expanded && tab === id)
+            expanded = false;
+        else
+            openTab(id);
     }
 
     function pointerEntered(): void {

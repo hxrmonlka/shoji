@@ -57,8 +57,9 @@ Item {
         id: view
 
         anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
         width: root.viewWidth
-        height: parent.height
+        height: root.chipHeight
         clip: true
 
         Repeater {
