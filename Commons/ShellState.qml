@@ -11,6 +11,7 @@ QtObject {
     property bool media: false
     property bool control: false
     property bool power: false
+    property bool settingsOpen: false
     property string tab: "calendar"
     property int pointersInside: 0
     property int holds: 0
@@ -26,8 +27,7 @@ QtObject {
         { id: "monitor", label: "Monitor", icon: "\uf200", w: 820, h: 500, keep: true },
         { id: "wallpapers", label: "Wallpapers", icon: "\uf03e" },
         { id: "clipboard", label: "Clipboard", icon: "\uf0ea" },
-        { id: "color", label: "Color", icon: "\uf1fb" },
-        { id: "settings", label: "Settings", icon: "\uf013" }
+        { id: "color", label: "Color", icon: "\uf1fb" }
     ]
 
     function hidePanels(): void {
@@ -35,6 +35,23 @@ QtObject {
         media = false;
         control = false;
         power = false;
+    }
+
+    function openSettings(): void {
+        hidePanels();
+        spotlight = false;
+        settingsOpen = true;
+    }
+
+    function closeSettings(): void {
+        settingsOpen = false;
+    }
+
+    function toggleSettings(): void {
+        if (settingsOpen)
+            closeSettings();
+        else
+            openSettings();
     }
 
     function openTab(id: string): void {
@@ -88,6 +105,8 @@ QtObject {
     }
 
     function markScroll(kind: string): void {
+        if (!Settings.osd)
+            return;
         osdKind = kind;
         scrolling = true;
         scrollTimer.restart();

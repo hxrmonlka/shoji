@@ -6,6 +6,7 @@ import qs.Modules.ColorPicker
 import qs.Modules.Island
 import qs.Modules.Lock
 import qs.Modules.Screenshot
+import qs.Modules.Settings
 import qs.Modules.Spotlight
 import qs.Modules.Wallpaper
 
@@ -55,6 +56,12 @@ ShellRoot {
     }
 
     Lock {}
+
+    LazyLoader {
+        active: ShellState.settingsOpen
+
+        SettingsWindow {}
+    }
 
     Variants {
         model: Quickshell.screens
@@ -260,6 +267,18 @@ ShellRoot {
 
         function reload(): void {
             Settings.reload();
+        }
+
+        function open(): void {
+            ShellState.openSettings();
+        }
+
+        function close(): void {
+            ShellState.closeSettings();
+        }
+
+        function toggle(): void {
+            ShellState.toggleSettings();
         }
     }
 

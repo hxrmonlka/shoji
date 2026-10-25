@@ -43,7 +43,7 @@ Item {
                 anchors.fill: parent
                 active: kept || current
                 visible: current
-                sourceComponent: ({ calendar: calendarTab, launcher: launcherTab, monitor: monitorTab, wallpapers: wallpaperTab, clipboard: clipboardTab, color: colorTab, settings: settingsTab })[modelData.id] ?? null
+                sourceComponent: ({ calendar: calendarTab, launcher: launcherTab, monitor: monitorTab, wallpapers: wallpaperTab, clipboard: clipboardTab, color: colorTab })[modelData.id] ?? null
                 onLoaded: if (warmDelay > 0 || modelData.keep) kept = true
 
                 Timer {
@@ -89,11 +89,5 @@ Item {
         id: colorTab
 
         ColorTab {}
-    }
-
-    Component {
-        id: settingsTab
-
-        SettingsTab {}
     }
 }

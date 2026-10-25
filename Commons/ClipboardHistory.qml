@@ -119,7 +119,7 @@ QtObject {
 
     readonly property Process watchText: Process {
         command: ["wl-paste", "--type", "text", "--watch", "sh", "-c", root.textWatch]
-        running: true
+        running: Settings.clipboardHistory
         stdout: SplitParser {
             onRead: root.schedule(150)
         }
@@ -127,7 +127,7 @@ QtObject {
 
     readonly property Process watchImage: Process {
         command: ["wl-paste", "--type", "image", "--watch", "sh", "-c", "cliphist store; echo c"]
-        running: true
+        running: Settings.clipboardHistory
         stdout: SplitParser {
             onRead: root.schedule(150)
         }
@@ -135,7 +135,7 @@ QtObject {
 
     readonly property Process watchFiles: Process {
         command: ["wl-paste", "--type", "text/uri-list", "--watch", "sh", "-c", "cliphist store; echo c"]
-        running: true
+        running: Settings.clipboardHistory
         stdout: SplitParser {
             onRead: root.schedule(150)
         }

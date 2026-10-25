@@ -9,10 +9,10 @@ QtObject {
 
     property string phase: "idle"
 
-    readonly property bool shown: phase !== "idle"
+    readonly property bool shown: Settings.updateStar && phase !== "idle"
 
     function check(): void {
-        if (phase === "syncing" || phase === "done" || checker.running)
+        if (!Settings.updateStar || phase === "syncing" || phase === "done" || checker.running)
             return;
         checker.running = true;
     }
@@ -63,7 +63,7 @@ QtObject {
     readonly property Timer poll: Timer {
         interval: 6 * 60 * 60 * 1000
         repeat: true
-        running: true
+        running: Settings.updateStar
         triggeredOnStart: true
         onTriggered: root.check()
     }

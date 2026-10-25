@@ -332,12 +332,21 @@ Item {
                     active: Display.night
                     onToggled: Display.setNight(!Display.night)
                 }
+
+                Tile {
+                    Layout.fillWidth: true
+                    icon: "\uf013"
+                    title: "Settings"
+                    subtitle: "Shoji"
+                    active: ShellState.settingsOpen
+                    onToggled: ShellState.toggleSettings()
+                }
             }
 
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 8
-                visible: root.trayItems.length > 0
+                visible: Settings.trayIcons && root.trayItems.length > 0
 
                 Rectangle {
                     Layout.fillWidth: true

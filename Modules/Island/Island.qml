@@ -327,6 +327,7 @@ PanelWindow {
             }
 
             Workspaces {
+                visible: Settings.showWorkspaces
                 anchors.verticalCenter: parent.verticalCenter
                 screen: win.screen
             }

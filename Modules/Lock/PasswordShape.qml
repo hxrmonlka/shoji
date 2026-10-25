@@ -8,6 +8,7 @@ Item {
     property color color: Theme.m3Primary
     property int kind: 0
     property real size: 18
+    readonly property string outline: build(kind)
 
     implicitWidth: 20
     implicitHeight: 20
@@ -108,14 +109,17 @@ Item {
 
             Shape {
                 anchors.fill: parent
-                preferredRendererType: Shape.CurveRenderer
+                layer.enabled: true
+                layer.samples: 4
+                layer.smooth: true
+                layer.mipmap: true
 
                 ShapePath {
                     strokeColor: "transparent"
                     fillColor: root.color
 
                     PathSvg {
-                        path: root.build(root.kind)
+                        path: root.outline
                     }
                 }
             }

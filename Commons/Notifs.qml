@@ -18,6 +18,8 @@ QtObject {
     function received(n) {
         console.log("shoji-notif", n.appName, n.summary, "dnd=" + dnd);
         n.tracked = true;
+        if (!Settings.notificationPopups)
+            return;
         if (dnd && n.urgency !== NotificationUrgency.Critical)
             return;
         popupInfo = {
