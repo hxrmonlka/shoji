@@ -13,6 +13,7 @@ import qs.Modules.Wallpaper
 ShellRoot {
     Component.onCompleted: {
         Apps.warm();
+        AppTheme.start();
         Brightness.refresh();
         Display.restore();
         Notifs.hidePopup();

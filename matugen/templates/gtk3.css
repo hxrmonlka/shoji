@@ -1,0 +1,366 @@
+window,
+window:backdrop,
+.background,
+.background:backdrop {
+  background-color: @window_bg_color;
+  color: @window_fg_color;
+}
+
+.view,
+.view:backdrop,
+iconview,
+textview text,
+treeview.view,
+.standard-view .view {
+  background-color: @view_bg_color;
+  color: @view_fg_color;
+}
+
+.view:selected,
+.view:selected:focus,
+iconview:selected,
+treeview.view:selected,
+treeview.view row:selected,
+.standard-view .view:selected,
+.standard-view .view:selected:focus {
+  background-color: @shoji_secondary_container;
+  color: @shoji_on_secondary_container;
+  border-radius: __RB__px;
+}
+
+selection,
+entry selection,
+textview text selection {
+  background-color: @accent_bg_color;
+  color: @accent_fg_color;
+}
+
+separator {
+  background-color: @shoji_outline_variant;
+}
+
+headerbar,
+headerbar:backdrop,
+.titlebar,
+.titlebar:backdrop,
+toolbar,
+toolbar:backdrop,
+menubar,
+menubar:backdrop,
+.menubar,
+.menubar:backdrop {
+  background-image: none;
+  background-color: @shoji_surface_container_high;
+  color: @window_fg_color;
+  border-color: @shoji_outline_variant;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+menubar > menuitem:hover,
+menubar > menuitem:checked {
+  background-color: alpha(@window_fg_color, 0.08);
+  border-radius: __RB__px;
+}
+
+menu,
+.menu,
+.popup,
+popover.background {
+  background-color: @popover_bg_color;
+  color: @popover_fg_color;
+  border: 1px solid @shoji_outline_variant;
+  border-radius: __R__px;
+}
+
+menuitem {
+  border-radius: __RB__px;
+  color: @popover_fg_color;
+}
+
+menuitem:hover {
+  background-color: alpha(@popover_fg_color, 0.1);
+}
+
+tooltip,
+tooltip.background {
+  background-color: @shoji_surface_container_highest;
+  color: @window_fg_color;
+  border-radius: __RB__px;
+}
+
+button {
+  background-image: none;
+  background-color: @shoji_surface_container_highest;
+  color: @window_fg_color;
+  border: 1px solid @shoji_outline_variant;
+  border-radius: __RB__px;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+button:backdrop {
+  background-image: none;
+  background-color: @shoji_surface_container_highest;
+  color: @shoji_on_surface_variant;
+  border-color: @shoji_outline_variant;
+}
+
+button:hover {
+  background-image: image(alpha(@window_fg_color, 0.08));
+}
+
+button:active,
+button:checked {
+  background-image: none;
+  background-color: @shoji_secondary_container;
+  color: @shoji_on_secondary_container;
+}
+
+button:disabled,
+button:disabled label {
+  background-image: none;
+  color: alpha(@window_fg_color, 0.38);
+}
+
+button.suggested-action {
+  background-color: @accent_bg_color;
+  color: @accent_fg_color;
+  border-color: transparent;
+}
+
+button.destructive-action {
+  background-color: @destructive_bg_color;
+  color: @destructive_fg_color;
+  border-color: transparent;
+}
+
+button.flat,
+button.flat:backdrop,
+headerbar button,
+headerbar button:backdrop,
+toolbar button,
+toolbar button:backdrop {
+  background-color: transparent;
+  border-color: transparent;
+  min-width: 28px;
+  min-height: 28px;
+}
+
+button.flat:hover,
+headerbar button:hover,
+toolbar button:hover {
+  background-image: image(alpha(@window_fg_color, 0.08));
+}
+
+headerbar button:active,
+headerbar button:checked,
+toolbar button:active,
+toolbar button:checked {
+  background-color: @shoji_secondary_container;
+  color: @shoji_on_secondary_container;
+}
+
+headerbar button image,
+toolbar button image {
+  color: @window_fg_color;
+}
+
+entry,
+entry:backdrop,
+spinbutton,
+spinbutton:backdrop {
+  background-image: none;
+  background-color: @shoji_surface_container_highest;
+  color: @view_fg_color;
+  border: 1px solid @shoji_outline;
+  border-radius: __RB__px;
+  box-shadow: none;
+  padding: 4px 12px;
+}
+
+entry:focus-within,
+spinbutton:focus-within {
+  border-color: @accent_bg_color;
+}
+
+spinbutton button {
+  background-image: none;
+  background-color: transparent;
+  border-color: transparent;
+  border-radius: 0;
+}
+
+combobox button.combo {
+  background-color: @shoji_surface_container_highest;
+}
+
+check,
+radio {
+  background-image: none;
+  background-color: @shoji_surface_container_highest;
+  color: @accent_fg_color;
+  border: 1px solid @shoji_outline;
+  box-shadow: none;
+}
+
+check:checked,
+radio:checked,
+check:indeterminate,
+radio:indeterminate {
+  background-color: @accent_bg_color;
+  border-color: @accent_bg_color;
+  color: @accent_fg_color;
+}
+
+switch {
+  background-image: none;
+  background-color: @shoji_surface_container_highest;
+  color: @shoji_on_surface_variant;
+  border: 1px solid @shoji_outline;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+switch:checked {
+  background-color: @accent_bg_color;
+  border-color: @accent_bg_color;
+  color: @accent_fg_color;
+}
+
+switch slider {
+  background-image: none;
+  background-color: @shoji_outline;
+  border: none;
+  box-shadow: none;
+}
+
+switch:checked slider {
+  background-color: @accent_fg_color;
+}
+
+scale trough,
+progressbar trough,
+levelbar trough {
+  background-image: none;
+  background-color: @shoji_surface_container_highest;
+  border: none;
+}
+
+scale highlight,
+progressbar progress,
+levelbar block.filled {
+  background-image: none;
+  background-color: @accent_bg_color;
+  border: none;
+}
+
+scale slider {
+  background-image: none;
+  background-color: @accent_bg_color;
+  border: none;
+  box-shadow: none;
+}
+
+scrollbar,
+scrollbar trough {
+  background-color: transparent;
+  border: none;
+}
+
+scrollbar slider {
+  background-color: alpha(@window_fg_color, 0.4);
+  border-radius: 100px;
+}
+
+treeview.view header button {
+  background-image: none;
+  background-color: @shoji_surface_container_high;
+  color: @shoji_on_surface_variant;
+  border-color: @shoji_outline_variant;
+  border-radius: 0;
+}
+
+notebook,
+notebook > stack {
+  background-color: @window_bg_color;
+  border-color: @shoji_outline_variant;
+}
+
+notebook header,
+notebook header:backdrop {
+  background-color: @shoji_surface_container_high;
+  border-color: @shoji_outline_variant;
+  box-shadow: none;
+}
+
+notebook header tab {
+  background-image: none;
+  background-color: transparent;
+  color: @shoji_on_surface_variant;
+  padding: 6px 14px;
+  border-radius: __RB__px __RB__px 0 0;
+}
+
+notebook header tab:checked {
+  background-color: @window_bg_color;
+  color: @window_fg_color;
+  box-shadow: inset 0 -2px @accent_bg_color;
+}
+
+notebook header tab:hover {
+  background-color: alpha(@window_fg_color, 0.08);
+}
+
+frame > border {
+  border-color: @shoji_outline_variant;
+}
+
+scrolledwindow {
+  border-color: @shoji_outline_variant;
+}
+
+infobar > revealer > box,
+infobar.info > revealer > box,
+infobar.info:backdrop > revealer > box,
+infobar.question > revealer > box,
+infobar.question:backdrop > revealer > box,
+infobar.warning > revealer > box,
+infobar.warning:backdrop > revealer > box,
+infobar.error > revealer > box,
+infobar.error:backdrop > revealer > box {
+  background-image: none;
+  background-color: @shoji_surface_container_high;
+  border-bottom: 1px solid @shoji_outline_variant;
+  padding: 8px;
+}
+
+infobar.info > revealer > box label,
+infobar.question > revealer > box label,
+infobar.warning > revealer > box label,
+infobar.error > revealer > box label {
+  color: @window_fg_color;
+}
+
+infobar.info button,
+infobar.question button,
+infobar.warning button,
+infobar.error button {
+  background-image: none;
+  background-color: @shoji_surface_container_highest;
+  color: @window_fg_color;
+  border-color: @shoji_outline;
+  text-shadow: none;
+  box-shadow: none;
+}
+
+statusbar {
+  background-color: @shoji_surface_container;
+  color: @shoji_on_surface_variant;
+  border-top: 1px solid @shoji_outline_variant;
+}
+
+paned > separator {
+  background-color: @shoji_outline_variant;
+  min-width: 1px;
+}

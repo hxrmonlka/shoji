@@ -16,7 +16,6 @@ QtObject {
     readonly property string cacheHome: Quickshell.env("XDG_CACHE_HOME") || home + "/.cache"
     readonly property string thumbDir: cacheHome + "/shoji/thumbs"
     readonly property int count: folder.count
-    readonly property string script: 'cfg="$HOME/.config/matugen/config.toml"; if grep -qs "templates.shoji" "$cfg"; then exec matugen image "$1" --mode dark --source-color-index 0; else exec matugen image "$1" --mode dark --source-color-index 0 --config "$2"; fi'
 
     property string dir: defaultDir
     property string current: ""
@@ -75,9 +74,20 @@ QtObject {
         launch();
     }
 
+    function refresh() {
+        if (!current)
+            return;
+        pending = current;
+        if (matugen.running) {
+            dirty = true;
+            return;
+        }
+        launch();
+    }
+
     function launch() {
         busy = true;
-        matugen.exec(["sh", "-c", script, "shoji-matugen", pending, stateDir + "/matugen.toml"]);
+        matugen.exec(["sh", Quickshell.shellPath("scripts/theme.sh"), Quickshell.shellDir, stateDir, pending, AppTheme.enabled, String(AppTheme.radius)]);
     }
 
     function indexOfCurrent() {
@@ -109,7 +119,6 @@ QtObject {
 
     Component.onCompleted: {
         thumbDebounce.start();
-        standalone.setText("[config]\n\n[templates.shoji]\ninput_path = '" + Quickshell.shellDir + "/matugen/colors.json'\noutput_path = '" + stateDir + "/colors.json'\n");
     }
 
     readonly property FolderListModel folder: FolderListModel {
@@ -153,12 +162,6 @@ QtObject {
                 root.current = "";
             }
         }
-    }
-
-    readonly property FileView standalone: FileView {
-        path: root.stateDir + "/matugen.toml"
-        atomicWrites: true
-        printErrors: false
     }
 
     readonly property Process chooser: Process {

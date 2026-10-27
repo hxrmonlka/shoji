@@ -14,6 +14,7 @@ QtObject {
         { id: "circles", title: "Circles", icon: "\uf111" },
         { id: "display", title: "Display", icon: "\uf108" },
         { id: "features", title: "Features", icon: "\uf205" },
+        { id: "theming", title: "App theming", icon: "\uf53f" },
         { id: "lock", title: "Lock screen", icon: "\uf023" },
         { id: "system", title: "System", icon: "\uf085" }
     ]
@@ -45,6 +46,13 @@ QtObject {
         { key: "trayIcons", cat: "features", section: "Panels", label: "System tray", desc: "Show tray icons in the Control Panel.", type: "bool", def: true },
         { key: "visualizer", cat: "features", section: "Panels", label: "Audio visualizer", desc: "Run cava for the media panel bars.", type: "bool", def: true },
         { key: "clipboardHistory", cat: "features", section: "Background", label: "Clipboard history", desc: "Record copied text, images and files with cliphist.", type: "bool", def: true },
+        { key: "themeMango", cat: "theming", section: "Apps", label: "MangoWM", desc: "Border, bar and shadow colors in mango/shoji/colors.conf.", type: "bool", def: true },
+        { key: "themeKitty", cat: "theming", section: "Apps", label: "kitty", desc: "Terminal and tab colors in kitty/shoji-theme.conf.", type: "bool", def: true },
+        { key: "themeBtop", cat: "theming", section: "Apps", label: "btop", desc: "Theme file btop/themes/shoji.theme.", type: "bool", def: true },
+        { key: "themeEquicord", cat: "theming", section: "Apps", label: "Equicord", desc: "Theme file Equicord/themes/shoji-equicord.css.", type: "bool", def: true },
+        { key: "themeGtk", cat: "theming", section: "Apps", label: "GTK 3 and 4", desc: "Colors and shapes for GTK apps, including Thunar.", type: "bool", def: true },
+        { key: "themeHelium", cat: "theming", section: "Apps", label: "Helium", desc: "Needs a writable /etc/chromium/policies/managed/shoji-color.json.", type: "bool", def: true },
+        { key: "themeRadius", cat: "theming", section: "Shape", label: "GTK corner radius", desc: "Cards and menus use this radius. Buttons and fields use two thirds of it.", min: 4, max: 24, step: 1, def: 12 },
         { key: "lockPamConfig", cat: "lock", section: "Authentication", label: "PAM service", desc: "Name of the PAM config used to check the password.", type: "string", def: "login" },
         { key: "logoutCommand", cat: "lock", section: "Power menu", label: "Logout command", desc: "Run by the Logout entry on the lock screen.", type: "string", def: "loginctl terminate-session \"$XDG_SESSION_ID\"" },
         { key: "screenshotDir", cat: "system", section: "Paths", label: "Screenshot folder", type: "string", def: "~/Pictures/Screenshots" },
@@ -83,6 +91,13 @@ QtObject {
     readonly property bool trayIcons: get("trayIcons")
     readonly property bool visualizer: get("visualizer")
     readonly property bool clipboardHistory: get("clipboardHistory")
+    readonly property bool themeMango: get("themeMango")
+    readonly property bool themeKitty: get("themeKitty")
+    readonly property bool themeBtop: get("themeBtop")
+    readonly property bool themeEquicord: get("themeEquicord")
+    readonly property bool themeGtk: get("themeGtk")
+    readonly property bool themeHelium: get("themeHelium")
+    readonly property int themeRadius: get("themeRadius")
     readonly property string lockPamConfig: get("lockPamConfig")
     readonly property string logoutCommand: get("logoutCommand")
     readonly property string screenshotDir: get("screenshotDir")

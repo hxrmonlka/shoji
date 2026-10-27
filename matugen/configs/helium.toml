@@ -1,0 +1,3 @@
+[templates.shoji_helium]
+input_path = 'SHELL_DIR/matugen/templates/helium.json'
+output_path = '/etc/chromium/policies/managed/shoji-color.json'

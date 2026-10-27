@@ -1,0 +1,22 @@
+button {
+  border-radius: __RB__px;
+}
+
+entry,
+spinbutton {
+  border-radius: __RB__px;
+}
+
+popover > contents {
+  border-radius: __R__px;
+}
+
+.card,
+.boxed-list {
+  border-radius: __R__px;
+}
+
+row:selected,
+.navigation-sidebar row:selected {
+  border-radius: __RB__px;
+}

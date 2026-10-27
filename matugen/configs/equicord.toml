@@ -1,0 +1,3 @@
+[templates.shoji_equicord]
+input_path = 'SHELL_DIR/matugen/templates/equicord.css'
+output_path = 'CONFIG_DIR/Equicord/themes/shoji-equicord.css'
