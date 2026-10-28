@@ -14,6 +14,7 @@ QtObject {
     readonly property color m3OnPrimary: file.adapter.on_primary
     readonly property color m3PrimaryContainer: file.adapter.primary_container
     readonly property color m3OnPrimaryContainer: file.adapter.on_primary_container
+    readonly property color m3Secondary: file.adapter.secondary
     readonly property color m3Tertiary: file.adapter.tertiary
     readonly property color m3Surface: file.adapter.surface
     readonly property color m3OnSurface: file.adapter.on_surface
@@ -22,6 +23,7 @@ QtObject {
     readonly property color m3SurfaceContainerHigh: file.adapter.surface_container_high
     readonly property color m3SurfaceContainerHighest: file.adapter.surface_container_highest
     readonly property color m3OutlineVariant: file.adapter.outline_variant
+    readonly property string m3SourceColor: file.adapter.source_color
 
     readonly property FileView file: FileView {
         path: Quickshell.env("HOME") + "/.local/state/shoji/colors.json"
@@ -33,6 +35,7 @@ QtObject {
             property string on_primary: "#1000a9"
             property string primary_container: "#3f3fc6"
             property string on_primary_container: "#e1e0ff"
+            property string secondary: "#c7c0d8"
             property string tertiary: "#e9b9d3"
             property string surface: "#131318"
             property string on_surface: "#e4e1e9"
@@ -41,6 +44,7 @@ QtObject {
             property string surface_container_high: "#2a292f"
             property string surface_container_highest: "#35343a"
             property string outline_variant: "#46464f"
+            property string source_color: ""
         }
     }
 }

@@ -14,6 +14,7 @@ QtObject {
         { id: "circles", title: "Circles", icon: "\uf111" },
         { id: "display", title: "Display", icon: "\uf108" },
         { id: "features", title: "Features", icon: "\uf205" },
+        { id: "colors", title: "Colors", icon: "\uf043" },
         { id: "theming", title: "App theming", icon: "\uf53f" },
         { id: "lock", title: "Lock screen", icon: "\uf023" },
         { id: "system", title: "System", icon: "\uf085" }
@@ -46,6 +47,8 @@ QtObject {
         { key: "trayIcons", cat: "features", section: "Panels", label: "System tray", desc: "Show tray icons in the Control Panel.", type: "bool", def: true },
         { key: "visualizer", cat: "features", section: "Panels", label: "Audio visualizer", desc: "Run cava for the media panel bars.", type: "bool", def: true },
         { key: "clipboardHistory", cat: "features", section: "Background", label: "Clipboard history", desc: "Record copied text, images and files with cliphist.", type: "bool", def: true },
+        { key: "themeScheme", cat: "colors", section: "Palette", label: "Color scheme", desc: "Algorithm matugen uses to build the palette from the wallpaper.", type: "scheme", def: "scheme-tonal-spot" },
+        { key: "themeMode", cat: "colors", section: "Palette", label: "Mode", desc: "Dark or light colors for the shell and every themed app.", type: "choice", options: [{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }], def: "dark" },
         { key: "themeMango", cat: "theming", section: "Apps", label: "MangoWM", desc: "Border, bar and shadow colors in mango/shoji/colors.conf.", type: "bool", def: true },
         { key: "themeKitty", cat: "theming", section: "Apps", label: "kitty", desc: "Terminal and tab colors in kitty/shoji-theme.conf.", type: "bool", def: true },
         { key: "themeBtop", cat: "theming", section: "Apps", label: "btop", desc: "Theme file btop/themes/shoji.theme.", type: "bool", def: true },
@@ -91,6 +94,8 @@ QtObject {
     readonly property bool trayIcons: get("trayIcons")
     readonly property bool visualizer: get("visualizer")
     readonly property bool clipboardHistory: get("clipboardHistory")
+    readonly property string themeScheme: get("themeScheme")
+    readonly property string themeMode: get("themeMode")
     readonly property bool themeMango: get("themeMango")
     readonly property bool themeKitty: get("themeKitty")
     readonly property bool themeBtop: get("themeBtop")
@@ -107,7 +112,12 @@ QtObject {
     function get(key) {
         const d = defs[key];
         const v = values[key];
-        if (d.type === "string")
+        if (d.type === "choice") {
+            if (typeof v === "string" && d.options.some(o => o.value === v))
+                return v;
+            return d.def;
+        }
+        if (d.type === "string" || d.type === "scheme")
             return typeof v === "string" ? v : d.def;
         if (d.type === "bool")
             return typeof v === "boolean" ? v : d.def;
@@ -120,7 +130,11 @@ QtObject {
         if (!d)
             return false;
         let v;
-        if (d.type === "string") {
+        if (d.type === "choice") {
+            v = String(raw);
+            if (!d.options.some(o => o.value === v))
+                return false;
+        } else if (d.type === "string" || d.type === "scheme") {
             v = String(raw);
         } else if (d.type === "bool") {
             if (typeof raw === "boolean") {

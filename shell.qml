@@ -284,6 +284,30 @@ ShellRoot {
     }
 
     IpcHandler {
+        target: "theme"
+
+        function scheme(name: string): bool {
+            return Schemes.setScheme(name);
+        }
+
+        function mode(name: string): bool {
+            return Schemes.setMode(name);
+        }
+
+        function current(): string {
+            return Schemes.scheme + " " + Schemes.mode;
+        }
+
+        function list(): string {
+            return Schemes.values.join(" ");
+        }
+
+        function preview(): void {
+            Schemes.retry();
+        }
+    }
+
+    IpcHandler {
         target: "clipboard"
 
         function toggle(): void {

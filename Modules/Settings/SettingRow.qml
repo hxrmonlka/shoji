@@ -8,7 +8,7 @@ Item {
     required property var entry
 
     readonly property string kind: entry.type ?? "int"
-    readonly property real body: kind === "bool" ? toggleRow.implicitHeight : kind === "string" ? textRow.implicitHeight : sliderRow.implicitHeight
+    readonly property real body: kind === "bool" ? toggleRow.implicitHeight : kind === "string" ? textRow.implicitHeight : kind === "choice" ? choiceRow.implicitHeight : kind === "scheme" ? schemeCol.implicitHeight : sliderRow.implicitHeight
 
     implicitHeight: body + 28
 
@@ -107,7 +107,7 @@ Item {
     RowLayout {
         id: sliderRow
 
-        visible: root.kind !== "bool" && root.kind !== "string"
+        visible: root.kind !== "bool" && root.kind !== "string" && root.kind !== "choice" && root.kind !== "scheme"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.leftMargin: 20
@@ -198,6 +198,100 @@ Item {
                 font.family: Theme.fontUi
                 font.pixelSize: 13
             }
+        }
+    }
+
+    RowLayout {
+        id: choiceRow
+
+        visible: root.kind === "choice"
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: 20
+        anchors.rightMargin: 20
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 16
+
+        Caption {
+            Layout.preferredWidth: 240
+            entry: root.entry
+        }
+
+        Row {
+            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignVCenter
+            spacing: 8
+
+            Repeater {
+                model: root.entry.options
+
+                Rectangle {
+                    id: pill
+
+                    required property var modelData
+                    readonly property bool chosen: Settings.get(root.entry.key) === modelData.value
+
+                    width: pillLabel.implicitWidth + 30
+                    height: 34
+                    radius: 17
+                    color: pillFill.color
+                    border.width: 1
+                    border.color: pillRing.color
+
+                    ColorSpring {
+                        id: pillFill
+
+                        target: pillArea.containsMouse ? Theme.m3SurfaceContainerHighest : pill.chosen ? Theme.m3PrimaryContainer : "transparent"
+                    }
+
+                    ColorSpring {
+                        id: pillRing
+
+                        target: pill.chosen ? Theme.m3Primary : Theme.m3OutlineVariant
+                    }
+
+                    Text {
+                        id: pillLabel
+
+                        anchors.centerIn: parent
+                        text: pill.modelData.label
+                        color: pill.chosen ? Theme.m3OnPrimaryContainer : Theme.m3OnSurfaceVariant
+                        font.family: Theme.fontUi
+                        font.pixelSize: 13
+                        font.weight: pill.chosen ? Font.DemiBold : Font.Medium
+                    }
+
+                    MouseArea {
+                        id: pillArea
+
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Settings.set(root.entry.key, pill.modelData.value)
+                    }
+                }
+            }
+        }
+    }
+
+    ColumnLayout {
+        id: schemeCol
+
+        visible: root.kind === "scheme"
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: 20
+        anchors.rightMargin: 20
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 12
+
+        Caption {
+            Layout.fillWidth: true
+            entry: root.entry
+        }
+
+        SchemeGrid {
+            Layout.fillWidth: true
         }
     }
 }

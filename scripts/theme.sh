@@ -4,6 +4,18 @@ state="$2"
 img="$3"
 enabled="$4"
 radius="${5:-12}"
+scheme="${6:-scheme-tonal-spot}"
+mode="${7:-dark}"
+
+case " scheme-content scheme-expressive scheme-fidelity scheme-fruit-salad scheme-monochrome scheme-neutral scheme-rainbow scheme-tonal-spot scheme-vibrant " in
+    *" $scheme "*) ;;
+    *) scheme="scheme-tonal-spot" ;;
+esac
+
+case "$mode" in
+    light) ;;
+    *) mode="dark" ;;
+esac
 
 conf="${XDG_CONFIG_HOME:-$HOME/.config}"
 cfg="$state/matugen.toml"
@@ -57,7 +69,7 @@ TOML
     fi
 } > "$cfg.tmp" && mv "$cfg.tmp" "$cfg" || exit 1
 
-matugen image "$img" --mode dark --source-color-index 0 --config "$cfg"
+matugen image "$img" --mode "$mode" --type "$scheme" --source-color-index 0 --config "$cfg"
 rc=$?
 [ "$rc" -eq 0 ] || exit "$rc"
 
@@ -74,8 +86,13 @@ for id in $active; do
             ;;
         gtk)
             if command -v gsettings >/dev/null 2>&1; then
+                if [ "$mode" = "light" ]; then
+                    prefer="prefer-light"
+                else
+                    prefer="prefer-dark"
+                fi
                 gsettings set org.gnome.desktop.interface color-scheme default >/dev/null 2>&1
-                gsettings set org.gnome.desktop.interface color-scheme prefer-dark >/dev/null 2>&1
+                gsettings set org.gnome.desktop.interface color-scheme "$prefer" >/dev/null 2>&1
             fi
             ;;
         helium)
