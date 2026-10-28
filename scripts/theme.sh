@@ -38,6 +38,7 @@ has btop && command -v btop >/dev/null 2>&1 && active="$active btop"
 has equicord && [ -d "$conf/Equicord" ] && active="$active equicord"
 has gtk && active="$active gtk"
 has helium && [ -w /etc/chromium/policies/managed/shoji-color.json ] && active="$active helium"
+has spotify && command -v shoji-spicetify-apply >/dev/null 2>&1 && active="$active spotify"
 
 rb=$((radius * 2 / 3))
 for v in 3 4; do
@@ -79,7 +80,7 @@ for id in $active; do
             [ -n "${MANGO_INSTANCE_SIGNATURE:-}" ] && mmsg dispatch reload_config >/dev/null 2>&1
             ;;
         kitty)
-            pkill -USR1 -x kitty >/dev/null 2>&1
+            pkill -USR1 -f '(^|/)\.?kitty(-wrapped)?( |$)' >/dev/null 2>&1
             ;;
         btop)
             pkill -USR2 -x btop >/dev/null 2>&1
@@ -97,6 +98,9 @@ for id in $active; do
             ;;
         helium)
             command -v helium >/dev/null 2>&1 && timeout 5 helium --refresh-platform-policy --no-startup-window >/dev/null 2>&1
+            ;;
+        spotify)
+            shoji-spicetify-apply "$state/spotify-colors.json" || printf '%s\n' "Shoji: Spotify color update failed" >&2
             ;;
     esac
 done

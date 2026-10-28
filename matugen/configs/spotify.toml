@@ -1,0 +1,3 @@
+[templates.shoji_spotify]
+input_path = 'SHELL_DIR/matugen/templates/spotify.json'
+output_path = 'STATE_DIR/spotify-colors.json'

@@ -28,6 +28,35 @@ treeview.view row:selected,
   border-radius: __RB__px;
 }
 
+.sidebar,
+.sidebar:backdrop,
+.sidebar .view,
+.sidebar .view:backdrop,
+.sidebar treeview.view,
+.sidebar treeview.view:backdrop,
+.sidebar treeview.view.cell {
+  background-color: transparent;
+  background-image: none;
+}
+
+.sidebar treeview.view:selected,
+.sidebar treeview.view:selected:focus,
+.sidebar treeview.view:selected:backdrop,
+.sidebar treeview.view:selected:hover {
+  background-color: @shoji_secondary_container;
+  background-image: none;
+  color: @shoji_on_secondary_container;
+  border-radius: __RB__px;
+  outline-color: transparent;
+  box-shadow: none;
+}
+
+treeview.view.cell:selected,
+treeview.view.cell:selected:focus {
+  border-radius: __RB__px;
+  outline-color: transparent;
+}
+
 selection,
 entry selection,
 textview text selection {

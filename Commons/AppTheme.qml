@@ -13,7 +13,8 @@ QtObject {
         { id: "btop", key: "themeBtop" },
         { id: "equicord", key: "themeEquicord" },
         { id: "gtk", key: "themeGtk" },
-        { id: "helium", key: "themeHelium" }
+        { id: "helium", key: "themeHelium" },
+        { id: "spotify", key: "themeSpotify" }
     ]
     readonly property string enabled: apps.filter(a => Settings.get(a.key)).map(a => a.id).join(" ")
     readonly property int radius: Settings.get("themeRadius")
