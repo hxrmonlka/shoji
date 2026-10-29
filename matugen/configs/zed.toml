@@ -1,0 +1,3 @@
+[templates.shoji_zed]
+input_path = 'SHELL_DIR/matugen/templates/zed.json'
+output_path = 'CONFIG_DIR/zed/themes/shoji.json'

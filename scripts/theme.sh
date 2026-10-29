@@ -39,6 +39,7 @@ has equicord && [ -d "$conf/Equicord" ] && active="$active equicord"
 has gtk && active="$active gtk"
 has helium && [ -w /etc/chromium/policies/managed/shoji-color.json ] && active="$active helium"
 has spotify && command -v shoji-spicetify-apply >/dev/null 2>&1 && active="$active spotify"
+has zed && [ -d "$conf/zed" ] && mkdir -p "$conf/zed/themes" && active="$active zed"
 
 rb=$((radius * 2 / 3))
 for v in 3 4; do
@@ -56,6 +57,7 @@ yellow = "#e0b64a"
 blue = "#5f9be8"
 magenta = "#c678dd"
 cyan = "#4fb8c9"
+orange = "#e8883a"
 
 [templates.shoji]
 TOML
