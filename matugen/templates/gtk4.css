@@ -1,5 +1,28 @@
 button {
   border-radius: __RB__px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+button.image-button {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+button.text-button {
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+button.text-button.image-button,
+button.image-text-button {
+  padding-left: 7px;
+  padding-right: 7px;
+}
+
+button.arrow-button {
+  padding-left: 7px;
+  padding-right: 7px;
 }
 
 entry,

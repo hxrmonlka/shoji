@@ -195,6 +195,38 @@ toolbar button image {
   color: @window_fg_color;
 }
 
+button {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+button.image-button {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+button.text-button {
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+button.text-button.image-button,
+button.image-text-button {
+  padding-left: 3px;
+  padding-right: 3px;
+}
+
+button.text-button.image-button label,
+button.image-text-button label {
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+button.arrow-button {
+  padding-left: 7px;
+  padding-right: 7px;
+}
+
 entry,
 entry:backdrop,
 spinbutton,
