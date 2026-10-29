@@ -21,6 +21,7 @@ Item {
     }
 
     Component.onCompleted: {
+        Profile.refresh();
         refocus();
         intro.start();
     }
@@ -146,6 +147,15 @@ Item {
                 color: (Bluetooth.defaultAdapter !== null && Bluetooth.defaultAdapter.enabled) ? Theme.m3OnSurface : Qt.alpha(Theme.m3OnSurfaceVariant, 0.4)
             }
         }
+    }
+
+    Avatar {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: field.top
+        anchors.bottomMargin: 24
+        opacity: root.reveal
+        kind: LockState.frameShape
+        size: 96
     }
 
     Rectangle {

@@ -13,6 +13,7 @@ QtObject {
     property bool busy: false
     property bool failed: false
     property string message: ""
+    property int frameShape: 0
 
     readonly property ListModel shapes: ListModel {}
 
@@ -30,6 +31,8 @@ QtObject {
         ShellState.hidePanels();
         ShellState.spotlight = false;
         Network.refresh();
+        const pool = MaterialShapes.frameKinds.filter(k => k !== frameShape);
+        frameShape = pool[Math.floor(Math.random() * pool.length)];
         password = "";
         failed = false;
         message = "";
