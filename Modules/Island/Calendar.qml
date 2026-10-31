@@ -10,7 +10,19 @@ ColumnLayout {
     readonly property date firstOfMonth: new Date(shown.getFullYear(), shown.getMonth(), 1)
     readonly property int offset: (firstOfMonth.getDay() + 6) % 7
 
+    property real lastShown: 0
+
     signal daySelected(date picked)
+
+    Component.onCompleted: lastShown = shown.getTime()
+
+    onShownChanged: {
+        const t = shown.getTime();
+        titleSlide.value = t > lastShown ? 18 : -18;
+        titleSlide.velocity = 0;
+        titleSlide.kick();
+        lastShown = t;
+    }
 
     function shift(months) {
         shown = new Date(shown.getFullYear(), shown.getMonth() + months, 1);
@@ -22,11 +34,23 @@ ColumnLayout {
 
     spacing: 10
 
+    Spring {
+        id: titleSlide
+
+        target: 0
+        token: Motion.spatialDefault
+        epsilon: 0.05
+    }
+
     RowLayout {
         Layout.fillWidth: true
 
         Text {
             Layout.fillWidth: true
+            transform: Translate {
+                x: titleSlide.value
+            }
+            opacity: 1 - Motion.clamp01(Math.abs(titleSlide.value) / 36)
             text: Qt.formatDate(root.shown, "MMMM yyyy")
             color: Theme.m3OnSurface
             font.family: Theme.fontUi
@@ -46,6 +70,22 @@ ColumnLayout {
                 Layout.preferredHeight: 32
                 radius: 16
                 color: navFill.color
+                scale: Motion.lerp(1, 0.88, press.value)
+
+                Spring {
+                    id: press
+
+                    target: navArea.pressed ? 1 : 0
+                    token: Motion.spatialFast
+                    epsilon: 0.001
+                }
+
+                Ripple {
+                    id: navRipple
+
+                    anchors.fill: parent
+                    radius: nav.radius
+                }
 
                 ColorSpring {
                     id: navFill
@@ -67,6 +107,7 @@ ColumnLayout {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
+                    onPressed: mouse => navRipple.press(navArea, mouse)
                     onClicked: root.shift(nav.modelData.step)
                 }
             }
@@ -111,6 +152,12 @@ ColumnLayout {
                 Layout.preferredHeight: 40
 
                 ColorSpring {
+                    id: ring
+
+                    target: cell.isSelected && !cell.isToday ? Theme.m3Primary : "transparent"
+                }
+
+                ColorSpring {
                     id: cellFill
 
                     target: cell.isToday ? Theme.m3Primary : cellArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
@@ -122,9 +169,15 @@ ColumnLayout {
                     height: 36
                     radius: 18
                     color: cellFill.color
-                    border.width: cell.isSelected && !cell.isToday ? 2 : 0
-                    border.color: Theme.m3Primary
+                    border.width: 2
+                    border.color: ring.color
 
+                    Ripple {
+                        id: cellRipple
+
+                        anchors.fill: parent
+                        radius: parent.radius
+                    }
                 }
 
                 Text {
@@ -154,6 +207,7 @@ ColumnLayout {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
+                    onPressed: mouse => cellRipple.press(cellArea, mouse)
                     onClicked: {
                         root.shown = new Date(cell.day.getFullYear(), cell.day.getMonth(), 1);
                         root.daySelected(cell.day);

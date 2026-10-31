@@ -39,6 +39,7 @@ Item {
     property real prevIdle: 0
     property string sortKey: "mem"
     property bool sortDesc: true
+    property bool sortAnim: false
     property int menuPid: 0
     property string menuName: ""
     property var menuAnchor: null
@@ -163,12 +164,21 @@ Item {
     }
 
     function setSort(key): void {
+        sortAnim = true;
+        sortAnimTimer.restart();
         if (sortKey === key) {
             sortDesc = !sortDesc;
             return;
         }
         sortKey = key;
         sortDesc = key !== "name";
+    }
+
+    Timer {
+        id: sortAnimTimer
+
+        interval: 400
+        onTriggered: root.sortAnim = false
     }
 
     function openMenu(proc, anchor): void {
@@ -247,9 +257,27 @@ Item {
 
         implicitHeight: 30
 
+        Spring {
+            id: sel
+
+            target: head.active ? 1 : 0
+            token: Motion.spatialDefault
+            epsilon: 0.001
+        }
+
+        Spring {
+            id: arrow
+
+            target: root.sortDesc ? 0 : 180
+            token: Motion.spatialFast
+            epsilon: 0.05
+        }
+
         Rectangle {
             anchors.centerIn: parent
-            visible: head.active
+            visible: sel.value > 0.001
+            opacity: Motion.clamp01(sel.value)
+            scale: Motion.lerp(0.8, 1, sel.value)
             width: headRow.implicitWidth + 24
             height: 26
             radius: 13
@@ -272,7 +300,8 @@ Item {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: root.sortDesc ? "\uf0d7" : "\uf0d8"
+                    text: "\uf0d7"
+                    rotation: arrow.value
                     color: Theme.m3OnPrimaryContainer
                     font.family: Theme.fontIcon
                     font.pixelSize: 10
@@ -285,7 +314,8 @@ Item {
             anchors.left: head.lead ? parent.left : undefined
             anchors.right: head.tail ? parent.right : undefined
             anchors.horizontalCenter: head.lead || head.tail ? undefined : parent.horizontalCenter
-            visible: !head.active
+            opacity: 1 - Motion.clamp01(sel.value / 0.5)
+            visible: opacity > 0
             text: head.label
             color: Theme.m3OnSurfaceVariant
             font.family: Theme.fontUi
@@ -352,6 +382,24 @@ Item {
                 clip: true
                 spacing: 2
                 boundsBehavior: Flickable.StopAtBounds
+                move: Transition {
+                    enabled: root.sortAnim
+
+                    NumberAnimation {
+                        properties: "y"
+                        duration: 260
+                        easing.type: Easing.OutCubic
+                    }
+                }
+                displaced: Transition {
+                    enabled: root.sortAnim
+
+                    NumberAnimation {
+                        properties: "y"
+                        duration: 260
+                        easing.type: Easing.OutCubic
+                    }
+                }
                 model: ScriptModel {
                     values: root.shown
                 }

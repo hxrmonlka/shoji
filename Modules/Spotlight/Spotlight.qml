@@ -10,6 +10,11 @@ PanelWindow {
     readonly property string query: input.text
     readonly property var results: build(query, Files.results)
     readonly property bool noResults: query.trim().length > 0 && results.length === 0 && !Files.running
+    readonly property var engines: ({
+            kagi: { name: "Kagi", url: "https://kagi.com/search?q=" },
+            google: { name: "Google", url: "https://www.google.com/search?q=" }
+        })
+    readonly property var engine: engines[Settings.searchEngine] ?? engines.kagi
     readonly property int barHeight: 60
     readonly property int maxList: Math.max(120, Math.min(420, height - (height * 0.45 - barHeight / 2) - barHeight - 45))
     readonly property int listHeight: noResults ? 56 : Math.min(list.contentHeight, maxList)
@@ -34,11 +39,22 @@ PanelWindow {
         return dir.startsWith(home) ? "~" + dir.substring(home.length) : dir;
     }
 
+    function webQuery(q) {
+        const m = /^>w(?:\s+(.*))?$/i.exec(q.trim());
+        return m ? (m[1] ?? "").trim() : null;
+    }
+
     function build(q, files) {
         const text = q.trim();
         const out = [];
         if (text.length === 0)
             return out;
+        const web = webQuery(text);
+        if (web !== null) {
+            out.push({ kind: "header", title: "Web" });
+            out.push({ kind: "item", type: "web", title: web.length > 0 ? "Search " + engine.name + " for \"" + web + "\"" : "Search " + engine.name, subtitle: web.length > 0 ? "Open in the default browser" : "Type your query after >w", query: web });
+            return out;
+        }
         const section = (title, rows) => {
             if (rows.length === 0)
                 return;
@@ -52,7 +68,11 @@ PanelWindow {
     }
 
     function activate(item) {
-        if (item.type === "file")
+        if (item.type === "web") {
+            if (item.query.length === 0)
+                return;
+            Quickshell.execDetached(["xdg-open", engine.url + encodeURIComponent(item.query)]);
+        } else if (item.type === "file")
             Quickshell.execDetached(["xdg-open", item.path]);
         else
             item.entry.execute();
@@ -164,7 +184,7 @@ PanelWindow {
                 selectedTextColor: Theme.m3OnPrimaryContainer
                 font.family: Theme.fontUi
                 font.pixelSize: 22
-                onTextChanged: Files.search(text)
+                onTextChanged: Files.search(win.webQuery(text) !== null ? "" : text)
                 Keys.onDownPressed: win.move(1)
                 Keys.onUpPressed: win.move(-1)
                 Keys.onTabPressed: win.move(1)

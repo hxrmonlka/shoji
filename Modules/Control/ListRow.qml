@@ -21,6 +21,13 @@ Rectangle {
         target: root.active ? Theme.m3PrimaryContainer : area.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
     }
 
+    Ripple {
+        id: ripple
+
+        anchors.fill: parent
+        radius: root.radius
+    }
+
     Text {
         id: lead
 
@@ -66,6 +73,7 @@ Rectangle {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
+        onPressed: mouse => ripple.press(area, mouse)
         onClicked: root.clicked()
     }
 }

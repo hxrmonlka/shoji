@@ -23,6 +23,8 @@ QtObject {
     function setFocus(on) {
         if (!focusAvailable)
             return;
+        if (on && night)
+            night = false;
         focusWanted = on;
         focus = on;
         focusStore.setText(JSON.stringify({ focus: on }) + "\n");
@@ -45,6 +47,8 @@ QtObject {
     }
 
     function setNight(on) {
+        if (on && focus)
+            setFocus(false);
         night = on;
     }
 

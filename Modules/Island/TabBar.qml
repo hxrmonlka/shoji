@@ -107,6 +107,13 @@ Item {
                             target: chip.active ? Theme.m3PrimaryContainer : chipArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
                         }
 
+                        Ripple {
+                            id: chipRipple
+
+                            anchors.fill: parent
+                            radius: chip.radius
+                        }
+
                         Row {
                             id: chipRow
 
@@ -137,6 +144,7 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
+                            onPressed: mouse => chipRipple.press(chipArea, mouse)
                             onClicked: root.picked(chip.modelData.id)
                         }
                     }

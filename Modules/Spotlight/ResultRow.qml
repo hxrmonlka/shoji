@@ -51,7 +51,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             size: 30
             icon: row.modelData.entry ? row.modelData.entry.icon : ""
-            fallback: row.modelData.type === "file" ? (row.modelData.dir ? "\uf07b" : "\uf15b") : "\uf2d0"
+            fallback: row.modelData.type === "file" ? (row.modelData.dir ? "\uf07b" : "\uf15b") : row.modelData.type === "web" ? "\uf0ac" : "\uf2d0"
         }
 
         Column {

@@ -18,7 +18,7 @@ Item {
 
     Binding on dotsWidth {
         when: !root.overview && dots.implicitWidth > 0
-        value: dots.implicitWidth
+        value: Math.max(0, dots.implicitWidth - 6)
     }
 
     Spring {
@@ -33,28 +33,35 @@ Item {
         id: dots
 
         anchors.centerIn: parent
-        spacing: 6
+        spacing: 0
         opacity: 1 - Motion.clamp01(swap.value / 0.5)
         visible: opacity > 0
 
         Repeater {
             model: WindowManager.screenProjection(root.screen).windowsets
 
-            Rectangle {
-                id: dot
+            Item {
+                id: slot
 
                 required property var modelData
+                readonly property bool shown: modelData.shouldDisplay && modelData.name !== "overview"
 
-                visible: modelData.shouldDisplay && modelData.name !== "overview"
-                width: grow.value
+                width: Math.max(0, presence.value) * (grow.value + 6)
                 height: 8
-                radius: 4
-                color: tint.color
+                visible: presence.value > 0.001
+
+                Spring {
+                    id: presence
+
+                    target: slot.shown ? 1 : 0
+                    token: Motion.effectsSlow
+                    epsilon: 0.002
+                }
 
                 Spring {
                     id: grow
 
-                    target: dot.modelData.active ? 22 : 8
+                    target: slot.modelData.active ? 22 : 8
                     token: Motion.spatialFast
                     epsilon: 0.02
                 }
@@ -62,14 +69,24 @@ Item {
                 ColorSpring {
                     id: tint
 
-                    target: dot.modelData.active ? Theme.m3Primary : dot.modelData.urgent ? Theme.m3OnPrimaryContainer : Theme.m3SurfaceContainerHighest
+                    target: slot.modelData.active ? Theme.m3Primary : slot.modelData.urgent ? Theme.m3OnPrimaryContainer : Theme.m3SurfaceContainerHighest
                 }
 
-                MouseArea {
-                    anchors.fill: parent
-                    anchors.margins: -4
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: dot.modelData.activate()
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: grow.value
+                    height: 8
+                    radius: 4
+                    color: tint.color
+                    opacity: Motion.clamp01(presence.value)
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        enabled: slot.shown
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: slot.modelData.activate()
+                    }
                 }
             }
         }

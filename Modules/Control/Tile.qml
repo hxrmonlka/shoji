@@ -25,6 +25,13 @@ Rectangle {
         target: root.active ? Theme.m3PrimaryContainer : area.containsMouse ? Theme.m3SurfaceContainerHighest : Theme.m3SurfaceContainerHigh
     }
 
+    Ripple {
+        id: ripple
+
+        anchors.fill: parent
+        radius: root.radius
+    }
+
     Row {
         anchors.left: parent.left
         anchors.leftMargin: 16
@@ -81,6 +88,7 @@ Rectangle {
         hoverEnabled: true
         enabled: root.enabled
         cursorShape: Qt.PointingHandCursor
+        onPressed: mouse => ripple.press(area, mouse)
         onClicked: root.toggled()
     }
 

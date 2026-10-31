@@ -47,6 +47,8 @@ QtObject {
         { key: "trayIcons", cat: "features", section: "Panels", label: "System tray", desc: "Show tray icons in the Control Panel.", type: "bool", def: true },
         { key: "visualizer", cat: "features", section: "Panels", label: "Audio visualizer", desc: "Run cava for the media panel bars.", type: "bool", def: true },
         { key: "clipboardHistory", cat: "features", section: "Background", label: "Clipboard history", desc: "Record copied text, images and files with cliphist.", type: "bool", def: true },
+        { key: "ripple", cat: "features", section: "Interface", label: "Button ripple", desc: "Show a ripple from the pointer when a button is pressed.", type: "bool", def: true },
+        { key: "searchEngine", cat: "features", section: "Spotlight", label: "Web search engine", desc: "Used by the >w prefix. Results open in the default browser.", type: "choice", options: [{ value: "kagi", label: "Kagi" }, { value: "google", label: "Google" }], def: "kagi" },
         { key: "themeScheme", cat: "colors", section: "Palette", label: "Color scheme", desc: "Algorithm matugen uses to build the palette from the wallpaper.", type: "scheme", def: "scheme-tonal-spot" },
         { key: "themeMode", cat: "colors", section: "Palette", label: "Mode", desc: "Dark or light colors for the shell and every themed app.", type: "choice", options: [{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }], def: "dark" },
         { key: "themeMango", cat: "theming", section: "Apps", label: "MangoWM", desc: "Border, bar and shadow colors in mango/shoji/colors.conf.", type: "bool", def: true },
@@ -96,6 +98,8 @@ QtObject {
     readonly property bool trayIcons: get("trayIcons")
     readonly property bool visualizer: get("visualizer")
     readonly property bool clipboardHistory: get("clipboardHistory")
+    readonly property bool ripple: get("ripple")
+    readonly property string searchEngine: get("searchEngine")
     readonly property string themeScheme: get("themeScheme")
     readonly property string themeMode: get("themeMode")
     readonly property bool themeMango: get("themeMango")
