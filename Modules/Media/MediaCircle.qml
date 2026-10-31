@@ -132,13 +132,27 @@ Item {
         }
     }
 
+    Ripple {
+        id: circleRipple
+
+        anchors.left: parent.left
+        anchors.top: parent.top
+        width: root.size
+        height: root.size
+        radius: root.size / 2
+        visible: root.progress < 0.05 && Settings.ripple
+    }
+
     MouseArea {
+        id: circleArea
+
         anchors.left: parent.left
         anchors.top: parent.top
         width: root.size
         height: root.size
         enabled: root.progress < 0.05
         cursorShape: Qt.PointingHandCursor
+        onPressed: mouse => circleRipple.press(circleArea, mouse)
         onClicked: root.clicked()
     }
 }

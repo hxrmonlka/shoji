@@ -187,12 +187,20 @@ FloatingWindow {
                             font.weight: entry.current ? Font.DemiBold : Font.Medium
                         }
 
+                        Ripple {
+                            id: ripple1
+
+                            anchors.fill: parent
+                            radius: parent.radius
+                        }
+
                         MouseArea {
                             id: entryArea
 
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
+                            onPressed: mouse => ripple1.press(entryArea, mouse)
                             onClicked: win.pick(entry.modelData.id)
                         }
                     }
@@ -223,12 +231,20 @@ FloatingWindow {
                         font.weight: Font.Medium
                     }
 
+                    Ripple {
+                        id: ripple2
+
+                        anchors.fill: parent
+                        radius: parent.radius
+                    }
+
                     MouseArea {
                         id: allArea
 
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
+                        onPressed: mouse => ripple2.press(allArea, mouse)
                         onClicked: Settings.reset()
                     }
                 }

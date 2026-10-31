@@ -141,10 +141,20 @@ Item {
                     }
                 }
 
+                Ripple {
+                    id: ripple1
+
+                    anchors.fill: parent
+                    radius: parent.radius
+                }
+
                 MouseArea {
+                    id: rippleArea1
+
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
+                    onPressed: mouse => ripple1.press(rippleArea1, mouse)
                     onEntered: root.index = tile.index
                     onClicked: root.run(tile.modelData.id)
                 }

@@ -268,12 +268,20 @@ Item {
                         font.pixelSize: btn.modelData.action === "toggle" ? 20 : 16
                     }
 
+                    Ripple {
+                        id: ripple1
+
+                        anchors.fill: parent
+                        radius: parent.radius
+                    }
+
                     MouseArea {
                         id: btnArea
 
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
+                        onPressed: mouse => ripple1.press(btnArea, mouse)
                         onClicked: {
                             if (btn.modelData.action === "toggle")
                                 Media.player.togglePlaying();
@@ -315,12 +323,20 @@ Item {
                     font.pixelSize: 14
                 }
 
+                Ripple {
+                    id: ripple2
+
+                    anchors.fill: parent
+                    radius: parent.radius
+                }
+
                 MouseArea {
                     id: muteArea
 
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
+                    onPressed: mouse => ripple2.press(muteArea, mouse)
                     onClicked: Media.toggleMute()
                 }
             }

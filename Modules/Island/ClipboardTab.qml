@@ -156,6 +156,13 @@ Item {
                     font.weight: Font.Medium
                 }
 
+                Ripple {
+                    id: ripple1
+
+                    anchors.fill: parent
+                    radius: parent.radius
+                }
+
                 MouseArea {
                     id: clearArea
 
@@ -163,6 +170,7 @@ Item {
                     hoverEnabled: true
                     enabled: clearBtn.usable
                     cursorShape: Qt.PointingHandCursor
+                    onPressed: mouse => ripple1.press(clearArea, mouse)
                     onClicked: ClipboardHistory.wipe()
                 }
             }
@@ -276,12 +284,20 @@ Item {
                     }
                 }
 
+                Ripple {
+                    id: ripple2
+
+                    anchors.fill: parent
+                    radius: parent.radius
+                }
+
                 MouseArea {
                     id: rowArea
 
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
+                    onPressed: mouse => ripple2.press(rowArea, mouse)
                     onPositionChanged: root.selected = row.index
                     onClicked: {
                         ClipboardHistory.copy(row.modelData);
@@ -315,12 +331,20 @@ Item {
                         font.pixelSize: 13
                     }
 
+                    Ripple {
+                        id: ripple3
+
+                        anchors.fill: parent
+                        radius: parent.radius
+                    }
+
                     MouseArea {
                         id: delArea
 
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
+                        onPressed: mouse => ripple3.press(delArea, mouse)
                         onClicked: ClipboardHistory.remove(row.modelData)
                     }
                 }

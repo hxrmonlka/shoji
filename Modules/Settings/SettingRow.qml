@@ -75,9 +75,19 @@ Item {
             color: sw.on ? Theme.m3OnPrimary : Theme.m3OnSurfaceVariant
         }
 
+        Ripple {
+            id: ripple1
+
+            anchors.fill: parent
+            radius: parent.radius
+        }
+
         MouseArea {
+            id: rippleArea1
+
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
+            onPressed: mouse => ripple1.press(rippleArea1, mouse)
             onClicked: sw.flipped()
         }
     }
@@ -261,12 +271,20 @@ Item {
                         font.weight: pill.chosen ? Font.DemiBold : Font.Medium
                     }
 
+                    Ripple {
+                        id: ripple2
+
+                        anchors.fill: parent
+                        radius: parent.radius
+                    }
+
                     MouseArea {
                         id: pillArea
 
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
+                        onPressed: mouse => ripple2.press(pillArea, mouse)
                         onClicked: Settings.set(root.entry.key, pill.modelData.value)
                     }
                 }

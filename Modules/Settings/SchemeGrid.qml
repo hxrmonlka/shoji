@@ -152,12 +152,20 @@ ColumnLayout {
                     }
                 }
 
+                Ripple {
+                    id: ripple1
+
+                    anchors.fill: parent
+                    radius: parent.radius
+                }
+
                 MouseArea {
                     id: area
 
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
+                    onPressed: mouse => ripple1.press(area, mouse)
                     onClicked: Schemes.setScheme(tile.modelData.value)
                 }
             }

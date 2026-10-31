@@ -66,12 +66,20 @@ Flickable {
                     font.weight: Font.Medium
                 }
 
+                Ripple {
+                    id: ripple1
+
+                    anchors.fill: parent
+                    radius: parent.radius
+                }
+
                 MouseArea {
                     id: resetArea
 
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
+                    onPressed: mouse => ripple1.press(resetArea, mouse)
                     onClicked: root.resetRequested()
                 }
             }

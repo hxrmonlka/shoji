@@ -276,9 +276,19 @@ Item {
                 color: LockState.password.length > 0 && !LockState.busy ? Theme.m3OnPrimary : Theme.m3OnSurfaceVariant
             }
 
+            Ripple {
+                id: ripple1
+
+                anchors.fill: parent
+                radius: parent.radius
+            }
+
             MouseArea {
+                id: rippleArea1
+
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
+                onPressed: mouse => ripple1.press(rippleArea1, mouse)
                 onClicked: {
                     LockState.submit();
                     root.refocus();
@@ -372,12 +382,20 @@ Item {
                             color: Theme.m3OnSurface
                         }
 
+                        Ripple {
+                            id: ripple2
+
+                            anchors.fill: parent
+                            radius: parent.radius
+                        }
+
                         MouseArea {
                             id: rowArea
 
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
+                            onPressed: mouse => ripple2.press(rowArea, mouse)
                             onClicked: {
                                 root.menuOpen = false;
                                 root.act(row.modelData.cmd);
@@ -403,9 +421,19 @@ Item {
                 color: root.menuOpen ? Theme.m3OnPrimaryContainer : Theme.m3OnSurface
             }
 
+            Ripple {
+                id: ripple3
+
+                anchors.fill: parent
+                radius: parent.radius
+            }
+
             MouseArea {
+                id: rippleArea3
+
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
+                onPressed: mouse => ripple3.press(rippleArea3, mouse)
                 onClicked: {
                     root.menuOpen = !root.menuOpen;
                     root.refocus();

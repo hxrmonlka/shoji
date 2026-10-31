@@ -66,12 +66,20 @@ Item {
                         font.pixelSize: 14
                     }
 
+                    Ripple {
+                        id: ripple1
+
+                        anchors.fill: parent
+                        radius: parent.radius
+                    }
+
                     MouseArea {
                         id: folderArea
 
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
+                        onPressed: mouse => ripple1.press(folderArea, mouse)
                         onClicked: Wallpapers.choose()
                     }
                 }
@@ -96,12 +104,20 @@ Item {
                         font.pixelSize: 14
                     }
 
+                    Ripple {
+                        id: ripple2
+
+                        anchors.fill: parent
+                        radius: parent.radius
+                    }
+
                     MouseArea {
                         id: shuffleArea
 
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
+                        onPressed: mouse => ripple2.press(shuffleArea, mouse)
                         onClicked: Wallpapers.random()
                     }
                 }
@@ -196,12 +212,20 @@ Item {
                                 epsilon: 0.0005
                             }
 
+                            Ripple {
+                                id: ripple3
+
+                                anchors.fill: parent
+                                radius: 14
+                            }
+
                             MouseArea {
                                 id: tileArea
 
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
+                                onPressed: mouse => ripple3.press(tileArea, mouse)
                                 onClicked: Wallpapers.apply(cell.filePath)
                             }
                         }
