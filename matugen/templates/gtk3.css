@@ -62,6 +62,33 @@ placessidebar row:selected:backdrop label {
   border-radius: __RB__px;
 }
 
+placessidebar.sidebar,
+placessidebar.sidebar list,
+placessidebar.sidebar list row.sidebar-row,
+placessidebar.sidebar list row.sidebar-row label,
+placessidebar.sidebar list row.sidebar-row label.sidebar-label,
+placessidebar.sidebar list row.sidebar-row image,
+placessidebar.sidebar list row.sidebar-row image.sidebar-icon,
+placessidebar.sidebar list row.sidebar-row .sidebar-icon,
+placessidebar.sidebar list row.sidebar-row:hover label,
+placessidebar.sidebar list row.sidebar-row:hover image,
+placessidebar.sidebar list row.sidebar-row:active label,
+placessidebar.sidebar list row.sidebar-row:active image,
+treeview.view.sidebar,
+treeview.view.sidebar:focus,
+.sidebar treeview.view:not(:selected),
+.sidebar treeview.view:focus,
+.sidebar treeview.view.cell {
+  color: @window_fg_color;
+}
+
+placessidebar.sidebar list row.sidebar-row:selected,
+placessidebar.sidebar list row.sidebar-row:selected label,
+placessidebar.sidebar list row.sidebar-row:selected image {
+  background-color: @shoji_secondary_container;
+  color: @shoji_on_secondary_container;
+}
+
 .sidebar treeview.view:selected,
 .sidebar treeview.view:selected:focus,
 .sidebar treeview.view:selected:backdrop,
