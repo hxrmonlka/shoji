@@ -18,6 +18,7 @@ Item {
 
     Binding on dotsWidth {
         when: !root.overview && dots.implicitWidth > 0
+        restoreMode: Binding.RestoreNone
         value: Math.max(0, dots.implicitWidth - 6)
     }
 

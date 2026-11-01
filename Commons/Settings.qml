@@ -42,6 +42,8 @@ QtObject {
         { key: "nightCommand", cat: "display", section: "Night mode", label: "Night command", desc: "Use {temp} for the temperature.", type: "string", def: "gammastep -m wayland -O {temp}" },
         { key: "updateStar", cat: "features", section: "Island", label: "Update star", desc: "Show the Lumina update star in the pill.", type: "bool", def: true },
         { key: "showWorkspaces", cat: "features", section: "Island", label: "Workspaces in the pill", desc: "Show the workspace switcher next to the date.", type: "bool", def: true },
+        { key: "mergeCircles", cat: "features", section: "Island", label: "Merge media and controls into the island", desc: "Hide the two circles. Media and Control open from the island and join the tab strip.", type: "bool", def: false },
+        { key: "ipcTabOnly", cat: "features", section: "Island", label: "Tab-only view for IPC", desc: "Hide the tab strip when a tab is opened with qs ipc.", type: "bool", def: false },
         { key: "notificationPopups", cat: "features", section: "Overlays", label: "Notification pop-ups", desc: "Notifications still reach the notification center when off.", type: "bool", def: true },
         { key: "osd", cat: "features", section: "Overlays", label: "Volume and brightness bar", desc: "Show the bar while scrolling with Ctrl or Alt.", type: "bool", def: true },
         { key: "trayIcons", cat: "features", section: "Panels", label: "System tray", desc: "Show tray icons in the Control Panel.", type: "bool", def: true },
@@ -93,6 +95,8 @@ QtObject {
     readonly property int nightTemperature: get("nightTemperature")
     readonly property bool updateStar: get("updateStar")
     readonly property bool showWorkspaces: get("showWorkspaces")
+    readonly property bool ipcTabOnly: get("ipcTabOnly")
+    readonly property bool mergeCircles: get("mergeCircles")
     readonly property bool notificationPopups: get("notificationPopups")
     readonly property bool osd: get("osd")
     readonly property bool trayIcons: get("trayIcons")

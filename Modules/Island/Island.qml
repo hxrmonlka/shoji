@@ -13,8 +13,9 @@ PanelWindow {
     readonly property int circleSize: Settings.circleSize
     readonly property int circleGap: Settings.circleGap
     readonly property var tabEntry: ShellState.tabs.find(t => t.id === ShellState.tab) ?? ({})
-    readonly property int tabWidth: tabEntry.w ?? Settings.panelWidth
-    readonly property int tabHeight: tabEntry.h ?? Settings.panelHeight
+    readonly property int tabWidth: (tabEntry.w ?? Settings.panelWidth) + (ShellState.tab === "control" && ShellState.controlDetail ? Settings.controlSideWidth : 0)
+    readonly property real mergedHide: Settings.mergeCircles ? 1 : 0
+    readonly property int tabHeight: (tabEntry.h ?? Settings.panelHeight) - (ShellState.tabOnly ? 36 : 0)
     readonly property int maxTabWidth: ShellState.tabs.reduce((m, t) => Math.max(m, t.w ?? Settings.panelWidth), 0)
     readonly property int maxTabHeight: ShellState.tabs.reduce((m, t) => Math.max(m, t.h ?? Settings.panelHeight), 0)
     readonly property int controlBaseWidth: Settings.controlSideWidth + Settings.controlPanelWidth
@@ -45,6 +46,41 @@ PanelWindow {
     readonly property real restHeight: Motion.lerp(Motion.lerp(pillHeight, popupHeight, popupProgress), osdHeight, osdProgress)
 
     property bool keysGrabbed: false
+    property bool handoff: false
+    property real fromX: 0
+    property real fromW: 0
+    property real fromH: 0
+    property real fromR: 0
+
+    function captureHandoff(): void {
+        let src = null;
+        if (progress > 0.05)
+            src = island;
+        else if (mediaProgress > 0.05)
+            src = media;
+        else if (controlProgress > 0.05)
+            src = control;
+        if (!src) {
+            handoff = false;
+            return;
+        }
+        fromX = src.x;
+        fromW = src.width;
+        fromH = src.height;
+        fromR = src === island ? island.radius : src.radiusNow;
+        handoff = true;
+    }
+
+    function settleHandoff(): void {
+        if (!handoff)
+            return;
+        const p = mediaOpen ? mediaProgress : controlOpen ? controlProgress : 0;
+        if (p > 0.999)
+            handoff = false;
+    }
+
+    onMediaProgressChanged: settleHandoff()
+    onControlProgressChanged: settleHandoff()
 
     function onWheelEvent(event) {
         const mods = event.modifiers;
@@ -118,10 +154,14 @@ PanelWindow {
         }
 
         function onMediaChanged() {
+            if (ShellState.media)
+                win.captureHandoff();
             Qt.callLater(win.claimFocus);
         }
 
         function onControlChanged() {
+            if (ShellState.control)
+                win.captureHandoff();
             Qt.callLater(win.claimFocus);
         }
 
@@ -190,7 +230,7 @@ PanelWindow {
         Keys.onPressed: event => {
             if (ShellState.power) {
                 powerMenu.handleKey(event);
-            } else if (ShellState.media && event.key === Qt.Key_Space && !event.isAutoRepeat) {
+            } else if ((ShellState.media || (ShellState.expanded && ShellState.tab === "media")) && event.key === Qt.Key_Space && !event.isAutoRepeat) {
                 if (Media.player)
                     Media.player.togglePlaying();
                 event.accepted = true;
@@ -326,6 +366,10 @@ PanelWindow {
                 font.pixelSize: Math.round(win.pillHeight * 0.3)
             }
 
+            PillViz {
+                anchors.verticalCenter: parent.verticalCenter
+            }
+
             Workspaces {
                 visible: Settings.showWorkspaces
                 anchors.verticalCenter: parent.verticalCenter
@@ -382,14 +426,19 @@ PanelWindow {
     MediaCircle {
         id: media
 
-        size: win.circleSize
+        size: Settings.mergeCircles ? 0 : win.circleSize
         restX: Motion.lerp(win.width / 2 - win.pillWidth / 2 - win.circleGap - win.circleSize, win.width / 2 - win.circleSize / 2, win.mergeProgress)
         openX: win.width / 2 - Settings.mediaPanelWidth / 2
         panelWidth: Settings.mediaPanelWidth
         panelHeight: Settings.mediaPanelHeight
         panelRadius: Settings.panelRadius
         progress: win.mediaProgress
-        hiddenBy: Math.max(win.progress / 0.3, win.controlProgress / 0.3, win.mergeProgress / 0.7)
+        hiddenBy: Math.max(win.mediaOpen && win.handoff ? 0 : Math.max(win.progress, win.controlProgress) / 0.3, win.mergeProgress / 0.7, win.mergedHide)
+        handoff: win.handoff
+        fromX: win.fromX
+        fromW: win.fromW
+        fromH: win.fromH
+        fromR: win.fromR
         onClicked: ShellState.media = true
 
         PointerWatcher {}
@@ -403,7 +452,7 @@ PanelWindow {
     ControlCircle {
         id: control
 
-        size: win.circleSize
+        size: Settings.mergeCircles ? 0 : win.circleSize
         restX: Motion.lerp(win.width / 2 + win.pillWidth / 2 + win.circleGap, win.width / 2 - win.circleSize / 2, win.mergeProgress)
         openX: win.width / 2 - win.controlBaseWidth / 2
         panelWidth: win.controlBaseWidth
@@ -411,7 +460,12 @@ PanelWindow {
         panelHeight: Settings.controlPanelHeight
         panelRadius: Settings.panelRadius
         progress: win.controlProgress
-        hiddenBy: Math.max(win.progress / 0.3, win.mediaProgress / 0.3, win.mergeProgress / 0.7)
+        hiddenBy: Math.max(win.controlOpen && win.handoff ? 0 : Math.max(win.progress, win.mediaProgress) / 0.3, win.mergeProgress / 0.7, win.mergedHide)
+        handoff: win.handoff
+        fromX: win.fromX
+        fromW: win.fromW
+        fromH: win.fromH
+        fromR: win.fromR
         onClicked: ShellState.control = true
 
         PointerWatcher {}

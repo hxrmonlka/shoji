@@ -140,11 +140,11 @@ ShellRoot {
         }
 
         function toggle(): void {
-            ShellState.toggleTab("wallpapers");
+            ShellState.toggleTabSolo("wallpapers");
         }
 
         function open(): void {
-            ShellState.openTab("wallpapers");
+            ShellState.openTabSolo("wallpapers");
         }
 
         function close(): void {
@@ -156,16 +156,28 @@ ShellRoot {
         target: "media"
 
         function toggle(): void {
+            if (Settings.mergeCircles) {
+                ShellState.toggleTabSolo("media");
+                return;
+            }
             ShellState.media = !ShellState.media;
             ShellState.pin();
         }
 
         function open(): void {
+            if (Settings.mergeCircles) {
+                ShellState.openTabSolo("media");
+                return;
+            }
             ShellState.media = true;
             ShellState.pin();
         }
 
         function close(): void {
+            if (Settings.mergeCircles) {
+                ShellState.closeTab("media");
+                return;
+            }
             ShellState.media = false;
         }
 
@@ -189,16 +201,28 @@ ShellRoot {
         target: "control"
 
         function toggle(): void {
+            if (Settings.mergeCircles) {
+                ShellState.toggleTabSolo("control");
+                return;
+            }
             ShellState.control = !ShellState.control;
             ShellState.pin();
         }
 
         function open(): void {
+            if (Settings.mergeCircles) {
+                ShellState.openTabSolo("control");
+                return;
+            }
             ShellState.control = true;
             ShellState.pin();
         }
 
         function close(): void {
+            if (Settings.mergeCircles) {
+                ShellState.closeTab("control");
+                return;
+            }
             ShellState.control = false;
         }
     }
@@ -311,11 +335,11 @@ ShellRoot {
         target: "clipboard"
 
         function toggle(): void {
-            ShellState.toggleTab("clipboard");
+            ShellState.toggleTabSolo("clipboard");
         }
 
         function open(): void {
-            ShellState.openTab("clipboard");
+            ShellState.openTabSolo("clipboard");
         }
 
         function close(): void {
@@ -327,11 +351,11 @@ ShellRoot {
         target: "monitor"
 
         function toggle(): void {
-            ShellState.toggleTab("monitor");
+            ShellState.toggleTabSolo("monitor");
         }
 
         function open(): void {
-            ShellState.openTab("monitor");
+            ShellState.openTabSolo("monitor");
         }
 
         function close(): void {
@@ -351,7 +375,7 @@ ShellRoot {
         }
 
         function gui(): void {
-            ShellState.toggleTab("color");
+            ShellState.toggleTabSolo("color");
         }
 
         function cancel(): void {
@@ -401,11 +425,7 @@ ShellRoot {
         }
 
         function tab(name: string): void {
-            if (ShellState.tabs.some(t => t.id === name)) {
-                ShellState.tab = name;
-                ShellState.expanded = true;
-                ShellState.pin();
-            }
+            ShellState.openTab(name);
         }
     }
 }

@@ -13,6 +13,8 @@ QtObject {
     property bool power: false
     property bool settingsOpen: false
     property string tab: "calendar"
+    property bool tabOnly: false
+    property bool controlDetail: false
     property int pointersInside: 0
     property int holds: 0
     property bool pinned: false
@@ -21,7 +23,7 @@ QtObject {
 
     readonly property bool panelsOpen: expanded || media || control || power
 
-    readonly property var tabs: [
+    readonly property var baseTabs: [
         { id: "launcher", label: "Launcher", icon: "\uf00a" },
         { id: "calendar", label: "Calendar", icon: "\uf073" },
         { id: "monitor", label: "Monitor", icon: "\uf200", w: 820, h: 500, keep: true },
@@ -29,6 +31,11 @@ QtObject {
         { id: "clipboard", label: "Clipboard", icon: "\uf0ea" },
         { id: "color", label: "Color", icon: "\uf1fb" }
     ]
+
+    readonly property var tabs: Settings.mergeCircles ? baseTabs.concat([
+        { id: "media", label: "Media", icon: "\uf001", w: Settings.mediaPanelWidth + 32, h: Settings.mediaPanelHeight + 68 },
+        { id: "control", label: "Control", icon: "\uf1de", w: Settings.controlSideWidth + Settings.controlPanelWidth + 32, h: Settings.controlPanelHeight + 68 }
+    ]) : baseTabs
 
     function hidePanels(): void {
         expanded = false;
@@ -57,9 +64,23 @@ QtObject {
     function openTab(id: string): void {
         if (!tabs.some(t => t.id === id))
             return;
+        tabOnly = false;
         tab = id;
         expanded = true;
         pin();
+    }
+
+    function openTabSolo(id: string): void {
+        openTab(id);
+        if (tabs.some(t => t.id === id))
+            tabOnly = Settings.ipcTabOnly;
+    }
+
+    function toggleTabSolo(id: string): void {
+        if (expanded && tab === id)
+            expanded = false;
+        else
+            openTabSolo(id);
     }
 
     function closeTab(id: string): void {
@@ -137,6 +158,7 @@ QtObject {
 
     onExpandedChanged: {
         if (expanded) {
+            tabOnly = false;
             media = false;
             control = false;
             power = false;

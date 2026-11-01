@@ -8,6 +8,7 @@ Item {
     id: root
 
     property string detail: ""
+    property bool tabHost: false
     property bool appsOpen: false
     property string trayId: ""
     property var trayAnchor: null
@@ -18,6 +19,16 @@ Item {
     readonly property var btAdapter: Bluetooth.defaultAdapter
     readonly property var btPaired: Bluetooth.devices.values.filter(d => d.paired)
     readonly property var btConnected: Bluetooth.devices.values.filter(d => d.connected)
+
+    function reset() {
+        trayId = "";
+        detail = "";
+    }
+
+    onDetailChanged: {
+        if (tabHost)
+            ShellState.controlDetail = detail !== "";
+    }
 
     function toggleDetail(name) {
         detail = detail === name ? "" : name;
@@ -36,10 +47,20 @@ Item {
         target: ShellState
 
         function onControlChanged(): void {
-            if (!ShellState.control) {
+            if (!ShellState.control && !root.tabHost) {
                 root.trayId = "";
                 root.detail = "";
             }
+        }
+
+        function onExpandedChanged(): void {
+            if (root.tabHost && !ShellState.expanded)
+                root.reset();
+        }
+
+        function onTabChanged(): void {
+            if (root.tabHost && ShellState.tab !== "control")
+                root.reset();
         }
     }
 

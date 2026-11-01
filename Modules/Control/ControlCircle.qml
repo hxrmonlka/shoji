@@ -14,19 +14,24 @@ Item {
     required property real panelHeight
     required property real panelRadius
     property real hiddenBy: 0
+    property bool handoff: false
+    property real fromX: 0
+    property real fromW: 0
+    property real fromH: 0
+    property real fromR: 0
 
     readonly property real extraWidth: Math.max(0, detailSpring.value)
     readonly property real fullWidth: panelWidth + extraWidth
-    readonly property real radiusNow: Motion.lerp(size / 2, panelRadius, progress)
+    readonly property real radiusNow: Motion.lerp(handoff ? fromR : size / 2, panelRadius, progress)
     readonly property var icons: ["\uf1eb", "\uf028", "\uf06e", "\uf293", "\uf023", "\uf186", "\uf185", "\uf0f3"]
     readonly property int count: icons.length
     property int index: 0
 
     signal clicked
 
-    x: Motion.lerp(restX, openX - extraWidth / 2, progress)
-    width: Motion.lerp(size, fullWidth, progress)
-    height: Motion.lerp(size, panelHeight, progress)
+    x: Motion.lerp(handoff ? fromX : restX, openX - extraWidth / 2, progress)
+    width: Motion.lerp(handoff ? fromW : size, fullWidth, progress)
+    height: Motion.lerp(handoff ? fromH : size, panelHeight, progress)
     opacity: 1 - Motion.clamp01(hiddenBy)
     visible: opacity > 0
 
@@ -91,7 +96,7 @@ Item {
         anchors.top: parent.top
         width: root.size
         height: root.size
-        opacity: 1 - Motion.clamp01(root.progress / 0.25)
+        opacity: root.handoff ? 0 : 1 - Motion.clamp01(root.progress / 0.25)
         visible: opacity > 0
         clip: true
 

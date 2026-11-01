@@ -1,5 +1,7 @@
 import QtQuick
 import qs.Commons
+import qs.Modules.Media
+import qs.Modules.Control
 
 Item {
     id: root
@@ -17,6 +19,14 @@ Item {
         }
     }
 
+    Spring {
+        id: barSpring
+
+        target: ShellState.tabOnly ? 0 : 1
+        token: Motion.spatialDefault
+        epsilon: 0.001
+    }
+
     TabBar {
         id: bar
 
@@ -27,12 +37,14 @@ Item {
         anchors.rightMargin: 16
         tabs: ShellState.tabs
         current: ShellState.tab
+        opacity: Motion.clamp01(barSpring.value)
+        visible: opacity > 0
         onPicked: tabId => ShellState.tab = tabId
     }
 
     Item {
-        anchors.top: bar.bottom
-        anchors.topMargin: 4
+        anchors.top: parent.top
+        anchors.topMargin: Motion.lerp(16, 52, Math.max(0, barSpring.value))
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
@@ -60,7 +72,7 @@ Item {
                 opacity: Motion.clamp01(presence.value)
                 active: kept || current || presence.value > 0.001
                 visible: current || presence.value > 0.001
-                sourceComponent: ({ calendar: calendarTab, launcher: launcherTab, monitor: monitorTab, wallpapers: wallpaperTab, clipboard: clipboardTab, color: colorTab })[modelData.id] ?? null
+                sourceComponent: ({ calendar: calendarTab, launcher: launcherTab, monitor: monitorTab, wallpapers: wallpaperTab, clipboard: clipboardTab, color: colorTab, media: mediaTab, control: controlTab })[modelData.id] ?? null
                 onLoaded: if (warmDelay > 0 || modelData.keep) kept = true
 
                 Spring {
@@ -114,5 +126,19 @@ Item {
         id: colorTab
 
         ColorTab {}
+    }
+
+    Component {
+        id: mediaTab
+
+        MediaPanel {}
+    }
+
+    Component {
+        id: controlTab
+
+        ControlPanel {
+            tabHost: true
+        }
     }
 }

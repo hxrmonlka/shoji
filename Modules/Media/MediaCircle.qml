@@ -14,14 +14,19 @@ Item {
     required property real panelHeight
     property real panelRadius: 32
     property real hiddenBy: 0
+    property bool handoff: false
+    property real fromX: 0
+    property real fromW: 0
+    property real fromH: 0
+    property real fromR: 0
 
-    readonly property real radiusNow: Motion.lerp(size / 2, panelRadius, progress)
+    readonly property real radiusNow: Motion.lerp(handoff ? fromR : size / 2, panelRadius, progress)
 
     signal clicked
 
-    x: Motion.lerp(restX, openX, progress)
-    width: Motion.lerp(size, panelWidth, progress)
-    height: Motion.lerp(size, panelHeight, progress)
+    x: Motion.lerp(handoff ? fromX : restX, openX, progress)
+    width: Motion.lerp(handoff ? fromW : size, panelWidth, progress)
+    height: Motion.lerp(handoff ? fromH : size, panelHeight, progress)
     opacity: 1 - Motion.clamp01(hiddenBy)
     visible: opacity > 0
 
@@ -76,7 +81,7 @@ Item {
         anchors.top: parent.top
         width: root.size
         height: root.size
-        opacity: 1 - Motion.clamp01(root.progress / 0.25)
+        opacity: root.handoff ? 0 : 1 - Motion.clamp01(root.progress / 0.25)
         visible: opacity > 0
 
         Shape {

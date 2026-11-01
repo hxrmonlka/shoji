@@ -39,6 +39,29 @@ treeview.view row:selected,
   background-image: none;
 }
 
+.sidebar,
+.sidebar:backdrop,
+.sidebar label,
+.sidebar row,
+.sidebar row:backdrop,
+.sidebar row label,
+placessidebar,
+placessidebar row,
+placessidebar row:backdrop,
+placessidebar row label,
+placessidebar row:backdrop label {
+  color: @window_fg_color;
+}
+
+placessidebar row:selected,
+placessidebar row:selected:backdrop,
+placessidebar row:selected label,
+placessidebar row:selected:backdrop label {
+  background-color: @shoji_secondary_container;
+  color: @shoji_on_secondary_container;
+  border-radius: __RB__px;
+}
+
 .sidebar treeview.view:selected,
 .sidebar treeview.view:selected:focus,
 .sidebar treeview.view:selected:backdrop,
