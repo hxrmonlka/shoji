@@ -30,7 +30,7 @@ Item {
 
     function rowTrailing(m) {
         if (kept === "wifi")
-            return m.active ? "\uf00c" : m.secure ? "\uf023" : "";
+            return Network.connecting === m.ssid ? "\uf110" : m.active ? "\uf00c" : m.secure ? "\uf023" : "";
         if (kept === "bt")
             return m.connected ? "\uf00c" : "";
         return m.active ? "\uf00c" : "";
@@ -113,8 +113,18 @@ Item {
                         property bool shown: false
 
                         width: list.width
-                        height: 40
+                        readonly property bool asking: root.kept === "wifi" && Network.prompt === modelData.ssid
+
+                        height: asking ? 46 + promptLoader.implicitHeight : 40
                         opacity: shown ? 1 : 0
+                        clip: true
+
+                        Behavior on height {
+                            NumberAnimation {
+                                duration: 200
+                                easing.type: Easing.OutCubic
+                            }
+                        }
 
                         Behavior on opacity {
                             NumberAnimation {
@@ -141,12 +151,28 @@ Item {
                         }
 
                         ListRow {
-                            anchors.fill: parent
+                            anchors.top: parent.top
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            height: 40
                             icon: root.rowIcon()
                             label: root.rowLabel(slot.modelData)
                             trailing: root.rowTrailing(slot.modelData)
                             active: root.rowActive(slot.modelData)
                             onClicked: root.rowClick(slot.modelData)
+                        }
+
+                        Loader {
+                            id: promptLoader
+
+                            anchors.top: parent.top
+                            anchors.topMargin: 46
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.leftMargin: 4
+                            anchors.rightMargin: 4
+                            active: slot.asking
+                            sourceComponent: WifiPrompt {}
                         }
                     }
                 }

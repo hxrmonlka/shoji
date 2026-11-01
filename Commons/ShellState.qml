@@ -14,6 +14,9 @@ QtObject {
     property bool settingsOpen: false
     property string tab: "calendar"
     property bool tabOnly: false
+
+    signal reclaimFocus
+
     property bool controlDetail: false
     property int pointersInside: 0
     property int holds: 0

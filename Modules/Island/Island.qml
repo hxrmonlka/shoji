@@ -165,6 +165,10 @@ PanelWindow {
             Qt.callLater(win.claimFocus);
         }
 
+        function onReclaimFocus() {
+            Qt.callLater(win.claimFocus);
+        }
+
         function onPowerChanged() {
             Qt.callLater(win.claimFocus);
         }
