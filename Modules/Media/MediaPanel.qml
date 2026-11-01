@@ -47,7 +47,7 @@ Item {
         anchors.rightMargin: 20
         height: 80
         spacing: 4
-        opacity: 0.9 * vizFade.value
+        opacity: 0.75 * vizFade.value
 
         Spring {
             id: vizFade
