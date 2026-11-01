@@ -22,8 +22,10 @@ QtObject {
             return;
         const parts = line.split(";");
         const out = new Array(bars);
-        for (let i = 0; i < bars; i++)
-            out[i] = Math.min(1, (parseInt(parts[i]) || 0) / 100);
+        for (let i = 0; i < bars; i++) {
+            const raw = Math.max(0, Math.min(100, parseInt(parts[i]) || 0)) / 100;
+            out[i] = Math.min(1, Math.pow(raw, 0.72));
+        }
         values = out;
     }
 
