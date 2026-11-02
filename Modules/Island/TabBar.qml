@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import qs.Commons
 
 Item {
@@ -12,7 +13,6 @@ Item {
     readonly property int chipHeight: 36
     readonly property int gap: 8
     readonly property int fadeWidth: 28
-    readonly property color fadeClear: Qt.rgba(Theme.m3SurfaceContainer.r, Theme.m3SurfaceContainer.g, Theme.m3SurfaceContainer.b, 0)
     readonly property real viewWidth: Math.min(width, Settings.panelWidth - 32)
     property real rowWidth: 0
     readonly property real period: rowWidth > 0 ? rowWidth + gap : 0
@@ -61,6 +61,13 @@ Item {
         width: root.viewWidth
         height: root.chipHeight
         clip: true
+        layer.enabled: true
+        layer.effect: MultiEffect {
+            maskEnabled: true
+            maskSource: fadeMask
+            maskThresholdMin: 0.5
+            maskSpreadAtMin: 1.0
+        }
 
         Repeater {
             id: copies
@@ -152,46 +159,6 @@ Item {
             }
         }
 
-        Rectangle {
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: root.fadeWidth
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-
-                GradientStop {
-                    position: 0
-                    color: Theme.m3SurfaceContainer
-                }
-
-                GradientStop {
-                    position: 1
-                    color: root.fadeClear
-                }
-            }
-        }
-
-        Rectangle {
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            width: root.fadeWidth
-            gradient: Gradient {
-                orientation: Gradient.Horizontal
-
-                GradientStop {
-                    position: 0
-                    color: root.fadeClear
-                }
-
-                GradientStop {
-                    position: 1
-                    color: Theme.m3SurfaceContainer
-                }
-            }
-        }
-
         WheelHandler {
             acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
             onWheel: event => {
@@ -215,6 +182,41 @@ Item {
                 root.target = root.dragStart - translation.x;
                 pos.value = root.target;
                 pos.velocity = 0;
+            }
+        }
+    }
+
+    Item {
+        id: fadeMask
+
+        anchors.fill: view
+        visible: false
+        layer.enabled: true
+
+        Rectangle {
+            anchors.fill: parent
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+
+                GradientStop {
+                    position: 0
+                    color: "#00000000"
+                }
+
+                GradientStop {
+                    position: Math.min(0.5, root.fadeWidth / Math.max(1, fadeMask.width))
+                    color: "#ff000000"
+                }
+
+                GradientStop {
+                    position: Math.max(0.5, 1 - root.fadeWidth / Math.max(1, fadeMask.width))
+                    color: "#ff000000"
+                }
+
+                GradientStop {
+                    position: 1
+                    color: "#00000000"
+                }
             }
         }
     }

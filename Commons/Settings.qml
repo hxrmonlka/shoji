@@ -41,6 +41,7 @@ QtObject {
         { key: "nightTemperature", cat: "display", section: "Night mode", label: "Night temperature (K)", min: 2500, max: 6000, step: 100, def: 4000 },
         { key: "nightCommand", cat: "display", section: "Night mode", label: "Night command", desc: "Use {temp} for the temperature.", type: "string", def: "gammastep -m wayland -O {temp}" },
         { key: "updateStar", cat: "features", section: "Island", label: "Update star", desc: "Show the Lumina update star in the pill.", type: "bool", def: true },
+        { key: "pillIndicators", cat: "features", section: "Island", label: "Mic and screen share icons", desc: "Show an icon in the pill while the microphone is muted or the screen is being shared or recorded.", type: "bool", def: true },
         { key: "showWorkspaces", cat: "features", section: "Island", label: "Workspaces in the pill", desc: "Show the workspace switcher next to the date.", type: "bool", def: true },
         { key: "mergeCircles", cat: "features", section: "Island", label: "Merge media and controls into the island", desc: "Hide the two circles. Media and Control open from the island and join the tab strip.", type: "bool", def: false },
         { key: "ipcTabOnly", cat: "features", section: "Island", label: "Tab-only view for IPC", desc: "Hide the tab strip when a tab is opened with qs ipc.", type: "bool", def: false },
@@ -94,6 +95,7 @@ QtObject {
     readonly property int controlPanelHeight: get("controlPanelHeight")
     readonly property int nightTemperature: get("nightTemperature")
     readonly property bool updateStar: get("updateStar")
+    readonly property bool pillIndicators: get("pillIndicators")
     readonly property bool showWorkspaces: get("showWorkspaces")
     readonly property bool ipcTabOnly: get("ipcTabOnly")
     readonly property bool mergeCircles: get("mergeCircles")

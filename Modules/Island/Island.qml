@@ -379,6 +379,10 @@ PanelWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 screen: win.screen
             }
+
+            PillIndicators {
+                anchors.verticalCenter: parent.verticalCenter
+            }
         }
 
         NotificationPopup {

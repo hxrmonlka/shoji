@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import qs.Commons
 import qs.Modules.Media
 import qs.Modules.Control
@@ -16,6 +17,50 @@ Item {
         function onTabChanged() {
             root.prevIdx = root.curIdx;
             root.curIdx = ShellState.tabs.findIndex(t => t.id === ShellState.tab);
+        }
+    }
+
+    Spring {
+        id: mediaBackSpring
+
+        target: ShellState.tab === "media" ? 1 : 0
+        token: Motion.effectsDefault
+        epsilon: 0.002
+    }
+
+    Item {
+        id: mediaBack
+
+        anchors.fill: parent
+        anchors.margins: 1
+        opacity: Motion.clamp01(mediaBackSpring.value)
+        visible: opacity > 0
+        layer.enabled: visible
+        layer.effect: MultiEffect {
+            maskEnabled: true
+            maskSource: mediaMask
+            maskThresholdMin: 0.5
+            maskSpreadAtMin: 1.0
+        }
+
+        MediaBackdrop {
+            anchors.fill: parent
+            viz: true
+            vizMargin: 0
+        }
+    }
+
+    Item {
+        id: mediaMask
+
+        anchors.fill: mediaBack
+        visible: false
+        layer.enabled: true
+
+        Rectangle {
+            anchors.fill: parent
+            radius: Math.max(0, Settings.panelRadius - 1)
+            color: "black"
         }
     }
 
@@ -131,7 +176,9 @@ Item {
     Component {
         id: mediaTab
 
-        MediaPanel {}
+        MediaPanel {
+            tabHost: true
+        }
     }
 
     Component {
