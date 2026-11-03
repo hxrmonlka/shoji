@@ -9,7 +9,8 @@ Item {
     property int kind: 0
     property real size: 96
     property int index: 0
-    readonly property var candidates: [Profile.iconFile, Profile.faceFile].filter(s => s.length > 0)
+    property var override: null
+    readonly property var candidates: (override !== null ? [override] : [Profile.iconFile, Profile.faceFile]).filter(s => s.length > 0)
     readonly property string current: index < candidates.length ? candidates[index] : ""
     readonly property bool ready: img.status === Image.Ready
 

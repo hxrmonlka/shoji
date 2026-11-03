@@ -1,0 +1,6 @@
+[terminal]
+vt = 1
+
+[default_session]
+command = "env SHOJI_DIR=/opt/shoji SHOJI_GREETER_STATE=/var/cache/shoji-greeter/state.json mango -c /opt/shoji/greeter/mango.conf"
+user = "greeter"

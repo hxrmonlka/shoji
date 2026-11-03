@@ -362,6 +362,19 @@ Item {
                     active: ShellState.settingsOpen
                     onToggled: ShellState.toggleSettings()
                 }
+
+                Tile {
+                    Layout.fillWidth: true
+                    Layout.columnSpan: 2
+                    icon: "\uf0f4"
+                    title: "Keep awake"
+                    subtitle: KeepAwake.subtitle
+                    active: KeepAwake.active
+                    expandable: true
+                    expanded: root.detail === "awake"
+                    onToggled: KeepAwake.toggle()
+                    onExpandRequested: root.toggleDetail("awake")
+                }
             }
 
             ColumnLayout {

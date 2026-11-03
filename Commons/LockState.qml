@@ -14,6 +14,8 @@ QtObject {
     property bool failed: false
     property string message: ""
     property int frameShape: 0
+    readonly property bool secret: true
+    readonly property string prompt: "Enter password"
 
     readonly property ListModel shapes: ListModel {}
 

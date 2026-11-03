@@ -140,8 +140,13 @@ PanelWindow {
         onTriggered: win.keysGrabbed = false
     }
 
+    IdleInhibitor {
+        window: win
+        enabled: KeepAwake.active
+    }
+
     function claimFocus() {
-        if (ShellState.expanded && ShellState.tab === "clipboard")
+        if (ShellState.expanded && (ShellState.tab === "clipboard" || ShellState.tab === "launcher"))
             return;
         keys.forceActiveFocus();
     }

@@ -97,6 +97,22 @@ ShellRoot {
     }
 
     IpcHandler {
+        target: "awake"
+
+        function toggle(): void {
+            KeepAwake.toggle();
+        }
+
+        function on(minutes: int): void {
+            KeepAwake.start(minutes);
+        }
+
+        function off(): void {
+            KeepAwake.stop();
+        }
+    }
+
+    IpcHandler {
         target: "lock"
 
         function activate(): void {

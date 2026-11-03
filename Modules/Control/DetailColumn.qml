@@ -12,8 +12,8 @@ Item {
 
     signal closeRequested
 
-    readonly property string title: kept === "wifi" ? "Wi-Fi" : kept === "bt" ? "Bluetooth" : kept === "vpn" ? "VPN" : ""
-    readonly property var rows: kept === "wifi" ? Network.networks.slice(0, 8) : kept === "bt" ? btPaired : kept === "vpn" ? Network.vpns : []
+    readonly property string title: kept === "wifi" ? "Wi-Fi" : kept === "bt" ? "Bluetooth" : kept === "vpn" ? "VPN" : kept === "awake" ? "Keep awake" : ""
+    readonly property var rows: kept === "wifi" ? Network.networks.slice(0, 8) : kept === "bt" ? btPaired : kept === "vpn" ? Network.vpns : kept === "awake" ? KeepAwake.choices : []
 
     onDetailChanged: {
         if (detail !== "")
@@ -21,7 +21,7 @@ Item {
     }
 
     function rowIcon() {
-        return kept === "wifi" ? "\uf1eb" : kept === "bt" ? "\uf293" : "\uf023";
+        return kept === "wifi" ? "\uf1eb" : kept === "bt" ? "\uf293" : kept === "awake" ? "\uf017" : "\uf023";
     }
 
     function rowLabel(m) {
@@ -33,10 +33,14 @@ Item {
             return Network.connecting === m.ssid ? "\uf110" : m.active ? "\uf00c" : m.secure ? "\uf023" : "";
         if (kept === "bt")
             return m.connected ? "\uf00c" : "";
+        if (kept === "awake")
+            return KeepAwake.active && KeepAwake.minutes === m.minutes ? "\uf00c" : "";
         return m.active ? "\uf00c" : "";
     }
 
     function rowActive(m) {
+        if (kept === "awake")
+            return KeepAwake.active && KeepAwake.minutes === m.minutes;
         return kept === "bt" ? m.connected : m.active;
     }
 
@@ -45,6 +49,8 @@ Item {
             Network.connect(m.ssid);
         else if (kept === "bt")
             m.connected = !m.connected;
+        else if (kept === "awake")
+            KeepAwake.start(m.minutes);
         else
             Network.setVpn(m.name, !m.active);
     }
