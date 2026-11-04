@@ -122,11 +122,8 @@ QtObject {
     }
 
     function sessionCommand(): var {
-        const run = "exec " + session.exec;
         const log = Quickshell.env("SHOJI_GREETER_SESSION_LOG");
-        const body = log ? "{ date; env; } >>'" + log + "' 2>&1; " + run + " >>'" + log + "' 2>&1" : run;
-        const shell = Quickshell.env("SHOJI_GREETER_SHELL");
-        return shell ? [shell, "-l", "-c", body] : ["sh", "-c", body];
+        return [log ? session.exec + " >>'" + log + "' 2>&1" : session.exec];
     }
 
     function launchSession(): void {
