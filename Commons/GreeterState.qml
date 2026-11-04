@@ -121,6 +121,14 @@ QtObject {
         stateFile.setText(JSON.stringify({ user: user, session: session ? session.name : "" }));
     }
 
+    function sessionCommand(): var {
+        const run = "exec " + session.exec;
+        const log = Quickshell.env("SHOJI_GREETER_SESSION_LOG");
+        const body = log ? "{ date; env; } >>'" + log + "' 2>&1; " + run + " >>'" + log + "' 2>&1" : run;
+        const shell = Quickshell.env("SHOJI_GREETER_SHELL");
+        return shell ? [shell, "-l", "-c", body] : ["sh", "-c", body];
+    }
+
     function launchSession(): void {
         if (!session) {
             failed = true;
@@ -129,7 +137,7 @@ QtObject {
             return;
         }
         save();
-        Greetd.launch(["sh", "-c", "exec " + session.exec], ["XDG_SESSION_TYPE=wayland", "XDG_CURRENT_DESKTOP=" + session.id, "XDG_SESSION_DESKTOP=" + session.id]);
+        Greetd.launch(sessionCommand(), ["XDG_SESSION_TYPE=wayland", "XDG_CURRENT_DESKTOP=" + session.id, "XDG_SESSION_DESKTOP=" + session.id]);
     }
 
     onPasswordChanged: {
