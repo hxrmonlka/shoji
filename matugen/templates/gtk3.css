@@ -16,6 +16,43 @@ treeview.view,
   color: @view_fg_color;
 }
 
+list,
+list:backdrop,
+viewport,
+viewport:backdrop,
+.editor-key-list,
+.editor-key-list:backdrop {
+  background-color: @view_bg_color;
+  color: @view_fg_color;
+}
+
+popover list,
+menu list,
+.popup list,
+.sidebar list,
+placessidebar list {
+  background-color: transparent;
+}
+
+list row,
+list row:backdrop {
+  background-color: transparent;
+  color: @view_fg_color;
+}
+
+list row:hover {
+  background-color: alpha(@view_fg_color, 0.06);
+}
+
+list row:selected,
+list row:selected:focus,
+list row:selected:hover,
+list row:selected:backdrop {
+  background-color: @shoji_secondary_container;
+  color: @shoji_on_secondary_container;
+  border-radius: __RB__px;
+}
+
 .view:selected,
 .view:selected:focus,
 iconview:selected,
@@ -246,8 +283,8 @@ toolbar button image {
 }
 
 button {
-  padding-left: 8px;
-  padding-right: 8px;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 button.image-button {
@@ -256,8 +293,8 @@ button.image-button {
 }
 
 button.text-button {
-  padding-left: 15px;
-  padding-right: 15px;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 button.text-button.image-button,
@@ -273,8 +310,8 @@ button.image-text-button label {
 }
 
 button.arrow-button {
-  padding-left: 7px;
-  padding-right: 7px;
+  padding-left: 6px;
+  padding-right: 6px;
 }
 
 entry,
