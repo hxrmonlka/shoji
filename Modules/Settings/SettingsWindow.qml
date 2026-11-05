@@ -6,7 +6,7 @@ import qs.Commons
 FloatingWindow {
     id: win
 
-    property string category: Settings.categories[0].id
+    property string category: ShellState.settingsCategory.length > 0 ? ShellState.settingsCategory : Settings.categories[0].id
     property string query: ""
 
     readonly property bool searching: query.trim().length > 0
@@ -50,6 +50,15 @@ FloatingWindow {
         anchors.fill: parent
         focus: true
         Keys.onEscapePressed: ShellState.settingsOpen = false
+
+        Connections {
+            target: ShellState
+
+            function onSettingsCategoryChanged() {
+                if (ShellState.settingsCategory.length > 0)
+                    win.pick(ShellState.settingsCategory);
+            }
+        }
 
         Rectangle {
             id: side

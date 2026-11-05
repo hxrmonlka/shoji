@@ -12,6 +12,7 @@ QtObject {
     property bool control: false
     property bool power: false
     property bool settingsOpen: false
+    property string settingsCategory: ""
     property string tab: "calendar"
     property bool tabOnly: false
 
@@ -47,9 +48,11 @@ QtObject {
         power = false;
     }
 
-    function openSettings(): void {
+    function openSettings(category): void {
         hidePanels();
         spotlight = false;
+        settingsCategory = "";
+        settingsCategory = category || "";
         settingsOpen = true;
     }
 
