@@ -50,6 +50,7 @@ QtObject {
     }
 
     function begin(name: string): void {
+        console.log("GREETER begin", name, "avatar", avatar);
         user = name;
         password = "";
         busy = true;
@@ -237,6 +238,7 @@ QtObject {
             }
         }
         onExited: {
+            console.log("GREETER users", JSON.stringify(root.users));
             root.usersLoaded = true;
             root.maybeStart();
         }

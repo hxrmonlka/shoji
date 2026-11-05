@@ -18,6 +18,7 @@ Item {
     height: size
 
     onCandidatesChanged: index = 0
+    onCurrentChanged: console.log("AVATAR current", current, "override", override, "index", index)
 
     component Silhouette: Item {
         id: sil
@@ -80,6 +81,7 @@ Item {
         sourceSize: Qt.size(root.size * 2, root.size * 2)
         source: root.current ? "file://" + root.current : ""
         onStatusChanged: {
+            console.log("AVATAR img status", status, source);
             if (status === Image.Error && root.index < root.candidates.length)
                 root.index++;
         }
