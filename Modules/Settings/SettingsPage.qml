@@ -52,7 +52,7 @@ Flickable {
                 ColorSpring {
                     id: resetFill
 
-                    target: resetArea.containsMouse ? Theme.m3SurfaceContainerHighest : Theme.m3SurfaceContainerHigh
+                    target: resetArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : Theme.glassInner(Theme.m3SurfaceContainerHigh)
                 }
 
                 Text {
@@ -109,7 +109,7 @@ Flickable {
                     Layout.fillWidth: true
                     implicitHeight: rows.implicitHeight
                     radius: 20
-                    color: Theme.m3SurfaceContainer
+                    color: Theme.glassInner(Theme.m3SurfaceContainer)
 
                     ColumnLayout {
                         id: rows

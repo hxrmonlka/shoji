@@ -55,7 +55,7 @@ Item {
         ColorSpring {
             id: fill
 
-            target: sw.on ? Theme.m3Primary : Theme.m3SurfaceContainerHighest
+            target: sw.on ? Theme.m3Primary : Theme.glassInner(Theme.m3SurfaceContainerHighest)
         }
 
         Spring {
@@ -172,7 +172,7 @@ Item {
             Layout.fillWidth: true
             Layout.preferredHeight: 40
             radius: 14
-            color: Theme.m3SurfaceContainerHighest
+            color: Theme.glassInner(Theme.m3SurfaceContainerHighest)
             border.width: input.activeFocus ? 2 : 0
             border.color: Theme.m3Primary
 
@@ -251,7 +251,7 @@ Item {
                     ColorSpring {
                         id: pillFill
 
-                        target: pillArea.containsMouse ? Theme.m3SurfaceContainerHighest : pill.chosen ? Theme.m3PrimaryContainer : "transparent"
+                        target: pillArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : pill.chosen ? Theme.m3PrimaryContainer : "transparent"
                     }
 
                     ColorSpring {

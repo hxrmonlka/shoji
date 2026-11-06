@@ -70,7 +70,7 @@ Item {
                 ColorSpring {
                     id: tint
 
-                    target: slot.modelData.active ? Theme.m3Primary : slot.modelData.urgent ? Theme.m3OnPrimaryContainer : Theme.m3SurfaceContainerHighest
+                    target: slot.modelData.active ? Theme.m3Primary : slot.modelData.urgent ? Theme.m3OnPrimaryContainer : Theme.glassInner(Theme.m3SurfaceContainerHighest)
                 }
 
                 Rectangle {

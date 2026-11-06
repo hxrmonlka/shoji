@@ -43,7 +43,7 @@ FloatingWindow {
     implicitWidth: 960
     implicitHeight: 680
     minimumSize: Qt.size(720, 480)
-    color: Theme.m3Surface
+    color: Theme.glass(Theme.m3Surface)
     onClosed: ShellState.settingsOpen = false
 
     Item {
@@ -67,7 +67,7 @@ FloatingWindow {
             anchors.bottom: parent.bottom
             anchors.left: parent.left
             width: 248
-            color: Theme.m3SurfaceContainer
+            color: Theme.glassInner(Theme.m3SurfaceContainer)
 
             ColumnLayout {
                 anchors.fill: parent
@@ -102,7 +102,7 @@ FloatingWindow {
                     Layout.preferredHeight: 40
                     Layout.bottomMargin: 8
                     radius: 20
-                    color: Theme.m3SurfaceContainerHigh
+                    color: Theme.glassInner(Theme.m3SurfaceContainerHigh)
                     border.width: search.activeFocus ? 2 : 0
                     border.color: Theme.m3Primary
 
@@ -171,7 +171,7 @@ FloatingWindow {
                         ColorSpring {
                             id: fill
 
-                            target: entry.current ? Theme.m3PrimaryContainer : entryArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                            target: entry.current ? Theme.m3PrimaryContainer : entryArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
                         }
 
                         Text {
@@ -228,7 +228,7 @@ FloatingWindow {
                     ColorSpring {
                         id: allFill
 
-                        target: allArea.containsMouse ? Theme.m3SurfaceContainerHighest : Theme.m3SurfaceContainerHigh
+                        target: allArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : Theme.glassInner(Theme.m3SurfaceContainerHigh)
                     }
 
                     Text {

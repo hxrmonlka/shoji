@@ -40,7 +40,7 @@ PopupWindow {
         width: parent.width - 12
         height: parent.height - 12
         radius: 20
-        color: Theme.m3SurfaceContainer
+        color: Theme.glassInner(Theme.m3SurfaceContainer)
         border.width: 1
         border.color: Theme.m3OutlineVariant
 

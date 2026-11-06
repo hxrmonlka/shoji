@@ -38,7 +38,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: root.radiusNow
-        color: Theme.m3SurfaceContainer
+        color: Theme.glass(Theme.m3SurfaceContainer)
         border.width: 1
         border.color: Theme.m3OutlineVariant
     }

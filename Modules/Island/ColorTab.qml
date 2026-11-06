@@ -27,7 +27,7 @@ Item {
         ColorSpring {
             id: fill
 
-            target: pill.primary ? (area.containsMouse ? Theme.m3Primary : Theme.m3PrimaryContainer) : (area.containsMouse ? Theme.m3PrimaryContainer : Theme.m3SurfaceContainerHigh)
+            target: pill.primary ? (area.containsMouse ? Theme.m3Primary : Theme.m3PrimaryContainer) : (area.containsMouse ? Theme.m3PrimaryContainer : Theme.glassInner(Theme.m3SurfaceContainerHigh))
         }
 
         Row {
@@ -96,7 +96,7 @@ Item {
             Layout.preferredWidth: 60
             Layout.preferredHeight: 32
             radius: 16
-            color: Theme.m3SurfaceContainerHigh
+            color: Theme.glassInner(Theme.m3SurfaceContainerHigh)
 
             TextInput {
                 id: num
@@ -278,7 +278,7 @@ Item {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 36
                         radius: 18
-                        color: Theme.m3SurfaceContainerHigh
+                        color: Theme.glassInner(Theme.m3SurfaceContainerHigh)
 
                         TextInput {
                             id: hexField

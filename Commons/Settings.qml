@@ -55,6 +55,8 @@ QtObject {
         { key: "searchEngine", cat: "features", section: "Spotlight", label: "Web search engine", desc: "Used by the >w prefix. Results open in the default browser.", type: "choice", options: [{ value: "kagi", label: "Kagi" }, { value: "google", label: "Google" }], def: "kagi" },
         { key: "themeScheme", cat: "colors", section: "Palette", label: "Color scheme", desc: "Algorithm matugen uses to build the palette from the wallpaper.", type: "scheme", def: "scheme-tonal-spot" },
         { key: "themeMode", cat: "colors", section: "Palette", label: "Mode", desc: "Dark or light colors for the shell and every themed app.", type: "choice", options: [{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }], def: "dark" },
+        { key: "surfaceOpacity", cat: "colors", section: "Translucency", label: "Surface opacity (%)", desc: "How opaque panels and menus are. Lower values show more of the blurred background. The media panel is always opaque.", min: 55, max: 100, step: 1, def: 100 },
+        { key: "blurEnabled", cat: "colors", section: "Translucency", label: "Background blur", desc: "Writes blur options to mango/shoji/colors.conf. Needs MangoWM theming turned on.", type: "bool", def: true },
         { key: "themeMango", cat: "theming", section: "Apps", label: "MangoWM", desc: "Border, bar and shadow colors in mango/shoji/colors.conf.", type: "bool", def: true },
         { key: "themeKitty", cat: "theming", section: "Apps", label: "kitty", desc: "Terminal and tab colors in kitty/shoji-theme.conf.", type: "bool", def: true },
         { key: "themeBtop", cat: "theming", section: "Apps", label: "btop", desc: "Theme file btop/themes/shoji.theme.", type: "bool", def: true },
@@ -110,6 +112,8 @@ QtObject {
     readonly property string searchEngine: get("searchEngine")
     readonly property string themeScheme: get("themeScheme")
     readonly property string themeMode: get("themeMode")
+    readonly property int surfaceOpacity: get("surfaceOpacity")
+    readonly property bool blurEnabled: get("blurEnabled")
     readonly property bool themeMango: get("themeMango")
     readonly property bool themeKitty: get("themeKitty")
     readonly property bool themeBtop: get("themeBtop")

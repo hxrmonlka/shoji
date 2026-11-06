@@ -6,6 +6,7 @@ enabled="$4"
 radius="${5:-12}"
 scheme="${6:-scheme-tonal-spot}"
 mode="${7:-dark}"
+blur="${8:-true}"
 
 case " scheme-content scheme-expressive scheme-fidelity scheme-fruit-salad scheme-monochrome scheme-neutral scheme-rainbow scheme-tonal-spot scheme-vibrant " in
     *" $scheme "*) ;;
@@ -40,6 +41,12 @@ has gtk && active="$active gtk"
 has helium && [ -w /etc/chromium/policies/managed/shoji-color.json ] && active="$active helium"
 has spotify && command -v shoji-spicetify-apply >/dev/null 2>&1 && active="$active spotify"
 has zed && [ -d "$conf/zed" ] && mkdir -p "$conf/zed/themes" && active="$active zed"
+
+if [ "$blur" = "true" ]; then
+    cp "$shell/matugen/templates/mango-colors.conf" "$tpl/mango-colors.conf"
+else
+    sed '/^# shoji-blur-begin$/,/^# shoji-blur-end$/d' "$shell/matugen/templates/mango-colors.conf" > "$tpl/mango-colors.conf"
+fi
 
 rb=$((radius * 2 / 3))
 for v in 3 4; do

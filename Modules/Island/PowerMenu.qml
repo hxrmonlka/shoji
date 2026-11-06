@@ -116,7 +116,7 @@ Item {
                 ColorSpring {
                     id: fill
 
-                    target: tile.selected ? Theme.m3PrimaryContainer : Theme.m3SurfaceContainerHigh
+                    target: tile.selected ? Theme.m3PrimaryContainer : Theme.glassInner(Theme.m3SurfaceContainerHigh)
                 }
 
                 Column {

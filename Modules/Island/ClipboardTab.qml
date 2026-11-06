@@ -78,7 +78,7 @@ Item {
                 width: head.width - clearBtn.width - head.spacing
                 height: 40
                 radius: 20
-                color: Theme.m3SurfaceContainerHigh
+                color: Theme.glassInner(Theme.m3SurfaceContainerHigh)
 
                 Text {
                     id: glass
@@ -142,7 +142,7 @@ Item {
                 ColorSpring {
                     id: clearFill
 
-                    target: clearArea.containsMouse && clearBtn.usable ? Theme.m3PrimaryContainer : Theme.m3SurfaceContainerHigh
+                    target: clearArea.containsMouse && clearBtn.usable ? Theme.m3PrimaryContainer : Theme.glassInner(Theme.m3SurfaceContainerHigh)
                 }
 
                 Text {
@@ -210,7 +210,7 @@ Item {
                 ColorSpring {
                     id: rowFill
 
-                    target: row.selected ? Theme.m3SurfaceContainerHighest : "transparent"
+                    target: row.selected ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
                 }
 
                 Loader {

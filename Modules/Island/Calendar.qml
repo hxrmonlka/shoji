@@ -90,7 +90,7 @@ ColumnLayout {
                 ColorSpring {
                     id: navFill
 
-                    target: navArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                    target: navArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
                 }
 
                 Text {
@@ -160,7 +160,7 @@ ColumnLayout {
                 ColorSpring {
                     id: cellFill
 
-                    target: cell.isToday ? Theme.m3Primary : cellArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                    target: cell.isToday ? Theme.m3Primary : cellArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
                 }
 
                 Rectangle {

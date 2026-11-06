@@ -87,7 +87,7 @@ QtObject {
 
     function launch() {
         busy = true;
-        matugen.exec(["sh", Quickshell.shellPath("scripts/theme.sh"), Quickshell.shellDir, stateDir, pending, AppTheme.enabled, String(AppTheme.radius), Schemes.scheme, Schemes.mode]);
+        matugen.exec(["sh", Quickshell.shellPath("scripts/theme.sh"), Quickshell.shellDir, stateDir, pending, AppTheme.enabled, String(AppTheme.radius), Schemes.scheme, Schemes.mode, String(AppTheme.blur)]);
     }
 
     function indexOfCurrent() {

@@ -55,7 +55,7 @@ Item {
                     ColorSpring {
                         id: folderFill
 
-                        target: Wallpapers.choosing ? Theme.m3PrimaryContainer : folderArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                        target: Wallpapers.choosing ? Theme.m3PrimaryContainer : folderArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
                     }
 
                     Text {
@@ -93,7 +93,7 @@ Item {
                     ColorSpring {
                         id: shuffleFill
 
-                        target: shuffleArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                        target: shuffleArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
                     }
 
                     Text {

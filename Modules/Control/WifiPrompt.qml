@@ -26,7 +26,7 @@ Item {
             height: 36
             radius: 12
             visible: Network.promptEap
-            color: Theme.m3SurfaceContainerHighest
+            color: Theme.glassInner(Theme.m3SurfaceContainerHighest)
             border.width: user.activeFocus ? 1 : 0
             border.color: Theme.m3Primary
 
@@ -67,7 +67,7 @@ Item {
                 width: parent.width - 72 - 8
                 height: 36
                 radius: 12
-                color: Theme.m3SurfaceContainerHighest
+                color: Theme.glassInner(Theme.m3SurfaceContainerHighest)
                 border.width: pass.activeFocus ? 1 : 0
                 border.color: Theme.m3Primary
 

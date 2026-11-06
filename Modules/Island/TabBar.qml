@@ -111,7 +111,7 @@ Item {
                         ColorSpring {
                             id: chipFill
 
-                            target: chip.active ? Theme.m3PrimaryContainer : chipArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                            target: chip.active ? Theme.m3PrimaryContainer : chipArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
                         }
 
                         Ripple {

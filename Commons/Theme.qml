@@ -10,6 +10,17 @@ QtObject {
     readonly property string fontUi: "Roboto Flex"
     readonly property string fontIcon: "JetBrainsMono Nerd Font"
 
+    readonly property real glassAlpha: Settings.surfaceOpacity / 100
+    readonly property real glassInnerAlpha: 1 - (1 - glassAlpha) / 2
+
+    function glass(c) {
+        return Qt.alpha(c, glassAlpha);
+    }
+
+    function glassInner(c) {
+        return Qt.alpha(c, glassInnerAlpha);
+    }
+
     readonly property color m3Primary: file.adapter.primary
     readonly property color m3OnPrimary: file.adapter.on_primary
     readonly property color m3PrimaryContainer: file.adapter.primary_container

@@ -143,7 +143,7 @@ Item {
                 ColorSpring {
                     id: btnFill
 
-                    target: btnArea.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+                    target: btnArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
                 }
 
                 Text {

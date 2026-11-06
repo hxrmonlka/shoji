@@ -37,7 +37,7 @@ Item {
             Layout.fillWidth: true
             Layout.preferredHeight: 10
             radius: 5
-            color: Theme.m3SurfaceContainerHighest
+            color: Theme.glassInner(Theme.m3SurfaceContainerHighest)
 
             Rectangle {
                 width: Math.min(parent.width, Math.max(parent.height, parent.width * fill.value))

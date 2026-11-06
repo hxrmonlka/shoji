@@ -18,7 +18,7 @@ Rectangle {
     ColorSpring {
         id: fill
 
-        target: root.active ? Theme.m3PrimaryContainer : area.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+        target: root.active ? Theme.m3PrimaryContainer : area.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
     }
 
     Ripple {

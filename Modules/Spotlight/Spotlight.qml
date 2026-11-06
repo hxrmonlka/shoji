@@ -284,7 +284,7 @@ PanelWindow {
         x: (win.width - width) / 2
         y: win.height * 0.45 - win.barHeight / 2
         radius: 30
-        color: Theme.m3SurfaceContainer
+        color: Theme.glass(Theme.m3SurfaceContainer)
         border.width: 1
         border.color: Theme.m3OutlineVariant
         clip: true

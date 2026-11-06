@@ -420,7 +420,7 @@ Item {
                         ColorSpring {
                             id: rowFill
 
-                            target: rowArea.containsMouse ? Theme.m3SurfaceContainerHigh : "transparent"
+                            target: rowArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHigh) : "transparent"
                         }
                     }
 
@@ -443,7 +443,7 @@ Item {
                             Layout.preferredWidth: root.cpuW
                             implicitHeight: 24
                             radius: 12
-                            color: Theme.m3SurfaceContainerHighest
+                            color: Theme.glassInner(Theme.m3SurfaceContainerHighest)
 
                             Text {
                                 anchors.centerIn: parent
@@ -458,7 +458,7 @@ Item {
                             Layout.preferredWidth: root.memW
                             implicitHeight: 24
                             radius: 12
-                            color: Theme.m3SurfaceContainerHighest
+                            color: Theme.glassInner(Theme.m3SurfaceContainerHighest)
 
                             Text {
                                 anchors.centerIn: parent

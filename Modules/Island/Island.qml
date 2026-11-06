@@ -308,7 +308,7 @@ PanelWindow {
         width: Motion.lerp(Motion.lerp(win.restWidth, panelW.value, win.progress), win.powerWidth, win.powerProgress)
         height: Motion.lerp(Motion.lerp(win.restHeight, panelH.value, win.progress), win.powerHeight, win.powerProgress)
         radius: Motion.lerp(Motion.lerp(Motion.lerp(win.pillHeight / 2, Math.min(Settings.panelRadius, 28), win.popupProgress), win.osdHeight / 2, win.osdProgress), Settings.panelRadius, Math.max(win.progress, win.powerProgress))
-        color: Theme.m3SurfaceContainer
+        color: Theme.glass(Theme.m3SurfaceContainer)
         border.width: 1
         border.color: Theme.m3OutlineVariant
         clip: true

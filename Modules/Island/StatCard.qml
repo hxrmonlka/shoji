@@ -13,7 +13,7 @@ Rectangle {
     property bool auto: false
 
     radius: 18
-    color: Theme.m3SurfaceContainerHigh
+    color: Theme.glassInner(Theme.m3SurfaceContainerHigh)
 
     Text {
         id: valueText

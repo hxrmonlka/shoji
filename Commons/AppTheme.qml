@@ -19,7 +19,8 @@ QtObject {
     ]
     readonly property string enabled: apps.filter(a => Settings.get(a.key)).map(a => a.id).join(" ")
     readonly property int radius: Settings.get("themeRadius")
-    readonly property string signature: enabled + "|" + radius + "|" + Schemes.signature
+    readonly property bool blur: Settings.blurEnabled
+    readonly property string signature: enabled + "|" + radius + "|" + blur + "|" + Schemes.signature
 
     function start() {
         arm.restart();

@@ -83,7 +83,7 @@ Item {
         width: root.width
         height: content.implicitHeight + 24
         radius: 18
-        color: Theme.m3SurfaceContainerHigh
+        color: Theme.glassInner(Theme.m3SurfaceContainerHigh)
         opacity: 1 - Math.min(1, Math.abs(x) / (root.width * 0.9))
 
         DragHandler {
@@ -195,7 +195,7 @@ Item {
                             ColorSpring {
                                 id: actionFill
 
-                                target: actionArea.containsMouse ? Theme.m3PrimaryContainer : Theme.m3SurfaceContainerHighest
+                                target: actionArea.containsMouse ? Theme.m3PrimaryContainer : Theme.glassInner(Theme.m3SurfaceContainerHighest)
                             }
 
                             Text {

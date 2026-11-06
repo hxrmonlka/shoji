@@ -73,7 +73,7 @@ Item {
             width: Math.min(parent.width - 20, 360)
             height: 40
             radius: 20
-            color: Theme.m3SurfaceContainerHigh
+            color: Theme.glassInner(Theme.m3SurfaceContainerHigh)
             border.width: 1
             border.color: Theme.m3OutlineVariant
             opacity: bar.value
@@ -157,7 +157,7 @@ Item {
                     ColorSpring {
                         id: tileFill
 
-                        target: area.containsMouse || tile.index === root.selected ? Theme.m3SurfaceContainerHighest : "transparent"
+                        target: area.containsMouse || tile.index === root.selected ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
                     }
 
                     Column {
