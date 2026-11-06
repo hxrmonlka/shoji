@@ -48,7 +48,7 @@ Item {
         target: ShellState
 
         function onExpandedChanged() {
-            if (ShellState.expanded)
+            if (ShellState.expanded && ShellState.tab === "clipboard")
                 Qt.callLater(root.focusField);
         }
 

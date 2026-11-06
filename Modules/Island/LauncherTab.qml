@@ -37,10 +37,10 @@ Item {
         target: ShellState
 
         function onExpandedChanged() {
-            if (ShellState.expanded)
-                Qt.callLater(root.focusField);
-            else
+            if (!ShellState.expanded)
                 field.text = "";
+            else if (ShellState.tab === "launcher")
+                Qt.callLater(root.focusField);
         }
 
         function onTabChanged() {
