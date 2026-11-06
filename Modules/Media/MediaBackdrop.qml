@@ -47,7 +47,7 @@ Item {
         anchors.bottom: parent.bottom
         anchors.leftMargin: root.vizMargin
         anchors.rightMargin: root.vizMargin
-        height: 80
+        height: 70
         spacing: 4
         visible: root.viz
         opacity: 0.75 * vizFade.value
@@ -66,7 +66,7 @@ Item {
                 required property int index
 
                 width: (parent.width - (Cava.bars - 1) * 4) / Cava.bars
-                height: Math.max(4, (Cava.values[index] ?? 0) * 80)
+                height: Math.max(4, (Cava.values[index] ?? 0) * 92)
                 anchors.bottom: parent.bottom
                 topLeftRadius: width / 2
                 topRightRadius: width / 2
