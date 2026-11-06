@@ -13,7 +13,7 @@ QtObject {
     property bool busy: false
     property bool failed: false
     property string message: ""
-    property int frameShape: 0
+    property int frameShape: 7
     readonly property bool secret: true
     readonly property string prompt: "Enter password"
 

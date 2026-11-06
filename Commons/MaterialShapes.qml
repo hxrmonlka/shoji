@@ -5,7 +5,7 @@ import QtQuick
 QtObject {
     id: root
 
-    readonly property var frameKinds: [0, 1, 3, 4, 5, 6]
+    readonly property var frameKinds: [7, 3, 8]
 
     function polar(fn, n) {
         let d = "";
@@ -60,6 +60,16 @@ QtObject {
             }
             pts.push([0.95, 0.55]);
             return rounded(pts, 0.14);
+        }
+        case 7:
+            return "M 4 50 A 46 46 0 1 0 96 50 A 46 46 0 1 0 4 50 Z";
+        case 8: {
+            const pts = [];
+            for (let i = 0; i < 6; i++) {
+                const a = i / 6 * Math.PI * 2;
+                pts.push([0.95 * Math.sin(a), -0.95 * Math.cos(a)]);
+            }
+            return rounded(pts, 0.22);
         }
         default: {
             const pts = [];

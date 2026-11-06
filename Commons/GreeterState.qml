@@ -15,7 +15,7 @@ QtObject {
     property bool busy: false
     property bool failed: false
     property string message: ""
-    property int frameShape: 0
+    property int frameShape: 7
     property var sessions: []
     property var users: []
     property int highlighted: 0
