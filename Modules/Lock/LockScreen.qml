@@ -17,7 +17,14 @@ Item {
     property real reveal: 0
 
     function refocus(): void {
+        if (greeter)
+            console.log("GREETER refocus requested", "enabled", input.enabled, "activeFocus", input.activeFocus);
         input.forceActiveFocus();
+        if (greeter) {
+            Qt.callLater(() => {
+                console.log("GREETER refocus result", "enabled", input.enabled, "activeFocus", input.activeFocus);
+            });
+        }
     }
 
     function act(cmd: string): void {
@@ -278,7 +285,23 @@ Item {
             inputMethodHints: Qt.ImhSensitiveData
             enabled: !root.auth.busy
             focus: true
-            onTextChanged: root.auth.password = text
+            onTextChanged: {
+                root.auth.password = text;
+                if (root.greeter)
+                    console.log("GREETER input text length", text.length);
+            }
+            onActiveFocusChanged: {
+                if (root.greeter)
+                    console.log("GREETER input activeFocus", activeFocus);
+            }
+            onEnabledChanged: {
+                if (root.greeter)
+                    console.log("GREETER input enabled", enabled);
+            }
+            Keys.onPressed: event => {
+                if (root.greeter)
+                    console.log("GREETER key event received");
+            }
             onAccepted: root.auth.submit()
             Keys.onEscapePressed: root.auth.password = ""
             Keys.onLeftPressed: event => {
