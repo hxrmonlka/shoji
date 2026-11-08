@@ -175,7 +175,16 @@ QtObject {
     }
 
     readonly property Process matugen: Process {
-        onExited: {
+        stderr: StdioCollector {
+            onStreamFinished: {
+                const output = text.trim();
+                if (output.length > 0)
+                    console.warn("Shoji: Matugen:", output);
+            }
+        }
+        onExited: (code, status) => {
+            if (code !== 0)
+                console.warn("Shoji: Matugen exited with code", code);
             if (root.dirty) {
                 root.dirty = false;
                 root.launch();
