@@ -24,7 +24,7 @@ QtObject {
         while (shapes.count > n)
             shapes.remove(shapes.count - 1);
         while (shapes.count < n)
-            shapes.append({ shape: Math.floor(Math.random() * 7) });
+            shapes.append({ shape: MaterialShapes.pickPassword() });
     }
 
     function lock(): void {

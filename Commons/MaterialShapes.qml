@@ -6,6 +6,22 @@ QtObject {
     id: root
 
     readonly property var frameKinds: [7, 3, 8]
+    readonly property var passwordKinds: [9, 10, 11, 7, 12]
+
+    function pickPassword() {
+        return passwordKinds[Math.floor(Math.random() * passwordKinds.length)];
+    }
+
+    function regular(n, radius, rotation, cy) {
+        let d = "";
+        for (let i = 0; i < n; i++) {
+            const a = rotation + i / n * Math.PI * 2;
+            const x = 50 + radius * Math.sin(a);
+            const y = cy - radius * Math.cos(a);
+            d += (i === 0 ? "M" : "L") + x.toFixed(2) + " " + y.toFixed(2) + " ";
+        }
+        return d + "Z";
+    }
 
     function polar(fn, n) {
         let d = "";
@@ -63,6 +79,14 @@ QtObject {
         }
         case 7:
             return "M 4 50 A 46 46 0 1 0 96 50 A 46 46 0 1 0 4 50 Z";
+        case 9:
+            return "M 11 11 L 89 11 L 89 89 L 11 89 Z";
+        case 10:
+            return regular(3, 50, 0, 62.5);
+        case 11:
+            return regular(3, 50, Math.PI, 37.5);
+        case 12:
+            return regular(8, 49, Math.PI / 8, 50);
         case 8: {
             const pts = [];
             for (let i = 0; i < 6; i++) {
