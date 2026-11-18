@@ -7,6 +7,31 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* `qs list -j` prints the bare log line "No running instances." (or nothing
+ * at all) when no instance exists, instead of a JSON array: the empty-list
+ * branch of upstream `qs list` runs before the JSON encoder, and the
+ * quickshell.bare category prints unadorned text on stdout. Accept both as
+ * an empty list rather than a parse failure. */
+static int list_output_is_empty_notice(const char *out)
+{
+        const char *p = out ? out : "";
+
+        while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')
+                p++;
+        if (*p == '\0')
+                return 1;
+        return strncmp(p, "No running instances.", 21) == 0;
+}
+
+static struct shoji_instance_list *empty_list(void)
+{
+        struct shoji_instance_list *list = shj_alloc(sizeof(*list));
+
+        list->count = 0;
+        list->items = shj_alloc(sizeof(struct shoji_instance));
+        return list;
+}
+
 struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *user,
                                                      const char *qs_bin, int *err)
 {
@@ -57,6 +82,10 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
 
         arr = shj_json_parse(r->out ? r->out : "", &errpos);
         if (!arr) {
+                if (list_output_is_empty_notice(r->out)) {
+                        shj_proc_result_free(r);
+                        return empty_list();
+                }
                 if (errpos)
                         shj_msg("could not parse `qs list -j` output at byte %zu", errpos);
                 else
@@ -96,7 +125,12 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
                 inst->config_path = shj_strdup(shj_json_str(cfg, ""));
                 inst->launch_time = shj_strdup(shj_json_str(lt, ""));
                 inst->pid = (pid && pid->type == SHOJI_JSON_NUMBER) ? (long)pid->number : -1;
-                inst->dead = (inst->pid <= 0);
+                /* Upstream quickshell derives the pid from the fcntl write
+                 * lock on the instance lock file: a live instance reports the
+                 * lock holder's pid, a dead one reports -1
+                 * (src/core/paths.cpp, QsPaths::checkLock). No liveness probe
+                 * is needed or more accurate than that. */
+                inst->dead = inst->pid <= 0;
         }
 
         shj_json_free(arr);
@@ -178,15 +212,16 @@ enum shoji_select_status shoji_select_instance(const struct shoji_instance_list 
 
         if (instance_id_override && *instance_id_override) {
                 /* Explicit override: prefix-match against every known instance
-                 * (same rule quickshell applies for -i). Ambiguous prefixes are
-                 * an error even when the id matches multiple live instances. */
+                 * (same rule quickshell applies for -i). The matched instances
+                 * are published through matches[] so the caller can list them
+                 * when the prefix is ambiguous. */
                 int id_matches = 0;
                 struct shoji_instance *pick = NULL;
 
                 for (i = 0; i < list->count; i++) {
                         if (strncmp(list->items[i].id, instance_id_override,
                                     strlen(instance_id_override)) == 0) {
-                                id_matches++;
+                                out->matches[id_matches++] = &list->items[i];
                                 pick = &list->items[i];
                         }
                 }

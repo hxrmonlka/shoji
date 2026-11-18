@@ -34,6 +34,12 @@ stdenv.mkDerivation {
 }
 ```
 
+The double quotes belong inside the macro definition: cc-wrapper splits
+`NIX_CFLAGS_COMPILE` on whitespace without stripping quotes, so the compiler
+sees `-DSHOJI_DEFAULT_STORE="/nix/store/…"` and the path arrives as a proper
+C string literal. Without the inner quotes (`-DSHOJI_DEFAULT_STORE=/nix/…`)
+the path is parsed as C tokens and compilation fails.
+
 `SHOJI_DEFAULT_STORE` must point at the Shoji configuration directory (or its
 `shell.qml`) for the generation the CLI belongs to. Without it, resolution
 falls back to the active config link and profile scan (see below).
@@ -228,9 +234,11 @@ Properties:
 ## Instance selection
 
 Discovery always runs Quickshell's own CLI: `qs list -a -j --show-dead`
-(with a graceful retry without `--show-dead` on older quickshell). Shoji
-never dispatches via a bare `qs -p PATH …`, because quickshell would
-**silently pick the oldest instance** of that config when several match.
+(with a graceful retry without `--show-dead` on older quickshell). When no
+instance exists, quickshell prints its bare `No running instances.` log line
+instead of JSON; both that line and empty output are accepted as an empty
+list. Shoji never dispatches via a bare `qs -p PATH …`, because quickshell
+**silently picks the oldest instance** of that config when several match.
 
 Selection policy (`shoji_select_instance`):
 

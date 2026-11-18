@@ -84,8 +84,10 @@ static int try_candidate(const char *candidate, char **out_qml, char **out_dir)
         if (!real)
                 return -1;
         if (out_dir) {
-                char *dir = shj_realpath_safe(dirname_of(candidate));
+                char *raw_dir = dirname_of(candidate);
+                char *dir = shj_realpath_safe(raw_dir);
 
+                free(raw_dir);
                 if (dir) {
                         *out_dir = dir;
                 } else {
@@ -206,8 +208,7 @@ static int resolve_config_links(const struct shoji_resolver_env *env, struct sho
 
                 found = resolve_from(candidate, SHOJI_STORE_CONFIG_LINK, detail, out);
                 free(candidate);
-                if (found != 0)
-                        free(detail);
+                free(detail);
         }
         for (i = 0; i < n; i++)
                 free(dirs[i]);

@@ -161,6 +161,18 @@ void test_instances(void)
         shoji_selection_clear(&sel);
         shoji_instance_list_free(list);
 
+        /* real quickshell prints a bare log line (or nothing at all) instead
+         * of a JSON array when no instance exists */
+        set_list("No running instances.");
+        list = discover();
+        CHECK_INT_EQ(list->count, 0, "bare empty-list notice accepted");
+        shoji_instance_list_free(list);
+
+        set_list("");
+        list = discover();
+        CHECK_INT_EQ(list->count, 0, "empty list output accepted");
+        shoji_instance_list_free(list);
+
         /* no match */
         g_list_json = "[{\"id\":\"bbb222yyy\",\"pid\":7,\"shell_id\":\"s2\","
                       "\"config_path\":\"/some/other/shell.qml\","
@@ -191,9 +203,13 @@ void test_instances(void)
         CHECK_STR_EQ(sel.selected->id, "abcd111", "prefix picked the right instance");
         shoji_selection_clear(&sel);
 
-        /* ambiguous prefix override */
+        /* ambiguous prefix override: both matches must be published so the
+         * caller can list them instead of reading uninitialized entries */
         CHECK_INT_EQ(shoji_select_instance(list, "/some/other/shell.qml", "abcd", &sel),
                      SHOJI_SELECT_AMBIGUOUS, "ambiguous prefix override refused");
+        CHECK_INT_EQ(sel.match_count, 2, "ambiguous prefix lists both matches");
+        CHECK_STR_EQ(sel.matches[0]->id, "abcd111", "ambiguous match 1 published");
+        CHECK_STR_EQ(sel.matches[1]->id, "abcd222", "ambiguous match 2 published");
         shoji_selection_clear(&sel);
 
         /* unknown prefix override */

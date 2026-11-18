@@ -6,10 +6,22 @@
 
 CC      ?= cc
 CFLAGS  ?= -O2
-CFLAGS  += -std=c11 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Wall -Wextra -Wshadow -Wno-unused-parameter
+# Flags the sources require to compile at all (language level and POSIX
+# feature-test macros) plus the baseline warning set. They live in their own
+# variable and are appended AFTER the user flags, so a CFLAGS override from
+# the command line or the environment can neither drop nor undefine them:
+#   make CFLAGS=-O2          ->  -O2 <required flags>
+#   make CFLAGS="-O0 -g"     ->  -O0 -g <required flags>
+REQUIRED_CFLAGS = -std=c11 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Wall -Wextra -Wshadow -Wno-unused-parameter
+ALL_CFLAGS = $(CFLAGS) $(REQUIRED_CFLAGS)
 # Packaging hook (Lumina / Alice): bake the exact Shoji store path in so the
-# resolver can use it as the build-time source:
+# resolver can use it as the build-time source. The double quotes are part of
+# the macro definition; recipes run through the shell, so they must survive
+# shell processing: single-quote them in a Makefile assignment, or escape
+# them as \" when overriding CFLAGS on the command line. Plain unescaped
+# quotes are stripped by the recipe shell and the bare path fails to compile.
 #   CFLAGS += -DSHOJI_DEFAULT_STORE='"$(shojiStorePath)"'
+#   make CFLAGS='-DSHOJI_DEFAULT_STORE=\"$(shojiStorePath)\"'
 LDFLAGS ?=
 AR      ?= ar
 
@@ -39,16 +51,16 @@ $(BUILD):
 	mkdir -p $(BUILD)
 
 $(BUILD)/%.o: $(SRC_DIR)/%.c $(wildcard $(SRC_DIR)/*.h) | $(BUILD)
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(ALL_CFLAGS) -c -o $@ $<
 
 $(CLI_BIN): $(CLI_OBJS)
-	$(CC) $(CFLAGS) -o $@ $(CLI_OBJS) $(LDFLAGS)
+	$(CC) $(ALL_CFLAGS) -o $@ $(CLI_OBJS) $(LDFLAGS)
 
 $(TEST_BIN): $(UNIT_OBJS) $(LIB_OBJS)
-	$(CC) $(CFLAGS) -o $@ $(UNIT_OBJS) $(LIB_OBJS) $(LDFLAGS)
+	$(CC) $(ALL_CFLAGS) -o $@ $(UNIT_OBJS) $(LIB_OBJS) $(LDFLAGS)
 
 $(BUILD)/test%.o: $(TEST_DIR)/test%.c | $(BUILD)
-	$(CC) $(CFLAGS) -I$(SRC_DIR) -c -o $@ $<
+	$(CC) $(ALL_CFLAGS) -I$(SRC_DIR) -c -o $@ $<
 
 unit: $(TEST_BIN)
 	$(TEST_BIN)

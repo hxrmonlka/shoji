@@ -187,6 +187,7 @@ expect_exit 66 "missing store override exits 66" \
   XDG_CONFIG_HOME="$WORK/none" "$CLI" island toggle
 expect_exit 66 "nonexistent store override exits 66" \
   env SHOJI_STORE_PATH="$WORK/nope" "$CLI" island toggle
+expect_exit 64 "--store without value exits 64" "$CLI" --store
 
 # quickshell unavailable ------------------------------------------------------
 expect_exit 69 "missing quickshell exits 69" \
@@ -203,6 +204,10 @@ cat > "$WORK/instances.json" <<EOF
 EOF
 expect_exit 68 "ambiguous instances exit 68" "$CLI" island toggle
 expect_exit 0 "override resolves ambiguity" "$CLI" --instance-id inst9 island toggle
+expect_exit 68 "ambiguous id prefix exits 68" "$CLI" --instance-id inst island toggle
+"$CLI" --instance-id inst island toggle 2>/dev/null | grep -c "inst[19]abcdefgh" > "$WORK/ambig.txt"
+grep -q "^2$" "$WORK/ambig.txt" && ok "ambiguous prefix lists both matches" \
+  || bad "ambiguous prefix lists both matches" "$(cat "$WORK/ambig.txt")"
 
 # no match --------------------------------------------------------------------
 cat > "$WORK/instances.json" <<EOF
@@ -215,6 +220,14 @@ expect_exit 67 "no matching instance exits 67" "$CLI" island toggle
 expect_exit 0 "status still informative without match" "$CLI" status
 "$CLI" status | grep -q "verdict: no-match" \
   && ok "status verdict no-match" || bad "status verdict no-match"
+
+# empty instance list (real qs prints a bare log line, not JSON) -----------
+printf 'No running instances.\n' > "$WORK/instances.json"
+expect_exit 67 "bare empty-list notice exits 67" "$CLI" island toggle
+"$CLI" status | grep -q "verdict: no-match" \
+  && ok "status verdict no-match on empty notice" || bad "status verdict no-match on empty notice"
+: > "$WORK/instances.json"
+expect_exit 67 "empty list output exits 67" "$CLI" island toggle
 
 # dead instance reporting -----------------------------------------------------
 cat > "$WORK/instances.json" <<EOF

@@ -127,5 +127,6 @@ int main(int argc, char **argv)
         }
 
         shoji_options_free(&opts);
+        shoji_store_free(&ctx.store);
         return code;
 }

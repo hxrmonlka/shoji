@@ -53,10 +53,11 @@ static void store_unresolved_hints(void)
 
 static void print_instance_line(const struct shoji_instance *inst, const char *mark)
 {
-        printf("  %s %-20s pid %-8s %s\n",
+        printf("  %s %-20s pid %-8ld %s%s\n",
                mark ? mark : " ",
                inst->id,
-               inst->dead ? "(dead)" : "",
+               inst->pid,
+               inst->dead ? "(dead) " : "",
                inst->config_path ? inst->config_path : "?");
 }
 

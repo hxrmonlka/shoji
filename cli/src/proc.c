@@ -65,15 +65,19 @@ static void pb_add(struct pipebuf *b, const char *src, ssize_t n)
         b->data[b->len] = '\0';
 }
 
-/* Read `fd` until EOF or timeout; returns 0 on success, -1 on timeout. */
-static int drain(int fd, struct pipebuf *b, long deadline_ms)
+/* Pump both capture pipes concurrently so a child blocked writing one
+ * stream cannot deadlock us on the other; returns 0 on success, -1 on
+ * timeout. */
+static int drain_streams(int out_fd, struct pipebuf *ob, int err_fd, struct pipebuf *eb,
+                         long deadline_ms)
 {
-        char chunk[8192];
+        int open_out = 1, open_err = 1;
 
-        for (;;) {
+        while (open_out || open_err) {
+                struct pollfd fds[2];
+                nfds_t n = 0;
                 long now;
                 struct timespec ts;
-                struct pollfd pfd = { fd, POLLIN, 0 };
                 int timeout;
                 int r;
 
@@ -88,7 +92,20 @@ static int drain(int fd, struct pipebuf *b, long deadline_ms)
                                 return -1;
                 }
 
-                r = poll(&pfd, 1, timeout);
+                if (open_out) {
+                        fds[n].fd = out_fd;
+                        fds[n].events = POLLIN;
+                        fds[n].revents = 0;
+                        n++;
+                }
+                if (open_err) {
+                        fds[n].fd = err_fd;
+                        fds[n].events = POLLIN;
+                        fds[n].revents = 0;
+                        n++;
+                }
+
+                r = poll(fds, n, timeout);
                 if (r < 0) {
                         if (errno == EINTR)
                                 continue;
@@ -97,15 +114,33 @@ static int drain(int fd, struct pipebuf *b, long deadline_ms)
                 if (r == 0)
                         return -1; /* timed out */
 
-                r = (int)read(fd, chunk, sizeof(chunk));
-                if (r == 0)
-                        return 0;
-                if (r < 0) {
-                        if (errno == EINTR)
+                for (nfds_t i = 0; i < n; i++) {
+                        char chunk[8192];
+                        ssize_t got;
+                        struct pipebuf *b;
+
+                        if (!(fds[i].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)))
                                 continue;
-                        break;
+                        b = (fds[i].fd == out_fd) ? ob : eb;
+                        got = read(fds[i].fd, chunk, sizeof(chunk));
+                        if (got == 0) {
+                                if (fds[i].fd == out_fd)
+                                        open_out = 0;
+                                else
+                                        open_err = 0;
+                                continue;
+                        }
+                        if (got < 0) {
+                                if (errno == EINTR || errno == EAGAIN)
+                                        continue;
+                                if (fds[i].fd == out_fd)
+                                        open_out = 0;
+                                else
+                                        open_err = 0;
+                                continue;
+                        }
+                        pb_add(b, chunk, got);
                 }
-                pb_add(b, chunk, r);
         }
         return 0;
 }
@@ -167,15 +202,23 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
         close(execfd[1]);
 
         {
-                /* Check whether execvp succeeded. */
+                /* Check whether execvp succeeded. Blocks until the child
+                 * execs (write end closes) or reports errno; retried on
+                 * EINTR so a caught signal cannot skip the check. */
                 int e = 0;
-                ssize_t n = read(execfd[0], &e, sizeof(e));
+                ssize_t n;
+
+                do {
+                        n = read(execfd[0], &e, sizeof(e));
+                } while (n < 0 && errno == EINTR);
 
                 close(execfd[0]);
                 if (n == (ssize_t)sizeof(e)) {
                         int saved = errno;
+
                         kill(pid, SIGKILL);
-                        waitpid(pid, &status, 0);
+                        while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+                                ;
                         errno = saved;
 
                         res = shj_alloc(sizeof(*res));
@@ -193,17 +236,15 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
         pb_init(&eb);
 
         {
-                int ok = 1;
-                int out_dead = drain(outfd[0], &ob, deadline_ms);
-                int err_dead = drain(errfd[0], &eb, deadline_ms);
+                int timed_out = drain_streams(outfd[0], &ob, errfd[0], &eb, deadline_ms);
 
-                ok = !(out_dead || err_dead);
                 close(outfd[0]);
                 close(errfd[0]);
 
-                if (!ok) {
+                if (timed_out != 0) {
                         kill(pid, SIGKILL);
-                        waitpid(pid, &status, 0);
+                        while (waitpid(pid, &status, 0) < 0 && errno == EINTR)
+                                ;
                         res = shj_alloc(sizeof(*res));
                         res->exit = -2;
                         res->spawn_errno = ETIMEDOUT;

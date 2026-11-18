@@ -37,7 +37,9 @@ static int set_flag_value(char **slot, const char *value, const char *flag)
 }
 
 /* Extract global flags from argv; the remaining tokens are stored in *rest
- * (malloc'd, NULL-terminated). Returns 0 on success, -1 on a malformed flag. */
+ * (malloc'd, NULL-terminated). Returns 0 on success, -1 on a malformed flag.
+ * *rest_out is published before the first possible failure so the caller can
+ * free it without reading an uninitialized pointer. */
 static int extract_global_flags(int argc, char **argv, const char ***rest_out,
                                 int *rest_count, struct shoji_options *opts)
 {
@@ -45,6 +47,9 @@ static int extract_global_flags(int argc, char **argv, const char ***rest_out,
         int n = 0;
         int i;
         int flags_done = 0;
+
+        *rest_out = rest;
+        *rest_count = 0;
 
         for (i = 1; i < argc; i++) {
                 const char *tok = argv[i];
