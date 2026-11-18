@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Mock quickshell executable for shoji-cli end-to-end tests.
+#
+# Environment:
+#   MOCK_QS_LOG       file that receives every ipc invocation (argv joined)
+#   MOCK_LIST_FILE    JSON output returned by `qs list ...`
+#   MOCK_QS_SLEEP     seconds to sleep before answering `ipc` (timeout tests)
+#
+# This is a test fixture only; shoji itself never spawns a shell.
+
+set -u
+LOG="${MOCK_QS_LOG:-/dev/null}"
+
+case "${1:-}" in
+  --version)
+    echo "Quickshell 9.9.9-mock"
+    exit 0
+    ;;
+  list)
+    shift
+    if [ "${1:-}" = "-a" ]; then shift; fi
+    if [ "${1:-}" = "-j" ]; then shift; fi
+    if [ "${1:-}" = "--show-dead" ]; then shift; fi
+    cat "${MOCK_LIST_FILE:?}"
+    exit 0
+    ;;
+  ipc)
+    shift
+    printf '%s\n' "$*" >> "$LOG"
+    # consume instance-selection options the way real qs does
+    while [ "${1:-}" = "-i" ] || [ "${1:-}" = "--any-display" ]; do
+      if [ "$1" = "-i" ]; then shift 2; else shift; fi
+    done
+    if [ -n "${MOCK_QS_SLEEP:-}" ]; then sleep "$MOCK_QS_SLEEP"; fi
+    case "${1:-}" in
+      show)
+        echo "target island"
+        echo "function toggle(): void"
+        echo "function tab(name: string): void"
+        exit 0
+        ;;
+      call)
+        shift
+        target="${1:-?}"
+        shift || true
+        fn="${1:-?}"
+        shift || true
+        printf 'ok %s.%s %s\n' "$target" "$fn" "$*"
+        exit 0
+        ;;
+      *)
+        echo "Target not found." >&2
+        exit 255
+        ;;
+    esac
+    ;;
+  *)
+    echo "mock qs: unexpected invocation: $*" >&2
+    exit 255
+    ;;
+esac
