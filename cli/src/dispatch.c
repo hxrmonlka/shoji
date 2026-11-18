@@ -240,6 +240,14 @@ int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *
                 shj_proc_result_free(r);
                 return SHOJI_EXIT_FAILED;
         }
+        if (r->exit == -3) {
+                shj_msg("internal error reading quickshell output: %s",
+                        strerror(r->spawn_errno));
+                shj_proc_result_free(r);
+                return SHOJI_EXIT_INTERNAL;
+        }
+        if (r->truncated)
+                shj_msg("quickshell output hit the 4 MiB per-stream capture cap and was truncated");
 
         if (r->out && *r->out)
                 fputs(r->out, stdout);
@@ -283,6 +291,15 @@ int shoji_dispatch_show(struct shoji_context *ctx, const struct shoji_pipeline *
                 shj_proc_result_free(r);
                 return SHOJI_EXIT_NOQS;
         }
+        if (r->exit == -3) {
+                shj_msg("internal error reading quickshell output: %s",
+                        strerror(r->spawn_errno));
+                shj_proc_result_free(r);
+                return SHOJI_EXIT_INTERNAL;
+        }
+        if (r->truncated)
+                shj_msg("quickshell output hit the 4 MiB per-stream capture cap and was truncated");
+
         if (r->out && *r->out)
                 fputs(r->out, stdout);
         code = r->exit;

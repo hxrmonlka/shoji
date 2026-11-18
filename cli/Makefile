@@ -37,7 +37,7 @@ CLI_OBJS := $(LIB_OBJS) $(BUILD)/main.o
 
 UNIT_OBJS := $(BUILD)/testmain.o $(BUILD)/test_parser.o $(BUILD)/test_commands.o \
              $(BUILD)/test_resolver.o $(BUILD)/test_instances.o $(BUILD)/test_json.o \
-             $(BUILD)/test_exitcodes.o
+             $(BUILD)/test_exitcodes.o $(BUILD)/test_proc.o
 
 CLI_BIN := $(BUILD)/shoji
 TEST_BIN := $(BUILD)/shoji-tests
@@ -62,8 +62,11 @@ $(TEST_BIN): $(UNIT_OBJS) $(LIB_OBJS)
 $(BUILD)/test%.o: $(TEST_DIR)/test%.c | $(BUILD)
 	$(CC) $(ALL_CFLAGS) -I$(SRC_DIR) -c -o $@ $<
 
-unit: $(TEST_BIN)
-	$(TEST_BIN)
+$(BUILD)/spawn-helper: $(TEST_DIR)/fixtures/spawn_helper.c | $(BUILD)
+	$(CC) $(ALL_CFLAGS) -o $@ $<
+
+unit: $(TEST_BIN) $(BUILD)/spawn-helper
+	SHOJI_SPAWN_HELPER=$(BUILD)/spawn-helper $(TEST_BIN)
 
 e2e: $(CLI_BIN)
 	$(TEST_DIR)/run_e2e.sh $(CLI_BIN)

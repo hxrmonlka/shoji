@@ -5,14 +5,26 @@
 #include <stddef.h>
 
 /* Result of one subprocess run. `out`/`err` are malloc'd NUL-terminated
- * strings ("" when empty); exit >= 0 is the child exit status (or 128+signal);
- * exit < 0 means the child could not be started (spawn_errno set). */
+ * strings ("" when empty); exit >= 0 is the child exit status (or 128+signal).
+ * exit < 0 is a failure class:
+ *   -1  child could not be started (spawn_errno = exec errno)
+ *   -2  configured timeout expired during any stage of the lifecycle
+ *       (spawn_errno = ETIMEDOUT; partial out/err are preserved)
+ *   -3  internal failure while running the child: unexpected poll/read
+ *       error or waitpid failure (spawn_errno = errno; partial out/err
+ *       are preserved). Callers must treat captured output as incomplete. */
 struct shj_proc_result {
-	int exit;
-	int spawn_errno;
-	char *out;
-	char *err;
+        int exit;
+        int spawn_errno;
+        unsigned truncated; /* SHOJI_TRUNC_* bits; capture hit the 4 MiB cap */
+        char *out;
+        char *err;
 };
+
+/* A stream reached SHOJI_PROC_MAX_OUTPUT and further output was discarded
+ * while draining continued. The corresponding out/err payload is partial. */
+#define SHOJI_TRUNC_OUT 0x1u
+#define SHOJI_TRUNC_ERR 0x2u
 
 typedef struct shj_proc_result *(*shj_spawn_fn)(const char *const argv[], void *user);
 
