@@ -5,7 +5,7 @@ This is my Quickshell configuration! It may seem weird with the change of the na
 </details>
 <details>
 <summary><b>Is this packaged through Lumina?</b></summary>
-Uh, no. As of now, I still have not developed a command line interface for Shoji. It only gets packaged in Lumina when it has its other components ready.
+Not yet. There is now a command line interface <code>cli</code>, and Lumina packaging comes when it has its other components ready.
 </details>
 <details>
 <summary><b>Can I use this?</b></summary>
