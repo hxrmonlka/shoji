@@ -4,9 +4,9 @@ import qs.Commons
 Item {
     id: root
 
-    readonly property bool wanted: Settings.mergeCircles && Settings.visualizer && Media.playing
-    readonly property var taps: [2, 9, 17, 26, 35]
-    readonly property real fullWidth: taps.length * 3 + (taps.length - 1) * 2
+    readonly property bool wanted: PillCava.wanted
+    readonly property int barCount: PillCava.bars
+    readonly property real fullWidth: barCount * 3 + (barCount - 1) * 2
 
     width: Math.max(0, presence.value) * (fullWidth + Settings.pillSpacing) - Settings.pillSpacing
     height: 16
@@ -27,10 +27,10 @@ Item {
         spacing: 2
 
         Repeater {
-            model: root.taps
+            model: root.barCount
 
             Item {
-                required property int modelData
+                required property int index
 
                 width: 3
                 height: 16
@@ -38,7 +38,7 @@ Item {
                 Rectangle {
                     anchors.centerIn: parent
                     width: 3
-                    height: Math.max(3, (Cava.values[parent.modelData] ?? 0) * 16)
+                    height: 3 + Math.max(0, Math.min(1, PillCava.values[parent.index] ?? 0)) * 13
                     radius: 1.5
                     color: Theme.m3Primary
                 }

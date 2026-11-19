@@ -48,7 +48,7 @@ QtObject {
         { key: "notificationPopups", cat: "features", section: "Overlays", label: "Notification pop-ups", desc: "Notifications still reach the notification center when off.", type: "bool", def: true },
         { key: "osd", cat: "features", section: "Overlays", label: "Volume and brightness bar", desc: "Show the bar while scrolling with Ctrl or Alt.", type: "bool", def: true },
         { key: "trayIcons", cat: "features", section: "Panels", label: "System tray", desc: "Show tray icons in the Control Panel.", type: "bool", def: true },
-        { key: "visualizer", cat: "features", section: "Panels", label: "Audio visualizer", desc: "Run cava for the media panel bars.", type: "bool", def: true },
+        { key: "visualizer", cat: "features", section: "Panels", label: "Audio visualizer", desc: "Run cava for the media panel bars and the island pill bars.", type: "bool", def: true },
         { key: "visualizerGain", cat: "features", section: "Panels", label: "Visualizer intensity (%)", desc: "Scales the bar height of the audio visualizer.", min: 50, max: 600, step: 10, def: 180 },
         { key: "clipboardHistory", cat: "features", section: "Background", label: "Clipboard history", desc: "Record copied text, images and files with cliphist.", type: "bool", def: true },
         { key: "ripple", cat: "features", section: "Interface", label: "Ripple Effect", desc: "Show a ripple from the pointer when a button is pressed.", type: "bool", def: true },
