@@ -128,10 +128,10 @@ void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *o
                                 shj_hint("use 'shoji instance list' to compare generations; "
                                          "refuse to continue if this is unexpected");
                         } else if (m < 0) {
-                                /* Mutable alias retargeted after launch: say so
-                                 * instead of pretending the generation is known. */
-                                shj_msg("warning: instance '%s' was launched through a mutable "
-                                        "configuration link that was retargeted afterwards; "
+                                /* The path currently resolves to the expected config,
+                                 * but the original launch-time target is unknowable. */
+                                shj_msg("warning: instance '%s' has a recorded configuration path "
+                                        "whose launch-time target cannot be established; "
                                         "its loaded generation is uncertain", pl->sel.selected->id);
                         }
                 }
@@ -154,12 +154,12 @@ void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *o
                                         pl->sel.dead_match_count,
                                         pl->sel.dead_match_count == 1 ? "" : "s");
                         if (pl->sel.uncertain_matches > 0)
-                                shj_msg("%d running instance%s of this configuration %s launched "
-                                        "through a mutable configuration link that was retargeted "
-                                        "afterwards; the loaded generation cannot be established",
+                                shj_msg("%d running instance%s of this configuration %s a "
+                                        "recorded path whose launch-time target cannot be "
+                                        "established; the loaded generation is uncertain",
                                         pl->sel.uncertain_matches,
                                         pl->sel.uncertain_matches == 1 ? "" : "s",
-                                        pl->sel.uncertain_matches == 1 ? "was" : "were");
+                                        pl->sel.uncertain_matches == 1 ? "has" : "have");
                         if (pl->sel.invalid_id_matches > 0)
                                 shj_msg("%d running instance%s of this configuration ha%s no valid "
                                         "instance id and cannot be selected",

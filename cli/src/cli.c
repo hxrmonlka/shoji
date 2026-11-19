@@ -31,6 +31,10 @@ static int set_flag_value(char **slot, const char *value, const char *flag)
                 shj_msg("option %s requires a value", flag);
                 return -1;
         }
+        if (strcmp(flag, "--instance-id") == 0 && !*value) {
+                shj_msg("option %s requires a non-empty value", flag);
+                return -1;
+        }
         free(*slot);
         *slot = shj_strdup(value);
         return 0;

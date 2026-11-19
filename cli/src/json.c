@@ -171,6 +171,11 @@ static char *parse_string_raw(struct parser *ps)
                                 } else if (cp >= 0xDC00 && cp <= 0xDFFF) {
                                         goto bad;
                                 }
+                                /* The parser's public string representation
+                                 * is NUL-terminated. Reject U+0000 rather than
+                                 * silently truncating decoded identifiers. */
+                                if (cp == 0)
+                                        goto bad;
                                 append_utf8(&b, cp);
                                 break;
                         default:

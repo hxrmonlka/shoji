@@ -89,21 +89,25 @@ void test_commands(void)
                       "shoji wallpaper set -> wallpaper.set(string)");
 
                 c = shoji_ipc_table_find("awake", "on");
-                CHECK(c && strcmp(c->function, "on") == 0 && c->args[0].type == SHOJI_ARG_INT,
+                CHECK(c && strcmp(c->function, "on") == 0 && c->arg_count == 1 &&
+                      c->args[0].type == SHOJI_ARG_INT,
                       "shoji awake on -> awake.on(int)");
 
                 c = shoji_ipc_table_find("notifications", "dnd");
-                CHECK(c && strcmp(c->function, "dnd") == 0 && c->args[0].type == SHOJI_ARG_BOOL,
+                CHECK(c && strcmp(c->function, "dnd") == 0 && c->arg_count == 1 &&
+                      c->args[0].type == SHOJI_ARG_BOOL,
                       "shoji notifications dnd -> notifications.dnd(bool)");
 
                 c = shoji_ipc_table_find("screenshot", "output");
-                CHECK(c && c->args[0].type == SHOJI_ARG_STRING, "screenshot output takes a string");
+                CHECK(c && c->arg_count == 1 && c->args[0].type == SHOJI_ARG_STRING,
+                      "screenshot output takes one string");
 
                 c = shoji_ipc_table_find("lock", "activate");
                 CHECK(c && c->arg_count == 0, "shoji lock activate -> lock.activate()");
 
                 c = shoji_ipc_table_find("osd", "volume");
-                CHECK(c && c->args[0].type == SHOJI_ARG_INT, "osd volume takes an int");
+                CHECK(c && c->arg_count == 1 && c->args[0].type == SHOJI_ARG_INT,
+                      "osd volume takes one int");
         }
 
         /* Argument normalization. */

@@ -46,6 +46,23 @@ static void close_pair(int fds[2])
         close_fd(&fds[1]);
 }
 
+/* Keep capture descriptors away from stdin/stdout/stderr. Otherwise a caller
+ * that started with (for example) stderr closed can cause a later close()
+ * in the child to close the descriptor just installed by dup2(). */
+static int move_fd_above_stdio(int *fd)
+{
+        int moved;
+
+        if (*fd > STDERR_FILENO)
+                return 0;
+        moved = fcntl(*fd, F_DUPFD_CLOEXEC, STDERR_FILENO + 1);
+        if (moved < 0)
+                return -1;
+        close(*fd);
+        *fd = moved;
+        return 0;
+}
+
 static long g_timeout_ms = 10000;
 
 void shj_proc_set_timeout_ms(long ms)
@@ -71,6 +88,40 @@ static long mono_ms(void)
 
         clock_gettime(CLOCK_MONOTONIC, &ts);
         return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+/* Convert the configured timeout to an absolute monotonic deadline without
+ * overflowing signed long. A zero timeout remains the documented disable. */
+static int make_deadline(long timeout_ms, long *deadline_ms)
+{
+        long now;
+
+        *deadline_ms = 0;
+        if (timeout_ms < 0) {
+                errno = EINVAL;
+                return -1;
+        }
+        if (timeout_ms == 0)
+                return 0;
+        now = mono_ms();
+        if (timeout_ms > LONG_MAX - now) {
+                errno = ERANGE;
+                return -1;
+        }
+        *deadline_ms = now + timeout_ms;
+        return 0;
+}
+
+static struct shj_proc_result *proc_error_result(int exit_class, int error)
+{
+        struct shj_proc_result *res = shj_alloc(sizeof(*res));
+
+        res->exit = exit_class;
+        res->spawn_errno = error;
+        res->truncated = 0;
+        res->out = shj_strdup("");
+        res->err = shj_strdup("");
+        return res;
 }
 
 static void pb_init(struct pipebuf *b)
@@ -146,14 +197,24 @@ static int kill_and_reap(pid_t pid, int *status, int *kill_errno)
 {
         *kill_errno = 0;
         for (;;) {
-                if (kill(pid, SIGKILL) == 0)
-                        break;
+                if (kill(-pid, SIGKILL) == 0)
+                        break; /* terminate the wrapper and its descendants */
                 if (errno == EINTR)
-                        continue; /* interrupted kill: retry */
-                if (errno == ESRCH)
-                        break; /* already absent: nothing to signal, reap still needed */
+                        continue;
+                if (errno == ESRCH) {
+                        /* Group creation may not have completed if timeout
+                         * raced the child setup. Still try the direct child. */
+                        if (kill(pid, SIGKILL) == 0 || errno == ESRCH)
+                                break;
+                        if (errno == EINTR)
+                                continue;
+                }
                 *kill_errno = errno;
-                shj_msg("kill(%ld, SIGKILL): %s", (long)pid, strerror(errno));
+                shj_msg("kill(process group %ld, SIGKILL): %s",
+                        (long)pid, strerror(errno));
+                /* Best-effort direct-child fallback; keep the group error for
+                 * diagnostics because descendants may not have been signaled. */
+                (void)kill(pid, SIGKILL);
                 break;
         }
         /* A successful SIGKILL only queues termination; it does not guarantee
@@ -373,7 +434,9 @@ static int cloexec_pipe(int fds[2])
         if (pipe(fds) != 0)
                 return -1;
         if (fcntl(fds[0], F_SETFD, FD_CLOEXEC) != 0 ||
-            fcntl(fds[1], F_SETFD, FD_CLOEXEC) != 0) {
+            fcntl(fds[1], F_SETFD, FD_CLOEXEC) != 0 ||
+            move_fd_above_stdio(&fds[0]) != 0 ||
+            move_fd_above_stdio(&fds[1]) != 0) {
                 int saved = errno;
 
                 close_pair(fds); /* leaves both entries at -1, never stale */
@@ -425,6 +488,9 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
 
         (void)user;
 
+        if (make_deadline(g_timeout_ms, &deadline_ms) != 0)
+                return proc_error_result(SHJ_PROC_EXIT_INTERNAL, errno);
+
         if (cloexec_pipe(outfd) != 0 || cloexec_pipe(errfd) != 0 ||
             cloexec_pipe(execfd) != 0) {
                 int saved = errno;
@@ -434,11 +500,8 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                 close_pair(outfd);
                 close_pair(errfd);
                 close_pair(execfd);
-                shj_die(SHOJI_EXIT_INTERNAL, "pipe: %s", strerror(saved));
+                return proc_error_result(SHJ_PROC_EXIT_INTERNAL, saved);
         }
-
-        if (g_timeout_ms > 0)
-                deadline_ms = mono_ms() + g_timeout_ms;
 
         pid = fork();
         if (pid < 0) {
@@ -447,8 +510,15 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                 close_pair(outfd);
                 close_pair(errfd);
                 close_pair(execfd);
-                shj_die(SHOJI_EXIT_INTERNAL, "fork: %s", strerror(saved));
+                return proc_error_result(SHJ_PROC_EXIT_INTERNAL, saved);
         } else if (pid == 0) {
+                /* A --qs wrapper may spawn descendants. Put the complete
+                 * subprocess tree in its own process group so timeout cleanup
+                 * can cancel work that outlives the wrapper itself. */
+                if (setpgid(0, 0) != 0) {
+                        write_exec_errno(execfd[1], errno);
+                        _exit(127);
+                }
                 /* Child: wire the capture pipes onto stdout/stderr, then exec
                  * with the argv vector untouched (dup2 clears CLOEXEC on the
                  * new descriptors). A failed dup2 reports through the same
@@ -469,6 +539,18 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                 _exit(127);
         }
 
+        /* The parent also establishes the group: either side may run first,
+         * and EACCES means the child already exec'd after its own setpgid(). */
+        if (setpgid(pid, pid) != 0 && errno != EACCES && errno != ESRCH) {
+                int saved = errno;
+
+                close_pair(outfd);
+                close_pair(errfd);
+                close_pair(execfd);
+                cleanup_child(pid, &status);
+                return proc_error_result(SHJ_PROC_EXIT_INTERNAL, saved);
+        }
+
         /* Parent: drop the write ends it no longer owns. The child holds
          * its own copies; closing the parent's write ends is what makes the
          * capture pipes report EOF once the child exits. */
@@ -479,6 +561,7 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
         {
                 int exec_errno = 0;
                 int hs = await_exec(execfd[0], deadline_ms, &exec_errno);
+                int hs_errno = hs == -2 ? errno : 0;
 
                 close_pair(execfd);
                 if (hs != 0) {
@@ -502,16 +585,8 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                         return res;
                 }
                 if (hs == -2) {
-                        int saved = errno;
-
                         cleanup_child(pid, &status);
-                        res = shj_alloc(sizeof(*res));
-                        res->exit = SHJ_PROC_EXIT_INTERNAL;
-                        res->spawn_errno = saved;
-                        res->truncated = 0;
-                        res->out = shj_strdup("");
-                        res->err = shj_strdup("");
-                        return res;
+                        return proc_error_result(SHJ_PROC_EXIT_INTERNAL, hs_errno);
                 }
                 if (hs == 1) {
                         /* The child failed to exec and reported its errno; it
@@ -533,12 +608,13 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
 
         {
                 int drained = drain_streams(outfd[0], &ob, errfd[0], &eb, deadline_ms);
+                int drain_errno = drained == -2 ? errno : 0;
 
                 close_pair(outfd);
                 close_pair(errfd);
 
                 if (drained != 0) {
-                        int saved = drained == -2 ? errno : 0;
+                        int saved = drain_errno;
 
                         /* Capture cannot continue (budget exhausted or stream
                          * error): kill and reap so no child or zombie is left

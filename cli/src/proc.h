@@ -35,12 +35,14 @@ struct shj_proc_result {
 typedef struct shj_proc_result *(*shj_spawn_fn)(const char *const argv[], void *user);
 
 /* The real implementation: fork + execvp(argv[0], argv), stdout/stderr both
- * captured. Applies the configured timeout (SIGKILL on expiry). */
+ * captured. Runs the child in a dedicated process group; timeout cleanup
+ * sends SIGKILL to the group so wrapper-spawned descendants are cancelled too. */
 struct shj_proc_result *shj_proc_run(const char *const argv[], void *user);
 
 void shj_proc_result_free(struct shj_proc_result *r);
 
-/* Timeout for child processes, milliseconds. 0 = no timeout. */
+/* Timeout for child processes, milliseconds. 0 = no timeout; negative values
+ * are rejected by shj_proc_run as an internal configuration error. */
 void shj_proc_set_timeout_ms(long ms);
 long shj_proc_get_timeout_ms(void);
 

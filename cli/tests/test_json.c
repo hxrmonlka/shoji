@@ -88,6 +88,10 @@ void test_json(void)
         CHECK(!v, "invalid escape fails");
         shj_json_free(v);
 
+        v = shj_json_parse("\"abc\\u0000def\"", NULL);
+        CHECK(!v, "decoded NUL rejected because JSON strings are exposed as C strings");
+        shj_json_free(v);
+
         v = shj_json_parse("\"surrogate \\ud83d\\ude00\"", NULL);
         CHECK(v && v->type == SHOJI_JSON_STRING, "surrogate pair accepted");
         CHECK_STR_EQ(v->string, "surrogate \xf0\x9f\x98\x80", "surrogate pair decoded to utf-8");

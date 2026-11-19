@@ -73,9 +73,11 @@ make test        # unit tests + end-to-end tests + shell.qml mapping check
   compatibility probe is contained), dead-instance reporting with positive
   pids, status/doctor output, deterministic store-resolution failures via a
   nonexistent `--store`, ambiguity refusal, timeouts, and the doctor flow.
-- `make check-qml` — re-extracts every `IpcHandler` target/function from
-  `shell.qml` (`tests/qml_ipc.awk`) and diffs it against the compiled facade
-  table (`shoji debug map`). Fails when either side drifts.
+- `make check-qml` — builds `obj/shoji` when needed, then re-extracts every
+  `IpcHandler` target/function from `shell.qml` (`tests/qml_ipc.awk`) and diffs
+  it against the compiled IPC table (`shoji debug map`). Fails when either
+  side drifts. The unit test independently compares the compiled table with
+  the frozen `frozen_handlers` list in `tests/test_commands.c`.
 
 Actual results at implementation time (branch `feat/cli`, correction pass):
 

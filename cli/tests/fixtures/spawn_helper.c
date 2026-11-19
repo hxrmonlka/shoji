@@ -12,10 +12,12 @@
  *                    64 KiB chunks, exit 0 (truncation + concurrent drain)
  *   emit-hang <kib>  emit, then sleep forever (partial capture on timeout)
  *   slow-exit <ms>   sleep <ms>, exit 0 (timeout-disabled mode)
+ *   fork-marker <p>  leave a child that writes marker <p> after 500 ms
  */
 #define _POSIX_C_SOURCE 200809L
 
 #include <signal.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -87,6 +89,25 @@ int main(int argc, char **argv)
                                        .tv_nsec = (long)(ms % 1000) * 1000000L };
 
                 nanosleep(&ts, NULL);
+                return 0;
+        }
+        if (strcmp(argv[1], "fork-marker") == 0 && argc >= 3) {
+                pid_t child = fork();
+
+                if (child < 0)
+                        return 3;
+                if (child == 0) {
+                        struct timespec ts = { .tv_sec = 0, .tv_nsec = 500000000L };
+                        int fd;
+
+                        nanosleep(&ts, NULL);
+                        fd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0600);
+                        if (fd >= 0) {
+                                (void)write(fd, "survived\n", 9);
+                                close(fd);
+                        }
+                        _exit(0);
+                }
                 return 0;
         }
         return 2;

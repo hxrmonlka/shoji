@@ -9,6 +9,7 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -133,6 +134,90 @@ static void test_capture_and_exit(void)
                 CHECK_INT_EQ(r->exit, 128 + 15, "sig: SIGTERM reported as 128+15");
                 shj_proc_result_free(r);
         }
+}
+
+
+static void test_closed_standard_descriptor(void)
+{
+        struct shj_proc_result *r;
+        int saved_stderr = dup(STDERR_FILENO);
+
+        test_section("proc: descriptors below stdio are normalized");
+        if (saved_stderr < 0) {
+                test_fail("closed stderr: could not save stderr");
+                return;
+        }
+        close(STDERR_FILENO);
+        r = run_helper("echo-err", "stderr survives closed parent fd");
+        (void)dup2(saved_stderr, STDERR_FILENO);
+        close(saved_stderr);
+        if (r) {
+                CHECK_INT_EQ(r->exit, 0, "closed stderr: helper exits successfully");
+                CHECK_STR_EQ(r->err, "stderr survives closed parent fd\n",
+                             "closed stderr: captured stderr survives descriptor reuse");
+                shj_proc_result_free(r);
+        }
+}
+
+static void test_timeout_kills_wrapper_descendants(void)
+{
+        const char *tpl = "/tmp/shoji-descendant-XXXXXX";
+        char *dir = mkdtemp(shj_strdup(tpl));
+        char marker[512];
+        const char *argv[4];
+        struct shj_proc_result *r;
+        struct timespec pause = { .tv_sec = 0, .tv_nsec = 650000000L };
+
+        test_section("proc: timeout cancels wrapper descendants");
+        if (!dir) {
+                test_fail("descendant timeout: fixture directory created");
+                return;
+        }
+        snprintf(marker, sizeof(marker), "%s/marker", dir);
+        argv[0] = getenv(HELPER_ENV);
+        argv[1] = "fork-marker";
+        argv[2] = marker;
+        argv[3] = NULL;
+        shj_proc_set_timeout_ms(150);
+        r = shj_proc_run(argv, NULL);
+        if (r) {
+                CHECK_INT_EQ(r->exit, SHJ_PROC_EXIT_TIMEOUT,
+                             "descendant timeout: wrapper exceeds deadline");
+                shj_proc_result_free(r);
+        }
+        nanosleep(&pause, NULL);
+        CHECK(access(marker, F_OK) != 0,
+              "descendant timeout: child did not write marker after Shoji returned");
+        unlink(marker);
+        rmdir(dir);
+        free(dir);
+        shj_proc_set_timeout_ms(5000);
+}
+
+static void test_timeout_overflow(void)
+{
+        struct shj_proc_result *r;
+
+        test_section("proc: timeout deadline arithmetic");
+        shj_proc_set_timeout_ms(LONG_MAX);
+        r = run_helper("exit", "0");
+        if (r) {
+                CHECK_INT_EQ(r->exit, SHJ_PROC_EXIT_INTERNAL,
+                             "LONG_MAX timeout returns internal error");
+                CHECK_INT_EQ(r->spawn_errno, ERANGE,
+                             "LONG_MAX timeout reports checked deadline overflow");
+                shj_proc_result_free(r);
+        }
+        shj_proc_set_timeout_ms(-1);
+        r = run_helper("exit", "0");
+        if (r) {
+                CHECK_INT_EQ(r->exit, SHJ_PROC_EXIT_INTERNAL,
+                             "negative timeout is rejected");
+                CHECK_INT_EQ(r->spawn_errno, EINVAL,
+                             "negative timeout reports EINVAL");
+                shj_proc_result_free(r);
+        }
+        shj_proc_set_timeout_ms(5000);
 }
 
 static void test_spawn_failure(void)
@@ -408,6 +493,9 @@ void test_proc(void)
         }
 
         test_capture_and_exit();
+        test_closed_standard_descriptor();
+        test_timeout_kills_wrapper_descendants();
+        test_timeout_overflow();
         test_spawn_failure();
         test_spawn_failure_eacces();
         test_fd_hygiene();

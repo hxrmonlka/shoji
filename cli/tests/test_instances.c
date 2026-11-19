@@ -41,26 +41,6 @@ static const char *cat2(const char *a, const char *b)
         return p;
 }
 
-/* epoch value of a "YYYY-MM-DDTHH:MM:SS" wall-clock string, interpreted in
- * the local zone exactly like the implementation's mktime() use. */
-static long iso_epoch(const char *s)
-{
-        int y, mo, d, h, mi, sec;
-        struct tm tm;
-
-        if (sscanf(s, "%4d-%2d-%2dT%2d:%2d:%2d", &y, &mo, &d, &h, &mi, &sec) != 6)
-                return -1;
-        memset(&tm, 0, sizeof(tm));
-        tm.tm_year = y - 1900;
-        tm.tm_mon = mo - 1;
-        tm.tm_mday = d;
-        tm.tm_hour = h;
-        tm.tm_min = mi;
-        tm.tm_sec = sec;
-        tm.tm_isdst = -1;
-        return (long)mktime(&tm);
-}
-
 /* write a small file, checking every step; returns 0 on success */
 static int write_file(const char *path, const char *text)
 {
@@ -79,8 +59,16 @@ static int write_file(const char *path, const char *text)
 static char g_recorded[4096];
 static char g_json_live[2048];
 static char g_json_dead[2048];
-static const char *g_list_json;   /* live listing output */
-static const char *g_dead_json;   /* dead listing output; NULL = same as live */
+static char g_json_recheck[2048];
+static const char *g_list_json;   /* authoritative live listing output */
+static const char *g_dead_json;   /* --show-dead output; NULL = same as live */
+static const char *g_recheck_json; /* optional fresh live output; NULL = live output */
+static int g_probe_phase; /* 0=live, 1=show-dead, 2=optional fresh live */
+static int g_list_arg_errors;
+static unsigned g_list_truncated;
+static int g_ipc_calls;
+static int g_ipc_argc;
+static char g_ipc_argv[16][256];
 static int g_call_exit = 0;
 static const char *g_call_err = "";
 static const char *g_call_out = "";
@@ -116,11 +104,38 @@ static void clear_dead_list(void)
         g_dead_json = NULL;
 }
 
+static void set_recheck_list(const char *fmt, ...)
+{
+        va_list ap;
+
+        va_start(ap, fmt);
+        vsnprintf(g_json_recheck, sizeof(g_json_recheck), fmt, ap);
+        va_end(ap);
+        g_recheck_json = g_json_recheck;
+}
+
+static void clear_recheck_list(void)
+{
+        g_recheck_json = NULL;
+}
+
+static int argv_matches(const char *const argv[], const char *const expected[])
+{
+        int i;
+
+        for (i = 0; argv[i] && expected[i]; i++)
+                if (strcmp(argv[i], expected[i]) != 0)
+                        return 0;
+        return argv[i] == NULL && expected[i] == NULL;
+}
+
 static void set_script(const int *steps, int n)
 {
         memcpy(g_list_script, steps, sizeof(int) * (size_t)n);
         g_list_script_len = n;
         g_list_calls = 0;
+        g_probe_phase = 0;
+        g_list_arg_errors = 0;
 }
 
 static struct shj_proc_result *fake_spawn(const char *const argv[], void *user)
@@ -140,24 +155,41 @@ static struct shj_proc_result *fake_spawn(const char *const argv[], void *user)
 
         r->spawn_errno = 0;
         if (argv[1] && strcmp(argv[1], "list") == 0) {
+                const char *expected_live[] = { "mockqs", "list", "-a", "-j", NULL };
+                const char *expected_dead[] = {
+                        "mockqs", "list", "-a", "-j", "--show-dead", NULL
+                };
+                int phase = g_probe_phase;
                 int cls = g_list_calls < g_list_script_len
                               ? g_list_script[g_list_calls]
                               : 0;
+                const char *response;
 
+                /* Every discovery starts with a live query, then the optional
+                 * --show-dead probe; a third live query is only the race check.
+                 * Validate the complete vector before selecting canned output. */
+                if ((phase == 1 && !argv_matches(argv, expected_dead)) ||
+                    (phase != 1 && !argv_matches(argv, expected_live))) {
+                        g_list_arg_errors++;
+                        r->exit = 99;
+                        r->out = shj_strdup("");
+                        r->err = shj_strdup("unexpected qs list argv\n");
+                        g_list_calls++;
+                        return r;
+                }
+                g_probe_phase = phase == 0 ? 1 : phase == 1 ? 2 : 0;
                 g_list_calls++;
+                if (phase == 1)
+                        response = g_dead_json ? g_dead_json : g_list_json;
+                else if (phase == 2 && g_recheck_json) {
+                        response = g_recheck_json;
+                        g_recheck_json = NULL;
+                } else
+                        response = g_list_json;
+                r->truncated = g_list_truncated;
                 if (cls >= 0) {
                         r->exit = cls;
-                        if (cls == 0) {
-                                /* invocation 1 is the live probe, later ones
-                                 * are the dead-instance probe */
-                                const char *out = g_list_calls == 1
-                                                      ? g_list_json
-                                                      : (g_dead_json ? g_dead_json : g_list_json);
-
-                                r->out = shj_strdup(out ? out : "");
-                        } else {
-                                r->out = shj_strdup("");
-                        }
+                        r->out = shj_strdup(cls == 0 ? (response ? response : "") : "");
                         r->err = shj_strdup(cls == 0 ? "" : "qs rejected the command\n");
                         return r;
                 }
@@ -170,6 +202,14 @@ static struct shj_proc_result *fake_spawn(const char *const argv[], void *user)
                 return r;
         }
         if (argv[1] && strcmp(argv[1], "ipc") == 0) {
+                int i;
+
+                g_ipc_calls++;
+                g_ipc_argc = 0;
+                for (i = 0; i < 16 && argv[i]; i++) {
+                        snprintf(g_ipc_argv[i], sizeof(g_ipc_argv[i]), "%s", argv[i]);
+                        g_ipc_argc++;
+                }
                 r->exit = g_call_exit;
                 r->out = shj_strdup(g_call_out);
                 r->err = shj_strdup(g_call_err);
@@ -357,12 +397,14 @@ static void run_iinspect_json(void *arg)
         shoji_cmd_instance_inspect(ctx, &opts);
 }
 
-static void check_json_field(const struct shj_json *obj, const char *key,
+static int check_json_field(const struct shj_json *obj, const char *key,
                              enum shj_json_type type, const char *name)
 {
         const struct shj_json *v = obj ? shj_json_get(obj, key) : NULL;
+        int valid = v && v->type == type;
 
-        CHECK(v && v->type == type, name);
+        CHECK(valid, name);
+        return valid;
 }
 
 void test_instances(void)
@@ -441,6 +483,32 @@ void test_instances(void)
         CHECK_INT_EQ(list->count, 0, "empty list output accepted");
         shoji_instance_list_free(list);
 
+        set_list("No running instances.\npartial output");
+        list = discover_err(&err);
+        CHECK(!list && err == SHOJI_DISCOVER_BADJSON,
+              "empty-list notice with trailing output is rejected");
+
+        set_list("  No running instances.\n  ");
+        list = discover();
+        CHECK_INT_EQ(list->count, 0, "complete empty-list notice permits surrounding whitespace");
+        shoji_instance_list_free(list);
+
+        /* Truncated stdout is never mistaken for a complete empty listing;
+         * stderr truncation alone does not invalidate the JSON payload. */
+        set_list("[]");
+        set_script(probe_ok, 1);
+        g_list_truncated = SHOJI_TRUNC_OUT;
+        list = discover_err(&err);
+        CHECK(!list && err == SHOJI_DISCOVER_BADJSON,
+              "truncated authoritative stdout is rejected");
+        g_list_truncated = SHOJI_TRUNC_ERR;
+        set_script(probe_ok, 1);
+        list = discover_err(&err);
+        CHECK(list && err == SHOJI_DISCOVER_OK,
+              "stderr-only truncation does not invalidate listing");
+        shoji_instance_list_free(list);
+        g_list_truncated = 0;
+
         /* no match */
         g_list_json = "[{\"id\":\"bbb222yyy\",\"pid\":7,\"shell_id\":\"s2\","
                       "\"config_path\":\"/some/other/shell.qml\","
@@ -450,6 +518,14 @@ void test_instances(void)
                      "foreign config does not match");
         CHECK_INT_EQ(sel.match_count, 0, "no matches");
         shoji_selection_clear(&sel);
+        shoji_instance_list_free(list);
+
+        set_list("[{\"id\":\"hugepid\",\"pid\":1e30,\"shell_id\":\"s\","
+                 "\"config_path\":\"%s\",\"launch_time\":\"t\"}]", g_expected);
+        set_script(probe_ok, 1);
+        list = discover();
+        CHECK_INT_EQ(list->items[0].pid, -1, "out-of-range PID is rejected before conversion");
+        CHECK_INT_EQ(list->items[0].dead, 1, "unusable PID cannot become a live IPC candidate");
         shoji_instance_list_free(list);
 
         /* ambiguous: two live instances recording the identical (existing
@@ -471,6 +547,21 @@ void test_instances(void)
         CHECK_INT_EQ(shoji_select_instance(list, "/some/other/shell.qml", "abcd1", &sel),
                      SHOJI_SELECT_OK, "unique prefix override selects");
         CHECK_STR_EQ(sel.selected->id, "abcd111", "prefix picked the right instance");
+        shoji_selection_clear(&sel);
+
+        list->items[1].dead = 1;
+        CHECK_INT_EQ(shoji_select_instance(list, g_expected, "abcd", &sel),
+                     SHOJI_SELECT_OK,
+                     "dead prefix row does not make a single live prefix ambiguous");
+        CHECK_STR_EQ(sel.selected->id, "abcd111", "live prefix wins over dead row");
+        shoji_selection_clear(&sel);
+        list->items[1].dead = 0;
+
+        /* explicitly empty override must refuse rather than falling through
+         * to the expected-config auto-selection path */
+        CHECK_INT_EQ(shoji_select_instance(list, g_expected, "", &sel),
+                     SHOJI_SELECT_NONE, "empty explicit instance-id is refused");
+        CHECK(sel.selected == NULL, "empty explicit instance-id selects nothing");
         shoji_selection_clear(&sel);
 
         /* ambiguous prefix override: both matches must be published so the
@@ -586,6 +677,24 @@ void test_instances(void)
         CHECK_INT_EQ(err, SHOJI_DISCOVER_OK, "dead probe spawn failure contained");
         shoji_instance_list_free(list);
 
+        /* A row that appears only in --show-dead may have started after the
+         * first live snapshot. A fresh live query must confirm it before it
+         * becomes a dispatch candidate (or a dead diagnostic). */
+        set_list("No running instances.");
+        set_dead_list("[{\"id\":\"newlive77\",\"pid\":77,\"shell_id\":\"s7\","
+                      "\"config_path\":\"%s\",\"launch_time\":\"t\"}]", g_expected);
+        set_recheck_list("[{\"id\":\"newlive77\",\"pid\":77,\"shell_id\":\"s7\","
+                         "\"config_path\":\"%s\",\"launch_time\":\"t\"}]", g_expected);
+        set_script(probe_ok, 3);
+        list = discover();
+        CHECK_INT_EQ(g_list_calls, 3, "new second-probe row triggers fresh live verification");
+        CHECK_INT_EQ(list->count, 1, "fresh live row retained exactly once");
+        CHECK_INT_EQ(list->items[0].dead, 0, "freshly confirmed row is live");
+        CHECK_INT_EQ(shoji_live_count(list), 1, "freshly confirmed row counted as running");
+        shoji_instance_list_free(list);
+        clear_dead_list();
+        clear_recheck_list();
+
         /* ------------------------------------------------------------------ */
         /* dead-instance classification: the dead probe's rows carry stale     */
         /* launch-time pids that can be positive; only their absence from the  */
@@ -628,9 +737,10 @@ void test_instances(void)
         ctx.store.shell_qml = g_expected;
         set_script(probe_ok, 2);
         g_recorded[0] = '\0';
+        g_ipc_calls = 0;
         shoji_pipeline_run(&ctx, &opts, 1, &pl);
         CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_NOINSTANCE, "stale-only: pipeline refuses");
-        CHECK(strstr(g_recorded, "ipc") == NULL, "stale-only: no ipc invoked");
+        CHECK_INT_EQ(g_ipc_calls, 0, "stale-only: IPC call counter remains zero");
         shoji_pipeline_release(&pl);
         memset(&ctx, 0, sizeof(ctx));
         shoji_instance_list_free(list);
@@ -657,9 +767,10 @@ void test_instances(void)
         ctx.store.shell_qml = g_expected;
         set_script(probe_ok, 1);
         g_recorded[0] = '\0';
+        g_ipc_calls = 0;
         shoji_pipeline_run(&ctx, &opts, 1, &pl);
         CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_NOINSTANCE, "missing id: pipeline refuses");
-        CHECK(strstr(g_recorded, "ipc") == NULL, "missing id: no ipc invoked");
+        CHECK_INT_EQ(g_ipc_calls, 0, "missing id: IPC call counter remains zero");
         shoji_pipeline_release(&pl);
         memset(&ctx, 0, sizeof(ctx));
         shoji_instance_list_free(list);
@@ -679,9 +790,10 @@ void test_instances(void)
         ctx.store.shell_qml = g_expected;
         set_script(probe_ok, 1);
         g_recorded[0] = '\0';
+        g_ipc_calls = 0;
         shoji_pipeline_run(&ctx, &opts, 1, &pl);
         CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_NOINSTANCE, "empty id: pipeline refuses");
-        CHECK(strstr(g_recorded, "ipc") == NULL, "empty id: no ipc invoked");
+        CHECK_INT_EQ(g_ipc_calls, 0, "empty id: IPC call counter remains zero");
         shoji_pipeline_release(&pl);
         memset(&ctx, 0, sizeof(ctx));
         shoji_instance_list_free(list);
@@ -722,6 +834,13 @@ void test_instances(void)
                 CHECK_INT_EQ(sel.uncertain_matches, 1,
                              "alias: uncertainty is reported without timestamp inference");
                 shoji_selection_clear(&sel);
+                list->items[0].dead = 1;
+                CHECK_INT_EQ(shoji_select_instance(list, real_b, NULL, &sel),
+                             SHOJI_SELECT_NONE,
+                             "dead alias row does not create a running-instance result");
+                CHECK_INT_EQ(sel.uncertain_matches, 0,
+                             "dead alias row is excluded from uncertain running count");
+                shoji_selection_clear(&sel);
                 shoji_instance_list_free(list);
                 free(real_b);
         }
@@ -758,13 +877,26 @@ void test_instances(void)
         {
                 char *args[1];
 
-                args[0] = (char *)"calendar";
+                args[0] = (char *)"calendar item";
+                g_ipc_calls = 0;
                 CHECK_INT_EQ(shoji_dispatch_call(&ctx, &pl, "island", "tab", args, 1),
                              SHOJI_EXIT_OK, "dispatch succeeds on qs exit 0");
         }
         CHECK_STR_EQ(g_recorded,
-                     "mockqs ipc -i aaa111xxx --any-display call island tab calendar",
-                     "dispatch builds the exact argv vector");
+                     "mockqs ipc -i aaa111xxx --any-display call island tab calendar item",
+                     "dispatch diagnostic rendering retains the argv content");
+        CHECK_INT_EQ(g_ipc_calls, 1, "dispatch invokes IPC exactly once");
+        CHECK_INT_EQ(g_ipc_argc, 9, "dispatch passes the expected argument count");
+        CHECK_STR_EQ(g_ipc_argv[0], "mockqs", "IPC argv[0] is quickshell");
+        CHECK_STR_EQ(g_ipc_argv[1], "ipc", "IPC argv[1] is command");
+        CHECK_STR_EQ(g_ipc_argv[2], "-i", "IPC argv[2] is selector flag");
+        CHECK_STR_EQ(g_ipc_argv[3], "aaa111xxx", "IPC selector is one argument");
+        CHECK_STR_EQ(g_ipc_argv[4], "--any-display", "IPC argv[4] is display flag");
+        CHECK_STR_EQ(g_ipc_argv[5], "call", "IPC argv[5] is call subcommand");
+        CHECK_STR_EQ(g_ipc_argv[6], "island", "IPC target remains one argument");
+        CHECK_STR_EQ(g_ipc_argv[7], "tab", "IPC function remains one argument");
+        CHECK_STR_EQ(g_ipc_argv[8], "calendar item",
+                     "IPC argument containing spaces remains one argument");
         shoji_pipeline_release(&pl);
 
         /* qs reports an unknown target -> mapped to exit 65 */
@@ -788,10 +920,11 @@ void test_instances(void)
                  "\"config_path\":\"/some/other/shell.qml\","
                  "\"launch_time\":\"2026-11-17T09:00:00\"}]");
         g_recorded[0] = '\0';
+        g_ipc_calls = 0;
         shoji_pipeline_run(&ctx, &opts, 1, &pl);
         CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_NOINSTANCE,
                      "no match refuses to dispatch");
-        CHECK(strstr(g_recorded, "ipc") == NULL, "no ipc dispatch when no instance matches");
+        CHECK_INT_EQ(g_ipc_calls, 0, "no matching instance: IPC call counter remains zero");
         shoji_pipeline_release(&pl);
 
         /* ------------------------------------------------------------------ */
@@ -817,6 +950,9 @@ void test_instances(void)
         opts.store_override = NULL;
         shoji_pipeline_release(&pl);
         shoji_store_free(&ctx.store);
+
+        CHECK_INT_EQ(g_list_arg_errors, 0,
+                     "all qs list probes use the exact live/dead argv vectors");
 
         /* ------------------------------------------------------------------ */
         /* JSON output: every --json command must emit exactly one parseable   */
@@ -857,10 +993,10 @@ void test_instances(void)
                         const struct shj_json *verdict = shj_json_get(v, "verdict");
                         const struct shj_json *insts = shj_json_get(v, "instances");
 
-                        check_json_field(v, "verdict", SHOJI_JSON_STRING,
-                                         "status --json: verdict field");
-                        CHECK(verdict && strcmp(verdict->string, "match") == 0,
-                              "status --json: verdict match");
+                        if (check_json_field(v, "verdict", SHOJI_JSON_STRING,
+                                             "status --json: verdict field"))
+                                CHECK(strcmp(verdict->string, "match") == 0,
+                                      "status --json: verdict match");
                         CHECK(insts && insts->type == SHOJI_JSON_ARRAY && insts->items &&
                               insts->items->next == NULL,
                               "status --json: one instance");
@@ -901,10 +1037,10 @@ void test_instances(void)
                 if (v) {
                         const struct shj_json *id = shj_json_get(v, "id");
 
-                        check_json_field(v, "id", SHOJI_JSON_STRING,
-                                         "instance current --json: id field");
-                        CHECK(id && strcmp(id->string, "aaa111xxx") == 0,
-                              "instance current --json: selected id");
+                        if (check_json_field(v, "id", SHOJI_JSON_STRING,
+                                             "instance current --json: id field"))
+                                CHECK(strcmp(id->string, "aaa111xxx") == 0,
+                                      "instance current --json: selected id");
                         check_json_field(v, "matches_expected", SHOJI_JSON_BOOL,
                                          "instance current --json: match bool");
                         shj_json_free(v);

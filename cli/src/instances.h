@@ -77,9 +77,8 @@ struct shoji_selection {
         /* dead instances matching the expected config (borrowed pointers) */
         struct shoji_instance **dead_matches;
         int dead_match_count;
-        /* live rows of the expected config that can never be auto-selected:
-         * launched through a mutable configuration link that was retargeted
-         * afterwards, so the loaded generation is uncertain */
+        /* live rows whose recorded path resolves to the expected config,
+         * but whose launch-time configuration target cannot be established */
         int uncertain_matches;
         /* live rows of the expected config without a valid instance id */
         int invalid_id_matches;
@@ -101,10 +100,10 @@ int shoji_live_count(const struct shoji_instance_list *list);
  *   1  the instance provably loaded expected_qml's configuration;
  *   0  it did not (or identity cannot apply);
  *  -1  uncertain: the recorded launch-time path currently resolves to
- *      expected_qml through a mutable alias that was retargeted at or
- *      after the instance launched, so the loaded generation cannot be
- *      established. Uncertain rows are never auto-selected; they require
- *      an explicit --instance-id.
+ *      expected_qml, but the configuration target at launch cannot be
+ *      established. This does not prove that the alias was retargeted.
+ *      Uncertain rows are never auto-selected; they require an explicit
+ *      --instance-id.
  *
  * The recorded config_path is quickshell's launch-time record (absolute,
  * NOT symlink-resolved: src/launch/command.cpp locateConfigFile ends in

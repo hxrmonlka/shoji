@@ -180,6 +180,12 @@ void test_parser(void)
                 ARGV_END();
         }
         {
+                ARGV("--instance-id", "", "instance", "current");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_USAGE,
+                             "empty --instance-id rejected rather than treated as omitted");
+                ARGV_END();
+        }
+        {
                 ARGV("ipc", "call", "island", "tab", "calendar", "extra");
                 CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_OK,
                              "raw ipc call accepts extra args");

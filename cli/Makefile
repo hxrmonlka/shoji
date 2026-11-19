@@ -71,7 +71,7 @@ unit: $(TEST_BIN) $(BUILD)/spawn-helper
 e2e: $(CLI_BIN)
 	$(TEST_DIR)/run_e2e.sh $(CLI_BIN)
 
-check-qml:
+check-qml: $(CLI_BIN)
 	$(TEST_DIR)/run_e2e.sh --qml-only $(CLI_BIN)
 
 test: unit e2e check-qml

@@ -5,6 +5,7 @@
 #include "util.h"
 
 #include <limits.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -19,11 +20,21 @@ static int list_output_is_empty_notice(const char *out)
 {
         const char *p = out ? out : "";
 
-        while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')
+        static const char notice[] = "No running instances.";
+        const char *end;
+
+        while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' ||
+               *p == '\f' || *p == '\v')
                 p++;
         if (*p == '\0')
                 return 1;
-        return strncmp(p, "No running instances.", 21) == 0;
+        if (strncmp(p, notice, sizeof(notice) - 1) != 0)
+                return 0;
+        end = p + sizeof(notice) - 1;
+        while (*end == ' ' || *end == '\t' || *end == '\n' || *end == '\r' ||
+               *end == '\f' || *end == '\v')
+                end++;
+        return *end == '\0';
 }
 
 /* quickshell generates instance ids as base36(pid) + base36(launch epoch)
@@ -73,7 +84,13 @@ static struct shoji_instance *append_row(struct shoji_instance_list *list,
         inst->shell_id = shj_strdup(shj_json_str(sid, ""));
         inst->config_path = shj_strdup(shj_json_str(cfg, ""));
         inst->launch_time = shj_strdup(shj_json_str(lt, ""));
-        inst->pid = (pid && pid->type == SHOJI_JSON_NUMBER) ? (long)pid->number : -1;
+        /* JSON numbers are doubles. Validate before casting: out-of-range or
+         * fractional values cannot safely become a pid_t/long selector. */
+        inst->pid = -1;
+        if (pid && pid->type == SHOJI_JSON_NUMBER && isfinite(pid->number) &&
+            pid->number >= 1.0 && pid->number <= (double)INT_MAX &&
+            pid->number == (double)(long)pid->number)
+                inst->pid = (long)pid->number;
         inst->id_valid = instance_id_valid(inst->id);
         inst->dead = dead;
         list->count++;
@@ -143,6 +160,73 @@ static void dedupe_dead_rows(struct shoji_instance_list *list, int live_count)
                                 break;
                         }
                 }
+        }
+}
+
+static void free_instance(struct shoji_instance *inst)
+{
+        free(inst->id);
+        free(inst->shell_id);
+        free(inst->config_path);
+        free(inst->launch_time);
+        memset(inst, 0, sizeof(*inst));
+}
+
+static struct shoji_instance *find_instance_id(struct shoji_instance_list *list,
+                                                 const char *id)
+{
+        int i;
+
+        if (!id || !*id)
+                return NULL;
+        for (i = 0; i < list->count; i++) {
+                if (list->items[i].id && strcmp(list->items[i].id, id) == 0)
+                        return &list->items[i];
+        }
+        return NULL;
+}
+
+static void copy_instance(struct shoji_instance *dst,
+                          const struct shoji_instance *src)
+{
+        free_instance(dst);
+        *dst = *src;
+        dst->id = shj_strdup(src->id ? src->id : "");
+        dst->shell_id = shj_strdup(src->shell_id ? src->shell_id : "");
+        dst->config_path = shj_strdup(src->config_path ? src->config_path : "");
+        dst->launch_time = shj_strdup(src->launch_time ? src->launch_time : "");
+}
+
+static void remove_rows_from(struct shoji_instance_list *list, int first)
+{
+        while (list->count > first) {
+                list->count--;
+                free_instance(&list->items[list->count]);
+        }
+}
+
+/* Rows first seen in --show-dead may have started after the authoritative
+ * live snapshot. Recheck the live listing before calling them dead: if the
+ * optional recheck fails, discard those rows rather than misclassifying them. */
+static void reconcile_new_rows(struct shoji_instance_list *list, int live_count,
+                               const struct shoji_instance_list *fresh)
+{
+        int i;
+
+        for (i = 0; i < fresh->count; i++) {
+                const struct shoji_instance *src = &fresh->items[i];
+                struct shoji_instance *dst = find_instance_id(list, src->id);
+
+                if (dst) {
+                        if (dst >= list->items + live_count)
+                                copy_instance(dst, src);
+                        continue;
+                }
+                list->items = shj_realloc(list->items,
+                        sizeof(*list->items) * (size_t)(list->count + 1));
+                memset(&list->items[list->count], 0, sizeof(*list->items));
+                copy_instance(&list->items[list->count], src);
+                list->count++;
         }
 }
 
@@ -222,6 +306,13 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
                 shj_proc_result_free(r);
                 return NULL;
         }
+        if (r->truncated & SHOJI_TRUNC_OUT) {
+                shj_msg("quickshell instance listing was truncated; refusing incomplete data");
+                if (err)
+                        *err = SHOJI_DISCOVER_BADJSON;
+                shj_proc_result_free(r);
+                return NULL;
+        }
 
         list = shj_alloc(sizeof(*list));
         list->count = 0;
@@ -252,14 +343,13 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
                 live_count = list->count;
         }
 
-        /* Dead-instance diagnostics (compatibility probe). Upstream marks a
-         * row dead ONLY by its absence from the live list: the JSON of a
-         * dead row carries the launch-time InstanceInfo::pid, which can
-         * stay positive after a crash (src/core/paths.cpp checkLock reads
-         * the lock holder separately; listInstances prints
-         * instance.instance.pid). Rows found here that the live listing
-         * did not report are therefore dead regardless of their pid and
-         * never become IPC candidates.
+        /* Dead-instance diagnostics (compatibility probe). The JSON of a
+         * dead row carries the launch-time InstanceInfo::pid, which can stay
+         * positive after a crash (src/core/paths.cpp checkLock reads the lock
+         * holder separately; listInstances prints instance.instance.pid).
+         * Rows absent from the first live snapshot are rechecked against a
+         * fresh live listing before they are classified as dead, because a
+         * new instance may have started between the two probes.
          *
          * When this probe fails -- most commonly because the running
          * quickshell build does not support --show-dead -- discovery
@@ -283,6 +373,11 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
                 return list;
         }
 
+        if (r->truncated & SHOJI_TRUNC_OUT) {
+                shj_msg("dead-instance listing was truncated; diagnostics skipped");
+                shj_proc_result_free(r);
+                return list;
+        }
         pr = parse_listing(r->out, list, 1, &errpos);
         shj_proc_result_free(r);
         if (pr == -1)
@@ -291,8 +386,49 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
         else if (pr == -2)
                 shj_msg("the dead-instance listing was not a JSON array; "
                         "dead-instance diagnostics skipped");
-        else if (pr == 0)
+        else if (pr == 0) {
+                struct shoji_instance_list fresh;
+                struct shj_proc_result *check;
+                int have_new_rows;
+
                 dedupe_dead_rows(list, live_count);
+                have_new_rows = list->count > live_count;
+                if (!have_new_rows)
+                        return list;
+
+                check = spawn(argv_live, user);
+                if (!check || check->exit != 0 ||
+                    (check->truncated & SHOJI_TRUNC_OUT)) {
+                        shj_msg("new instance rows could not be verified; "
+                                "unconfirmed dead-instance diagnostics skipped");
+                        shj_proc_result_free(check);
+                        remove_rows_from(list, live_count);
+                        return list;
+                }
+
+                memset(&fresh, 0, sizeof(fresh));
+                fresh.items = shj_alloc(sizeof(*fresh.items));
+                pr = parse_listing(check->out, &fresh, 0, &errpos);
+                shj_proc_result_free(check);
+                if (pr < 0) {
+                        shj_msg("could not verify newly discovered instance rows; "
+                                "unconfirmed diagnostics skipped");
+                        while (fresh.count > 0) {
+                                fresh.count--;
+                                free_instance(&fresh.items[fresh.count]);
+                        }
+                        free(fresh.items);
+                        remove_rows_from(list, live_count);
+                        return list;
+                }
+                /* pr == 1 is a valid, complete empty live snapshot. */
+                reconcile_new_rows(list, live_count, &fresh);
+                while (fresh.count > 0) {
+                        fresh.count--;
+                        free_instance(&fresh.items[fresh.count]);
+                }
+                free(fresh.items);
+        }
         return list;
 }
 
@@ -322,13 +458,9 @@ int shoji_live_count(const struct shoji_instance_list *list)
         return n;
 }
 
-/* Parse quickshell's launch_time ("YYYY-MM-DDTHH:MM:SS"): Qt::ISODate of a
- * local-time QDateTime (src/core/common.cpp Common::LAUNCH_TIME is
- * QDateTime::currentDateTime()), so mktime() in the local zone yields a
- * value comparable with st_mtime. Strictly rejects trailing content (no
- * offset or fractional seconds are accepted): an unparseable launch time
- * degrades matching to "uncertain" instead of widening the match window.
- * Returns 0 on success. */
+/* Establish configuration identity only from the recorded launch-time path.
+ * The path is not canonicalized by Quickshell at launch, and launch_time has
+ * no timezone, so symlink metadata cannot prove which generation was loaded. */
 int shoji_instance_matches_config(const struct shoji_instance *inst,
                                   const char *expected_qml)
 {
@@ -346,9 +478,9 @@ int shoji_instance_matches_config(const struct shoji_instance *inst,
          * provide a launch-time canonical path. An exact string comparison
          * against the canonical expected path is reliable. If the recorded
          * path currently resolves to that config via a mutable alias, the
-         * alias may have been retargeted after launch; do not infer identity
-         * from symlink mtimes or launch_time (which has no timezone). Mark
-         * the result uncertain and require explicit --instance-id. */
+         * original launch-time target cannot be established; do not infer
+         * identity from symlink mtimes or launch_time (which has no timezone).
+         * Mark the result uncertain and require explicit --instance-id. */
         expected_real = shj_realpath_safe(expected_qml);
         if (!expected_real)
                 expected_real = shj_strdup(expected_qml);
@@ -390,10 +522,11 @@ enum shoji_select_status shoji_select_instance(const struct shoji_instance_list 
                 if (expected_qml) {
                         match = shoji_instance_matches_config(inst, expected_real ? expected_real : expected_qml);
                         if (match < 0) {
-                                /* Mutable alias retargeted after launch: the
-                                 * loaded generation is uncertain, so the row
-                                 * is never an automatic candidate. */
-                                out->uncertain_matches++;
+                                /* Only live rows represent a running shell.
+                                 * Dead aliases are diagnostic records, not
+                                 * uncertain running instances. */
+                                if (!inst->dead)
+                                        out->uncertain_matches++;
                                 match = 0;
                         }
                 }
@@ -409,26 +542,44 @@ enum shoji_select_status shoji_select_instance(const struct shoji_instance_list 
         }
         free(expected_real);
 
-        if (instance_id_override && *instance_id_override) {
-                /* Explicit override: prefix-match against every known
-                 * instance with a usable id (same rule quickshell applies
-                 * for -i; an empty selector would be skipped by quickshell
-                 * and must never be forwarded). The matched instances are
-                 * published through matches[] so the caller can list them
-                 * when the prefix is ambiguous. */
+        if (instance_id_override) {
+                /* An explicitly supplied empty selector is never equivalent
+                 * to omission: qs treats -i "" as absent and can fall back to
+                 * config-based dispatch. */
                 int id_matches = 0;
+                int dead_id_matches = 0;
                 struct shoji_instance *pick = NULL;
 
+                if (!*instance_id_override) {
+                        out->match_count = 0;
+                        out->dead_match_count = 0;
+                        out->selected = NULL;
+                        out->status = SHOJI_SELECT_NONE;
+                        return SHOJI_SELECT_NONE;
+                }
+                /* Resolve against live rows first. Dead rows are retained for
+                 * diagnostics only and cannot make a live prefix ambiguous. */
                 for (i = 0; i < list->count; i++) {
-                        if (!list->items[i].id_valid)
+                        struct shoji_instance *inst = &list->items[i];
+
+                        if (!inst->id_valid || inst->dead ||
+                            strncmp(inst->id, instance_id_override,
+                                    strlen(instance_id_override)) != 0)
                                 continue;
-                        if (strncmp(list->items[i].id, instance_id_override,
-                                    strlen(instance_id_override)) == 0) {
-                                out->matches[id_matches++] = &list->items[i];
-                                pick = &list->items[i];
-                        }
+                        out->matches[id_matches++] = inst;
+                        pick = inst;
                 }
                 if (id_matches == 0) {
+                        out->dead_match_count = 0;
+                        for (i = 0; i < list->count; i++) {
+                                struct shoji_instance *inst = &list->items[i];
+
+                                if (inst->id_valid && inst->dead &&
+                                    strncmp(inst->id, instance_id_override,
+                                            strlen(instance_id_override)) == 0)
+                                        out->dead_matches[dead_id_matches++] = inst;
+                        }
+                        out->dead_match_count = dead_id_matches;
                         out->match_count = 0;
                         out->status = SHOJI_SELECT_NONE;
                         return SHOJI_SELECT_NONE;

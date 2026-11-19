@@ -305,8 +305,8 @@ int shoji_cmd_doctor(struct shoji_context *ctx, const struct shoji_options *opts
 				              ctx->store.shell_qml, pl.sel.dead_match_count);
 			else if (pl.sel.uncertain_matches > 0)
 				shj_sbuf_addf(&b2, "%d running instance(s) of %s cannot be selected "
-				                    "automatically (mutable configuration link retargeted "
-				                    "after launch); dispatch explicitly with --instance-id",
+				                    "automatically (the recorded path's launch-time target "
+				                    "cannot be established); dispatch explicitly with --instance-id",
 				              pl.sel.uncertain_matches, ctx->store.shell_qml);
 			else
 				shj_sbuf_addf(&b2, "no live instance of %s; start it with "
