@@ -17,7 +17,9 @@
 #include <unistd.h>
 
 static char g_tmp[256];
-static char g_expected[256];
+/* g_expected holds g_tmp plus "/store/aaaaaaaa-shoji/shell.qml", sized so
+ * the suffix provably fits GCC's -Wformat-truncation analysis. */
+static char g_expected[512];
 
 /* rotate 8 static buffers for building small paths in tests */
 static const char *cat2(const char *a, const char *b)
@@ -296,6 +298,7 @@ void test_instances(void)
         shoji_pipeline_release(&pl);
 
         /* store unresolved + no override -> 66 */
+        free(ctx.store.dir); /* owned field; shell_qml points at a static buffer */
         memset(&ctx, 0, sizeof(ctx));
         ctx.qs_bin = "mockqs";
         ctx.spawn = fake_spawn;

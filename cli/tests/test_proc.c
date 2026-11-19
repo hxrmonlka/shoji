@@ -12,8 +12,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "util.h"
 
 #define HELPER_ENV "SHOJI_SPAWN_HELPER"
 #define CAP_BYTES (4L * 1024L * 1024L)
@@ -51,7 +54,7 @@ static int count_zombie_children(void)
         if (!d)
                 return -1;
         while ((de = readdir(d)) != NULL) {
-                char path[64];
+                char path[6 + 256 + 6]; /* "/proc/" + NAME_MAX + "/stat" + NUL */
                 FILE *f;
                 char line[512];
                 const char *rp;
@@ -131,6 +134,52 @@ static void test_spawn_failure(void)
                 shj_proc_result_free(r);
         }
         CHECK_INT_EQ(count_zombie_children(), 0, "missing binary: no zombie left");
+}
+
+/* An exec failure other than ENOENT: a regular file without an execute
+ * bit. Same handshake (errno bytes, then the child exits), a different
+ * errno, and by the time the parent kills it the child is usually already
+ * gone, which exercises the ESRCH-tolerant reap. */
+static void test_spawn_failure_eacces(void)
+{
+        const char *tpl = "/tmp/shoji-eacces-XXXXXX";
+        char *dir = mkdtemp(shj_strdup(tpl));
+        char *nos;
+        const char *argv[2];
+        struct shj_proc_result *r;
+
+        test_section("proc: exec failure errno classes");
+
+        if (!dir) {
+                test_fail("non-executable file: fixture setup failed");
+                return;
+        }
+        nos = shj_path_join(dir, "not-executable");
+        {
+                FILE *f = fopen(nos, "w");
+
+                fputs("#!/bin/sh\nexit 0\n", f);
+                fclose(f);
+        }
+        chmod(nos, 0600); /* never executable, for root and non-root alike */
+
+        argv[0] = nos;
+        argv[1] = NULL;
+        shj_proc_set_timeout_ms(5000);
+        r = shj_proc_run(argv, NULL);
+        if (r) {
+                CHECK_INT_EQ(r->exit, -1, "non-executable file: exit class -1");
+                CHECK_INT_EQ(r->spawn_errno, EACCES, "non-executable file: spawn_errno is EACCES");
+                CHECK_STR_EQ(r->out, "", "non-executable file: stdout empty");
+                CHECK_STR_EQ(r->err, "", "non-executable file: stderr empty");
+                shj_proc_result_free(r);
+        }
+        CHECK_INT_EQ(count_zombie_children(), 0, "non-executable file: no zombie left");
+
+        unlink(nos);
+        rmdir(dir);
+        free(nos);
+        free(dir);
 }
 
 static void test_timeout_lifecycle(void)
@@ -241,6 +290,7 @@ void test_proc(void)
 
         test_capture_and_exit();
         test_spawn_failure();
+        test_spawn_failure_eacces();
         test_timeout_lifecycle();
         test_truncation();
         test_reap_hygiene();

@@ -14,8 +14,11 @@
 #include <unistd.h>
 
 static char g_tmp[256];
-static char g_store[256];
-static char g_profile[256];
+/* g_store/g_profile hold g_tmp plus the longest fixed suffix, so both are
+ * sized for g_tmp (256) plus suffix plus NUL, which keeps GCC's
+ * -Wformat-truncation analysis provably within bounds. */
+static char g_store[512];
+static char g_profile[512];
 
 /* rotate 8 static buffers for building small paths in tests */
 static const char *cat2(const char *a, const char *b)
@@ -133,7 +136,7 @@ void test_resolver(void)
                 char *fake_store = shj_strcat(2, g_tmp, "/store/bbbbbbbb-shoji-1.1");
 
                 mkdir(xdg, 0755);
-                mkdir(shj_strcat(2, xdg, "/quickshell"), 0755);
+                mkdir(cat2(xdg, "/quickshell"), 0755);
                 mkdir(qsdir, 0755);
                 mkdir(fake_store, 0755);
                 {
@@ -142,7 +145,7 @@ void test_resolver(void)
                         fputs("import qs.Commons\nShellRoot {}\n", f);
                         fclose(f);
                 }
-                set_link(shj_strcat(2, qsdir, "/shell.qml"), cat2(fake_store, "/shell.qml"));
+                set_link(cat2(qsdir, "/shell.qml"), cat2(fake_store, "/shell.qml"));
 
                 env = base_env();
                 env.config_home = xdg;
@@ -163,8 +166,8 @@ void test_resolver(void)
                 char *layout = shj_path_join(g_profile, "share/quickshell/shoji");
                 char *fake_store = shj_strcat(2, g_tmp, "/store/cccccccc-shoji-1.2");
 
-                mkdir(shj_strcat(2, g_profile, "/share"), 0755);
-                mkdir(shj_path_join(g_profile, "share/quickshell"), 0755);
+                mkdir(cat2(g_profile, "/share"), 0755);
+                mkdir(cat2(g_profile, "/share/quickshell"), 0755);
                 mkdir(layout, 0755);
                 mkdir(fake_store, 0755);
                 {
@@ -173,7 +176,7 @@ void test_resolver(void)
                         fputs("import qs.Commons\nShellRoot {}\n", f);
                         fclose(f);
                 }
-                set_link(shj_strcat(2, layout, "/shell.qml"), cat2(fake_store, "/shell.qml"));
+                set_link(cat2(layout, "/shell.qml"), cat2(fake_store, "/shell.qml"));
 
                 env = base_env();
                 env.profile_roots = g_profile;
@@ -212,7 +215,7 @@ void test_resolver(void)
                 mkdir(s1, 0755); mkdir(s2, 0755); mkdir(s3, 0755);
                 for (int i = 0; i < 3; i++) {
                         const char *paths[] = { s1, s2, s3 };
-                        FILE *f = fopen(shj_strcat(2, paths[i], "/shell.qml"), "w");
+                        FILE *f = fopen(cat2(paths[i], "/shell.qml"), "w");
 
                         fputs("import qs.Commons\nShellRoot {}\n", f);
                         fclose(f);

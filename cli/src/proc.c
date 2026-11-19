@@ -92,13 +92,24 @@ static unsigned trunc_bits(const struct pipebuf *ob, const struct pipebuf *eb)
 
 /* Kill the child and collect it. SIGKILL cannot be caught or ignored, so
  * under normal assumptions the wait returns promptly; EINTR is retried so
- * a caught signal cannot orphan the child as a zombie. Returns 0, or -1
- * if waitpid failed unexpectedly (errno set). */
+ * a caught signal cannot orphan the child as a zombie. ESRCH means the
+ * child is already absent and only the reap remains; any other kill()
+ * failure is reported instead of being discarded but never changes the
+ * outcome. Returns 0, or -1 if waitpid failed unexpectedly (errno set). */
 static int kill_and_reap(pid_t pid, int *status)
 {
         pid_t w;
 
-        kill(pid, SIGKILL); /* ESRCH is fine: already dead, still to reap. */
+        for (;;) {
+                if (kill(pid, SIGKILL) == 0)
+                        break;
+                if (errno == ESRCH)
+                        break; /* already absent: nothing to signal, reap still needed */
+                if (errno == EINTR)
+                        continue; /* interrupted kill: retry */
+                shj_msg("kill(%ld, SIGKILL): %s", (long)pid, strerror(errno));
+                break;
+        }
         do {
                 w = waitpid(pid, status, 0);
         } while (w < 0 && errno == EINTR);
@@ -253,11 +264,23 @@ static int await_exec(int execfd, long deadline_ms, int *exec_errno)
                 if (r == 0)
                         return -1; /* deadline expired before the handshake resolved */
 
+                if (pfd.revents & POLLNVAL) {
+                        errno = EBADF; /* bad descriptor: internal error, not exec success */
+                        return -2;
+                }
+                if (!(pfd.revents & (POLLIN | POLLHUP | POLLERR)))
+                        continue; /* no handshake event: poll again */
+
                 /* The exec-failure write is one 4-byte write to a pipe, atomic
-                 * against PIPE_BUF, so the read cannot split it. */
+                 * against PIPE_BUF, so the read cannot split it. A failed exec
+                 * writes the errno and then exits, so data and EOF can arrive
+                 * in one wakeup: any error bytes are read before EOF is
+                 * interpreted as success. */
                 do {
                         n = read(execfd, &e, sizeof(e));
                 } while (n < 0 && errno == EINTR);
+                if (n < 0 && errno == EAGAIN)
+                        continue; /* stale readiness: poll again */
                 break;
         }
         if (n < 0)
@@ -272,10 +295,19 @@ static int await_exec(int execfd, long deadline_ms, int *exec_errno)
 
 static int cloexec_pipe(int fds[2])
 {
+        fds[0] = -1;
+        fds[1] = -1;
         if (pipe(fds) != 0)
                 return -1;
-        fcntl(fds[0], F_SETFD, FD_CLOEXEC);
-        fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+        if (fcntl(fds[0], F_SETFD, FD_CLOEXEC) != 0 ||
+            fcntl(fds[1], F_SETFD, FD_CLOEXEC) != 0) {
+                int saved = errno;
+
+                close(fds[0]);
+                close(fds[1]);
+                errno = saved;
+                return -1;
+        }
         return 0;
 }
 
@@ -291,8 +323,19 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
         (void)user;
 
         if (cloexec_pipe(outfd) != 0 || cloexec_pipe(errfd) != 0 ||
-            cloexec_pipe(execfd) != 0)
-                shj_die(SHOJI_EXIT_INTERNAL, "pipe: %s", strerror(errno));
+            cloexec_pipe(execfd) != 0) {
+                int saved = errno;
+
+                /* fds are -1-initialized, so closing all six is safe even
+                 * when an earlier pipe failed to be created. */
+                close(outfd[0]);
+                close(outfd[1]);
+                close(errfd[0]);
+                close(errfd[1]);
+                close(execfd[0]);
+                close(execfd[1]);
+                shj_die(SHOJI_EXIT_INTERNAL, "pipe: %s", strerror(saved));
+        }
 
         if (g_timeout_ms > 0)
                 deadline_ms = mono_ms() + g_timeout_ms;
@@ -303,9 +346,17 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
         } else if (pid == 0) {
                 /* Child: wire the capture pipes onto stdout/stderr, then exec
                  * with the argv vector untouched (dup2 clears CLOEXEC on the
-                 * new descriptors). */
-                dup2(outfd[1], STDOUT_FILENO);
-                dup2(errfd[1], STDERR_FILENO);
+                 * new descriptors). A failed dup2 reports through the same
+                 * exec-error pipe as a failed exec; only async-signal-safe
+                 * calls happen on this path. */
+                if (dup2(outfd[1], STDOUT_FILENO) < 0 ||
+                    dup2(errfd[1], STDERR_FILENO) < 0) {
+                        int e = errno;
+                        ssize_t n = write(execfd[1], &e, sizeof(e));
+
+                        (void)n;
+                        _exit(127);
+                }
                 close(outfd[0]);
                 close(outfd[1]);
                 close(errfd[0]);
@@ -332,7 +383,8 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                 if (hs == -1) {
                         /* Over budget before the handshake resolved: kill and
                          * reap so nothing survives, then report the timeout. */
-                        kill_and_reap(pid, &status);
+                        if (kill_and_reap(pid, &status) != 0)
+                                shj_msg("cleanup: waitpid: %s", strerror(errno));
                         res = shj_alloc(sizeof(*res));
                         res->exit = PROC_EXIT_TIMEOUT;
                         res->spawn_errno = ETIMEDOUT;
@@ -344,7 +396,8 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                 if (hs == -2) {
                         int saved = errno;
 
-                        kill_and_reap(pid, &status);
+                        if (kill_and_reap(pid, &status) != 0)
+                                shj_msg("cleanup: waitpid: %s", strerror(errno));
                         res = shj_alloc(sizeof(*res));
                         res->exit = PROC_EXIT_INTERNAL;
                         res->spawn_errno = saved;
@@ -356,7 +409,8 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                 if (hs == 1) {
                         /* The child failed to exec and reported its errno; it
                          * is already exiting (127), collect it. */
-                        kill_and_reap(pid, &status);
+                        if (kill_and_reap(pid, &status) != 0)
+                                shj_msg("cleanup: waitpid: %s", strerror(errno));
                         res = shj_alloc(sizeof(*res));
                         res->exit = PROC_EXIT_SPAWN;
                         res->spawn_errno = exec_errno;
@@ -383,7 +437,8 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                         /* Capture cannot continue (budget exhausted or stream
                          * error): kill and reap so no child or zombie is left
                          * behind, preserving whatever was captured. */
-                        kill_and_reap(pid, &status);
+                        if (kill_and_reap(pid, &status) != 0)
+                                shj_msg("cleanup: waitpid: %s", strerror(errno));
                         res = shj_alloc(sizeof(*res));
                         if (drained == -1) {
                                 res->exit = PROC_EXIT_TIMEOUT;
