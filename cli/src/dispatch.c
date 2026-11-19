@@ -55,7 +55,7 @@ static void print_instance_line(const struct shoji_instance *inst, const char *m
 {
         printf("  %s %-20s pid %-8ld %s%s\n",
                mark ? mark : " ",
-               inst->id,
+               inst->id && *inst->id ? inst->id : "(no valid id)",
                inst->pid,
                inst->dead ? "(dead) " : "",
                inst->config_path ? inst->config_path : "?");
@@ -64,7 +64,7 @@ static void print_instance_line(const struct shoji_instance *inst, const char *m
 void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *opts,
                         int require_instance, struct shoji_pipeline *pl)
 {
-        int derr = 0;
+        enum shoji_discover_err derr = SHOJI_DISCOVER_OK;
 
         memset(pl, 0, sizeof(*pl));
 
@@ -86,10 +86,25 @@ void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *o
         pl->have_store = ctx->have_store;
         pl->list = shoji_discover_instances(ctx->spawn, ctx->spawn_user, ctx->qs_bin, &derr);
         if (!pl->list) {
-                if (derr == -2)
+                /* Explicit discovery failure classes -> the documented
+                 * exit-code contract: timeout is a plain failure (1), a
+                 * missing quickshell executable is 69, an internal
+                 * subprocess failure is 70, and quickshell's own listing
+                 * failures keep the documented generic behavior (1). */
+                switch (derr) {
+                case SHOJI_DISCOVER_NOEXEC:
                         pl->exit_code = SHOJI_EXIT_NOQS;
-                else
+                        break;
+                case SHOJI_DISCOVER_TIMEOUT:
+                case SHOJI_DISCOVER_FAILED:
+                case SHOJI_DISCOVER_BADJSON:
                         pl->exit_code = SHOJI_EXIT_FAILED;
+                        break;
+                case SHOJI_DISCOVER_INTERNAL:
+                default:
+                        pl->exit_code = SHOJI_EXIT_INTERNAL;
+                        break;
+                }
                 return;
         }
 
@@ -101,16 +116,24 @@ void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *o
                 /* Explicit override pointing at a foreign shell: not an error,
                  * but it must never look like a match. */
                 if (ctx->have_store) {
-                        char *actual = shoji_instance_canonical_config(pl->sel.selected);
+                        int m = shoji_instance_matches_config(pl->sel.selected,
+                                                              ctx->store.shell_qml);
 
-                        if (strcmp(actual, ctx->store.shell_qml) != 0) {
+                        if (m == 0) {
                                 shj_msg("warning: instance '%s' runs %s, which is not the "
                                         "expected configuration %s",
-                                        pl->sel.selected->id, actual, ctx->store.shell_qml);
+                                        pl->sel.selected->id,
+                                        pl->sel.selected->config_path ? pl->sel.selected->config_path : "?",
+                                        ctx->store.shell_qml);
                                 shj_hint("use 'shoji instance list' to compare generations; "
                                          "refuse to continue if this is unexpected");
+                        } else if (m < 0) {
+                                /* Mutable alias retargeted after launch: say so
+                                 * instead of pretending the generation is known. */
+                                shj_msg("warning: instance '%s' was launched through a mutable "
+                                        "configuration link that was retargeted afterwards; "
+                                        "its loaded generation is uncertain", pl->sel.selected->id);
                         }
-                        free(actual);
                 }
                 if (pl->sel.selected->dead) {
                         shj_msg("instance '%s' is not running (dead instance lock)",
@@ -130,6 +153,19 @@ void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *o
                                         "may have crashed or been replaced)",
                                         pl->sel.dead_match_count,
                                         pl->sel.dead_match_count == 1 ? "" : "s");
+                        if (pl->sel.uncertain_matches > 0)
+                                shj_msg("%d running instance%s of this configuration %s launched "
+                                        "through a mutable configuration link that was retargeted "
+                                        "afterwards; the loaded generation cannot be established",
+                                        pl->sel.uncertain_matches,
+                                        pl->sel.uncertain_matches == 1 ? "" : "s",
+                                        pl->sel.uncertain_matches == 1 ? "was" : "were");
+                        if (pl->sel.invalid_id_matches > 0)
+                                shj_msg("%d running instance%s of this configuration ha%s no valid "
+                                        "instance id and cannot be selected",
+                                        pl->sel.invalid_id_matches,
+                                        pl->sel.invalid_id_matches == 1 ? "" : "s",
+                                        pl->sel.invalid_id_matches == 1 ? "s" : "ve");
                         if (shoji_live_count(pl->list) > 0) {
                                 shj_msg("other running quickshell instances:");
                                 for (int i = 0; i < pl->list->count; i++) {
@@ -203,6 +239,14 @@ int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *
 
         if (!inst || inst->dead)
                 return SHOJI_EXIT_NOINSTANCE;
+        /* Defense in depth: selection refuses rows without a usable id, but
+         * dispatch itself must guarantee that no IPC ever runs with an
+         * empty instance id -- quickshell would skip the selector and fall
+         * back to config-based selection. */
+        if (!inst->id_valid) {
+                shj_msg("internal error: refusing to dispatch: instance has no valid id");
+                return SHOJI_EXIT_INTERNAL;
+        }
 
         /* qs ipc -i <id> --any-display call <target> <function> [args...] */
         argv = shj_alloc(sizeof(char *) * (size_t)(argc + 9));
@@ -280,6 +324,10 @@ int shoji_dispatch_show(struct shoji_context *ctx, const struct shoji_pipeline *
 
         if (!inst || inst->dead)
                 return SHOJI_EXIT_NOINSTANCE;
+        if (!inst->id_valid) {
+                shj_msg("internal error: refusing to dispatch: instance has no valid id");
+                return SHOJI_EXIT_INTERNAL;
+        }
 
         argv[3] = inst->id;
         r = ctx->spawn(argv, ctx->spawn_user);
@@ -318,7 +366,7 @@ int shoji_ipc_probe(struct shoji_context *ctx, const struct shoji_instance *inst
         struct shj_proc_result *r;
         int ok;
 
-        if (!inst || inst->dead)
+        if (!inst || inst->dead || !inst->id_valid)
                 return -1;
 
         argv[3] = inst->id;

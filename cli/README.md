@@ -58,28 +58,36 @@ make test        # unit tests + end-to-end tests + shell.qml mapping check
 
 - `make unit` — C unit tests (`build/shoji-tests`): argument parsing,
   command-to-IPC mapping, argument validation/normalization, store resolver
-  precedence and canonicalization, instance matching/ambiguity/exit codes,
-  JSON parsing. The resolver runs on injected roots and temp dirs; the
-  subprocess interface is injectable, so no NixOS system and no Quickshell
-  session are required.
+  precedence and canonicalization (including `XDG_CONFIG_DIRS`
+  tokenization: one, several, empty entries, the directory cap), instance
+  discovery failure classes and invocation counts, dead-instance
+  classification (stale positive pids), invalid instance-id refusal, the
+  mutable-symlink retargeting scenario, JSON parsing, and complete-output
+  JSON validation of every `--json` command. The resolver runs on injected
+  roots and temp dirs; the subprocess interface is injectable, so no NixOS
+  system and no Quickshell session are required.
 - `make e2e` — end-to-end tests against `tests/fixtures/mock-qs`, a mock
-  Quickshell executable (the CLI itself never spawns a shell). Verifies the
-  exact argv vectors passed to `qs`, exit-code propagation, status/doctor
-  output, store-resolution failures, ambiguity refusal, timeouts, and the
-  doctor flow.
+  Quick executable (the CLI itself never spawns a shell). Verifies the
+  exact argv vectors passed to `qs`, exit-code propagation, discovery
+  failure classes (generic failures are not retried; the `--show-dead`
+  compatibility probe is contained), dead-instance reporting with positive
+  pids, status/doctor output, deterministic store-resolution failures via a
+  nonexistent `--store`, ambiguity refusal, timeouts, and the doctor flow.
 - `make check-qml` — re-extracts every `IpcHandler` target/function from
   `shell.qml` (`tests/qml_ipc.awk`) and diffs it against the compiled facade
   table (`shoji debug map`). Fails when either side drifts.
 
-Actual results at implementation time (branch `eup`, commit `aed6ae9`):
+Actual results at implementation time (branch `feat/cli`, correction pass):
 
 ```
-unit:  232 passed, 0 failed
-e2e:    59 passed, 0 failed (includes the mapping-drift check)
+unit:  395 passed, 0 failed
+e2e:    71 passed, 0 failed (includes the mapping-drift check)
 ```
 
-The suite was also run under AddressSanitizer + UndefinedBehaviorSanitizer:
-clean (no leaks of concern, no UB, no heap errors). Runtime integration
+The suite was also run under AddressSanitizer + LeakSanitizer (leak
+detection enabled) and under UndefinedBehaviorSanitizer with
+`-fno-sanitize-recover=all`: clean. A Clang build was NOT available in the
+correction environment; GCC is the validated compiler. Runtime integration
 against a real `qs` has NOT been tested in this phase — see "Assumptions".
 
 ## Command reference
@@ -114,6 +122,12 @@ shoji doctor        # checks CLI, qs binary, store path, instance, IPC access
 with verdicts `match`, `no-match`, `no-instance-dead-only`, `ambiguous`,
 `override-mismatch`, `selected-instance-dead`, `unknown-store`,
 `discovery-failed`.
+
+Every `--json` output is a single valid JSON value: `instance inspect
+--json` adds `"ipc_accessible"` as a JSON boolean (true/false, for both
+successful and failed probes) INSIDE the instance object. The unit suite
+parses each complete command output (not substrings) against the bundled
+JSON parser.
 
 ### Instance management
 
@@ -233,28 +247,74 @@ Properties:
 
 ## Instance selection
 
-Discovery always runs Quickshell's own CLI: `qs list -a -j --show-dead`
-(with a graceful retry without `--show-dead` on older quickshell). When no
-instance exists, quickshell prints its bare `No running instances.` log line
-instead of JSON; both that line and empty output are accepted as an empty
-list. Shoji never dispatches via a bare `qs -p PATH …`, because quickshell
-**silently picks the oldest instance** of that config when several match.
+Discovery always runs Quickshell's own CLI, in two steps:
+
+1. `qs list -a -j` is the **authoritative live listing**. Upstream outputs
+   only instances that currently hold their fcntl instance lock
+   (`src/launch/command.cpp listInstances`, `src/core/paths.cpp
+   collectInstances`) — this listing alone decides what shoji may dispatch
+   to. A failure of this command is never retried and never masked: a
+   timeout stays a timeout (exit 1), a failed exec stays a missing
+   executable (exit 69), an internal subprocess failure stays internal
+   (exit 70), and a generic quickshell rejection keeps the documented
+   generic failure behavior (exit 1).
+2. `qs list -a -j --show-dead` is a **strictly additive diagnostics probe**
+   for dead instances. Rows it reports that the live listing did not report
+   are dead, regardless of their JSON pid, and are never IPC candidates.
+   When this probe fails — most commonly because the running quickshell
+   build does not support `--show-dead` — discovery continues without dead
+   diagnostics; the failure can never mask or alter the live result.
+
+Dead-instance semantics: upstream serializes the launch-time
+`InstanceInfo` into the listing JSON, so a dead instance's `pid` field can
+stay **positive** after a crash; only the absence from the live listing
+(`InstanceLockInfo::pid` from the fcntl lock) marks it dead.
+
+When no instance exists, quickshell prints its bare `No running instances.`
+log line instead of JSON; both that line and empty output are accepted as an
+empty list. Shoji never dispatches via a bare `qs -p PATH …`, because
+quickshell **silently picks the oldest instance** of that config when several
+match.
 
 Selection policy (`shoji_select_instance`):
 
-1. Candidates are **live** instances (`pid > 0`) whose canonical
-   `config_path` equals the canonical expected store path (comparison after
-   `realpath` on both sides, so symlinked dev checkouts compare correctly;
-   instance records whose store path has been garbage-collected still
-   compare by their recorded path).
+1. Candidates are **live** instances whose configuration identity is
+   established against the expected store path and whose instance id is
+   valid (see below).
+   - **Configuration identity**: the recorded `config_path` is quickshell's
+     launch-time record — the absolute path given to `-p`/`-c`, NOT
+     symlink-resolved (`locateConfigFile` ends in
+     `QFileInfo(path).absoluteFilePath()`), and quickshell exposes no
+     launch-time canonical path. Re-resolving it with `realpath()` at
+     selection time would read a mutable alias's CURRENT target (a
+     Home-Manager or Nix generation symlink retargeted to generation B) and
+     make an instance that still runs generation A look like B. Matching
+     therefore compares the recorded path string against the canonical
+     expected path; when the recorded path currently *resolves* to the
+     expected path through a symlink chain, the chain's newest symlink
+     mtime is the retarget witness: if every alias component was last
+     retargeted strictly before the instance's recorded launch time, the
+     chain has not moved since launch and the current target IS the
+     configuration loaded at launch (match); otherwise the loaded generation
+     is **uncertain** and the row is never auto-selected.
+   - **Instance ids**: `qs ipc -i` treats an empty selector as absent and
+     silently falls back to config-based selection
+     (`selectInstance`), so rows with absent, empty or otherwise invalid ids
+     (non-empty, no whitespace/control characters) are never selected and
+     never dispatched; shoji reports them for diagnostics instead.
 2. Exactly one candidate → selected; dispatch uses the **full instance id**.
 3. None → refuse (exit 67). Diagnostics distinguish "no instances at all",
-   "dead instances of this config exist" (crashed/replaced shell) and "other
-   configs running" — with their paths listed.
+   "dead instances of this config exist", "live rows of uncertain
+   generation" and "rows without a valid id" — with their paths listed.
 4. More than one → refuse as ambiguous (exit 68) unless `--instance-id`
    resolves one candidate by unique prefix (the same rule `qs -i` applies;
    an ambiguous prefix is refused).
 5. `--instance-id` without a matching instance → refuse (exit 67).
+
+In practice this means: after a generation switch, an instance of the OLD
+generation is never silently dispatched to by the NEW CLI — it either does
+not match, or is reported as uncertain and requires an explicit
+`--instance-id <id prefix>`.
 
 Dispatch runs `qs ipc -i <full-id> --any-display call <target> <function>
 [arguments…]` — an argument vector via fork+execvp, never a shell. The full
@@ -315,16 +375,26 @@ cli/
 ## Assumptions and unresolved issues
 
 - **Runtime integration is untested.** Every claim above about real `qs`
-  behavior is based on reading the Quickshell source (master, 0.3.x line) and
-  `qs(1)`, not on running Shoji. The e2e suite validates behavior against a
-  mock that mirrors the observed CLI contract (`list -a -j --show-dead`,
+  behavior is based on reading the Quickshell source (master, 0.3.x line:
+  `src/launch/command.cpp`, `src/launch/launch.cpp`, `src/launch/parsecommand.cpp`,
+  `src/core/paths.cpp`, `src/core/instanceinfo.cpp`) and `qs(1)`, not on
+  running Shoji. The e2e suite validates behavior against a mock that
+  mirrors the observed CLI contract (`list -a -j [--show-dead]`,
   `ipc -i <id> --any-display call/show`, exit codes 0/255).
+- **Launch-time identity relies on upstream facts**: the lock file stores
+  the launch-time `InstanceInfo` (`config_path` = the path as given,
+  absolute but not symlink-resolved; `launch_time` = local-time ISO string
+  of second precision). The retarget witness compares symlink component
+  mtimes with that launch time in the local zone; a changed system timezone
+  between launch and query degrades matching to "uncertain" (fail-safe).
 - **Packaging layout is provisional.** `SHOJI_DEFAULT_STORE` exists, but the
   profile-scan candidate layouts (`share/quickshell/shoji/shell.qml`,
   `etc/xdg/quickshell/shoji/shell.qml`) are a documented guess until Lumina
   decides how Shoji is packaged. The config-link source (4) covers a
   Home Manager `home.file` style install and is likely the primary path in
-  practice.
+  practice; instances launched through such a mutable link match
+  automatically only while the link has not been retargeted since their
+  launch (see selection policy).
 - `qs list -j` does not include the display connection, so shoji matches
   across displays and cannot name an instance's display in diagnostics.
   Multi-instance ambiguity is handled by refusal + `--instance-id`.
@@ -335,6 +405,13 @@ cli/
   color` (+ `media control` when `mergeCircles` is on).
 - `qs` exit statuses other than 0/255 are all treated as generic failures
   (exit 1) after stderr classification.
+- Subprocess lifecycle: descriptors are initialized to -1 and every cleanup
+  path closes only owned descriptors; an exec handshake that never resolves
+  releases the parent's capture ends before returning; a kill() failure
+  (other than EINTR/ESRCH) is reported and reaped with a bounded 1 s grace
+  instead of an unconditional blocking wait; the child reports dup2/execvp
+  failures with a complete, retried errno payload that the parent can never
+  mistake for a successful exec.
 
 ## Deliberately deferred to Phase II
 

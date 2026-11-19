@@ -79,6 +79,24 @@ static int count_zombie_children(void)
         return zombies;
 }
 
+/* Count our open descriptors via /proc/self/fd (-1 when unavailable). */
+static int count_open_fds(void)
+{
+        DIR *d;
+        struct dirent *de;
+        int n = 0;
+
+        d = opendir("/proc/self/fd");
+        if (!d)
+                return -1;
+        while ((de = readdir(d)) != NULL) {
+                if (de->d_name[0] >= '0' && de->d_name[0] <= '9')
+                        n++;
+        }
+        closedir(d);
+        return n;
+}
+
 static void test_capture_and_exit(void)
 {
         struct shj_proc_result *r;
@@ -147,6 +165,8 @@ static void test_spawn_failure_eacces(void)
         char *nos;
         const char *argv[2];
         struct shj_proc_result *r;
+        FILE *f;
+        int w, c;
 
         test_section("proc: exec failure errno classes");
 
@@ -155,13 +175,26 @@ static void test_spawn_failure_eacces(void)
                 return;
         }
         nos = shj_path_join(dir, "not-executable");
-        {
-                FILE *f = fopen(nos, "w");
-
-                fputs("#!/bin/sh\nexit 0\n", f);
-                fclose(f);
+        f = fopen(nos, "w");
+        if (!f) {
+                test_fail("non-executable file: fixture fopen failed");
+                unlink(nos);
+                rmdir(dir);
+                free(nos);
+                free(dir);
+                return;
         }
-        chmod(nos, 0600); /* never executable, for root and non-root alike */
+        w = fputs("#!/bin/sh\nexit 0\n", f);
+        c = fclose(f);
+        if (w == EOF || c != 0 || chmod(nos, 0600) != 0) {
+                /* never executable, for root and non-root alike */
+                test_fail("non-executable file: fixture write/chmod failed");
+                unlink(nos);
+                rmdir(dir);
+                free(nos);
+                free(dir);
+                return;
+        }
 
         argv[0] = nos;
         argv[1] = NULL;
@@ -180,6 +213,92 @@ static void test_spawn_failure_eacces(void)
         rmdir(dir);
         free(nos);
         free(dir);
+}
+
+/* Repeated exec failures and timeout kills must not leak the parent's
+ * descriptors: every early return after pipe creation releases the ends it
+ * owns. */
+static void test_fd_hygiene(void)
+{
+        const char *argv[] = { "shoji-nonexistent-helper-xyz", NULL };
+        int base, now, i;
+        struct shj_proc_result *r;
+
+        test_section("proc: descriptor hygiene across early returns");
+
+        shj_proc_set_timeout_ms(300);
+        base = count_open_fds();
+        CHECK(base >= 0, "fd scan available");
+        if (base < 0)
+                return;
+
+        /* nonexistent executables: the exec handshake fails and every
+         * branch returns early */
+        for (i = 0; i < 5; i++) {
+                r = shj_proc_run(argv, NULL);
+                if (r)
+                        shj_proc_result_free(r);
+        }
+        /* permission failures: a different exec errno through the same
+         * handshake */
+        {
+                const char *tpl = "/tmp/shoji-fdhyg-XXXXXX";
+                char *dir = mkdtemp(shj_strdup(tpl));
+                char *nos;
+                const char *argv2[2];
+
+                if (!dir) {
+                        test_fail("fd hygiene: fixture setup failed");
+                        return;
+                }
+                nos = shj_path_join(dir, "not-executable");
+                {
+                        FILE *f = fopen(nos, "w");
+                        int w, c;
+
+                        if (!f) {
+                                test_fail("fd hygiene: fixture fopen failed");
+                        } else {
+                                w = fputs("#!/bin/sh\nexit 0\n", f);
+                                c = fclose(f);
+                                if (w == EOF || c != 0 || chmod(nos, 0600) != 0)
+                                        test_fail("fd hygiene: fixture write/chmod failed");
+                        }
+                }
+                argv2[0] = nos;
+                argv2[1] = NULL;
+                for (i = 0; i < 3; i++) {
+                        r = shj_proc_run(argv2, NULL);
+                        if (r)
+                                shj_proc_result_free(r);
+                }
+                unlink(nos);
+                rmdir(dir);
+                free(nos);
+                free(dir);
+        }
+        /* timeout kills: the handshake succeeds, the drain times out, and
+         * the SIGKILL cleanup path releases the capture ends */
+        {
+                const char *argv3[3];
+                const char *helper = getenv("SHOJI_SPAWN_HELPER");
+
+                if (helper && *helper) {
+                        argv3[0] = helper;
+                        argv3[1] = "hang";
+                        argv3[2] = NULL;
+                        for (i = 0; i < 3; i++) {
+                                r = shj_proc_run(argv3, NULL);
+                                if (r)
+                                        shj_proc_result_free(r);
+                        }
+                } else {
+                        test_ok("fd hygiene: helper unset, timeout legs skipped");
+                }
+        }
+        now = count_open_fds();
+        CHECK_INT_EQ(now, base, "no descriptors leaked across spawn failures and timeouts");
+        shj_proc_set_timeout_ms(5000);
 }
 
 static void test_timeout_lifecycle(void)
@@ -291,6 +410,7 @@ void test_proc(void)
         test_capture_and_exit();
         test_spawn_failure();
         test_spawn_failure_eacces();
+        test_fd_hygiene();
         test_timeout_lifecycle();
         test_truncation();
         test_reap_hygiene();

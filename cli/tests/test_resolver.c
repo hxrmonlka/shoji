@@ -274,5 +274,175 @@ void test_resolver(void)
         CHECK(!dir, "find_in_path misses missing binary");
         free(dir);
 
+        /* 11. XDG_CONFIG_DIRS tokenization: one, several, empty entries and
+         * the directory cap. The resolver env is injected directly, so
+         * these cases never read the host environment. */
+        {
+                char *base = shj_strcat(2, g_tmp, "/xdgdirs");
+                char *store1 = shj_strcat(2, g_tmp, "/store/eeeeeeee-xdg-1");
+                char *store2 = shj_strcat(2, g_tmp, "/store/ffffffff-xdg-2");
+                int i;
+
+                mkdir(base, 0755);
+                mkdir(store1, 0755);
+                mkdir(store2, 0755);
+                {
+                        FILE *f = fopen(cat2(store1, "/shell.qml"), "w");
+
+                        fputs("import qs.Commons\nShellRoot {}\n", f);
+                        fclose(f);
+                }
+                {
+                        FILE *f = fopen(cat2(store2, "/shell.qml"), "w");
+
+                        fputs("import qs.Commons\nShellRoot {}\n", f);
+                        fclose(f);
+                }
+
+                /* one directory */
+                {
+                        char *d1 = shj_path_join(base, "one");
+                        char *qd = shj_path_join(d1, "quickshell/shoji");
+
+                        mkdir(cat2(base, "/one"), 0755);
+                        mkdir(cat2(d1, "/quickshell"), 0755);
+                        mkdir(qd, 0755);
+                        set_link(cat2(qd, "/shell.qml"), cat2(store1, "/shell.qml"));
+
+                        env = base_env();
+                        env.config_dirs = d1;
+                        env.profile_roots = cat2(g_tmp, "/nowhere");
+                        CHECK_INT_EQ(shoji_resolve_store(&env, &store), 0,
+                                     "config dirs: single directory resolves");
+                        CHECK_STR_EQ(store.shell_qml, cat2(store1, "/shell.qml"),
+                                     "config dirs: single directory target");
+                        shoji_store_free(&store);
+                        free(d1);
+                        free(qd);
+                }
+
+                /* several colon-separated directories: first wins */
+                {
+                        char *d1 = shj_path_join(base, "two");
+                        char *d2 = shj_path_join(base, "three");
+                        char *qd1 = shj_path_join(d1, "quickshell/shoji");
+                        char *qd2 = shj_path_join(d2, "quickshell/shoji");
+                        char *dirs = shj_strcat(3, d1, ":", d2);
+
+                        mkdir(cat2(base, "/two"), 0755);
+                        mkdir(cat2(base, "/three"), 0755);
+                        mkdir(cat2(d1, "/quickshell"), 0755);
+                        mkdir(qd1, 0755);
+                        mkdir(cat2(d2, "/quickshell"), 0755);
+                        mkdir(qd2, 0755);
+                        set_link(cat2(qd1, "/shell.qml"), cat2(store1, "/shell.qml"));
+                        set_link(cat2(qd2, "/shell.qml"), cat2(store2, "/shell.qml"));
+
+                        env = base_env();
+                        env.config_dirs = dirs;
+                        env.profile_roots = cat2(g_tmp, "/nowhere");
+                        CHECK_INT_EQ(shoji_resolve_store(&env, &store), 0,
+                                     "config dirs: multiple directories resolve");
+                        CHECK_STR_EQ(store.shell_qml, cat2(store1, "/shell.qml"),
+                                     "config dirs: earlier directory wins");
+                        shoji_store_free(&store);
+
+                        /* second directory is still reachable */
+                        env.config_dirs = d2;
+                        CHECK_INT_EQ(shoji_resolve_store(&env, &store), 0,
+                                     "config dirs: later directory resolves alone");
+                        CHECK_STR_EQ(store.shell_qml, cat2(store2, "/shell.qml"),
+                                     "config dirs: later directory target");
+                        shoji_store_free(&store);
+
+                        free(d1);
+                        free(d2);
+                        free(qd1);
+                        free(qd2);
+                        free(dirs);
+                }
+
+                /* empty entries are skipped, not treated as candidates */
+                {
+                        char *d1 = shj_path_join(base, "four");
+                        char *qd = shj_path_join(d1, "quickshell/shoji");
+                        char *dirs = shj_strcat(3, "::", d1, "::");
+
+                        mkdir(cat2(base, "/four"), 0755);
+                        mkdir(cat2(d1, "/quickshell"), 0755);
+                        mkdir(qd, 0755);
+                        set_link(cat2(qd, "/shell.qml"), cat2(store1, "/shell.qml"));
+
+                        env = base_env();
+                        env.config_dirs = dirs;
+                        env.profile_roots = cat2(g_tmp, "/nowhere");
+                        CHECK_INT_EQ(shoji_resolve_store(&env, &store), 0,
+                                     "config dirs: empty entries skipped");
+                        CHECK_STR_EQ(store.shell_qml, cat2(store1, "/shell.qml"),
+                                     "config dirs: resolution after empty entries");
+                        shoji_store_free(&store);
+                        free(d1);
+                        free(qd);
+                        free(dirs);
+                }
+
+                /* an all-empty variable yields no candidates and falls
+                 * through to the profile scan */
+                env = base_env();
+                env.config_dirs = ":::";
+                env.profile_roots = cat2(g_tmp, "/nowhere");
+                CHECK_INT_EQ(shoji_resolve_store(&env, &store), -1,
+                             "config dirs: only empty entries fall through");
+                shoji_store_free(&store);
+
+                /* the directory cap is respected: with more entries than
+                 * dirs[] can hold, later entries are ignored (never
+                 * overflowed) */
+                {
+                        char *dirs = NULL;
+                        char *deep = NULL;
+
+                        for (i = 0; i < 12; i++) {
+                                char name[32];
+                                char *di;
+                                char *joined;
+
+                                snprintf(name, sizeof(name), "/cap%02d", i);
+                                di = shj_strcat(2, base, name);
+                                mkdir(di, 0755);
+                                if (i == 11) {
+                                        char *qsdir = shj_path_join(di, "quickshell");
+                                        char *qd;
+
+                                        mkdir(qsdir, 0755);
+                                        qd = shj_path_join(qsdir, "shoji");
+                                        free(qsdir);
+                                        mkdir(qd, 0755);
+                                        set_link(cat2(qd, "/shell.qml"),
+                                                 cat2(store1, "/shell.qml"));
+                                        deep = shj_strdup(di);
+                                        free(qd);
+                                }
+                                joined = dirs ? shj_strcat(3, dirs, ":", di)
+                                              : shj_strdup(di);
+                                free(dirs);
+                                dirs = joined;
+                                free(di);
+                        }
+                        env = base_env();
+                        env.config_dirs = dirs;
+                        env.profile_roots = cat2(g_tmp, "/nowhere");
+                        CHECK_INT_EQ(shoji_resolve_store(&env, &store), -1,
+                                     "config dirs: entries beyond the cap are ignored");
+                        shoji_store_free(&store);
+                        free(deep);
+                        free(dirs);
+                }
+
+                free(base);
+                free(store1);
+                free(store2);
+        }
+
         rmtree(g_tmp);
 }

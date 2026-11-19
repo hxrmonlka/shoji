@@ -190,11 +190,17 @@ static int resolve_config_links(const struct shoji_resolver_env *env, struct sho
                 char *dup = shj_strdup(env->config_dirs);
                 char *tok, *save = NULL;
 
-                for (tok = dup; tok && n < 9; tok = strtok_r(tok, ":", &save)) {
+                /* Same tokenization pattern as resolve_profiles(): the
+                 * first call gets the string, every following call gets
+                 * NULL, and nothing is assigned inside the body. Empty
+                 * entries are skipped by strtok_r itself, so "::" can
+                 * never produce an empty directory candidate. The dirs[]
+                 * cap bounds the scan. */
+                for (tok = strtok_r(dup, ":", &save); tok && n < 9;
+                     tok = strtok_r(NULL, ":", &save)) {
                         char *dir = shj_strcat(2, tok, "/quickshell");
 
                         dirs[n++] = dir;
-                        tok = NULL;
                 }
                 free(dup);
         } else {

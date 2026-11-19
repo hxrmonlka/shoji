@@ -35,8 +35,12 @@ static void json_escaped(struct shj_sbuf *b, const char *s)
 	shj_sbuf_addch(b, '"');
 }
 
+/* Emit one instance as a JSON object and close it. `ipc_accessible` is a
+ * tri-state: -1 omits the property (statuses where no probe ran), 0/1 emit
+ * the JSON boolean false/true. Closing the object here keeps every caller's
+ * output exactly one valid JSON object. */
 static void json_instance(struct shj_sbuf *b, const struct shoji_instance *inst,
-                          int matches_expected, int store_known)
+                          int matches_expected, int store_known, int ipc_accessible)
 {
 	shj_sbuf_add(b, "{\"id\":");
 	json_escaped(b, inst->id);
@@ -53,6 +57,9 @@ static void json_instance(struct shj_sbuf *b, const struct shoji_instance *inst,
 		              matches_expected ? "true" : "false");
 	else
 		shj_sbuf_add(b, ",\"matches_expected\":null");
+	if (ipc_accessible >= 0)
+		shj_sbuf_addf(b, ",\"ipc_accessible\":%s",
+		              ipc_accessible ? "true" : "false");
 	shj_sbuf_addch(b, '}');
 }
 
@@ -62,15 +69,12 @@ static void json_instance(struct shj_sbuf *b, const struct shoji_instance *inst,
 
 static int instance_matches(const struct shoji_context *ctx, const struct shoji_instance *inst)
 {
-	char *actual;
-	int match = 0;
-
 	if (!ctx->have_store || !inst)
 		return 0;
-	actual = shoji_instance_canonical_config(inst);
-	match = strcmp(actual, ctx->store.shell_qml) == 0;
-	free(actual);
-	return match;
+	/* 1 = the configuration identity is established; 0/-1 (uncertain)
+	 * count as not matching: an unestablishable generation must never
+	 * look like a match in status or list output. */
+	return shoji_instance_matches_config(inst, ctx->store.shell_qml) == 1;
 }
 
 static const char *verdict_for(const struct shoji_context *ctx,
@@ -130,7 +134,7 @@ static void status_json(struct shoji_context *ctx, const struct shoji_pipeline *
 
 			if (i)
 				shj_sbuf_addch(&b, ',');
-			json_instance(&b, inst, instance_matches(ctx, inst), pl->have_store);
+			json_instance(&b, inst, instance_matches(ctx, inst), pl->have_store, -1);
 		}
 	}
 	shj_sbuf_add(&b, "],\"verdict\":");
@@ -299,6 +303,11 @@ int shoji_cmd_doctor(struct shoji_context *ctx, const struct shoji_options *opts
 				shj_sbuf_addf(&b2, "no live instance of %s (but %d dead instance(s) "
 				                    "exist; the shell may have crashed or been replaced)",
 				              ctx->store.shell_qml, pl.sel.dead_match_count);
+			else if (pl.sel.uncertain_matches > 0)
+				shj_sbuf_addf(&b2, "%d running instance(s) of %s cannot be selected "
+				                    "automatically (mutable configuration link retargeted "
+				                    "after launch); dispatch explicitly with --instance-id",
+				              pl.sel.uncertain_matches, ctx->store.shell_qml);
 			else
 				shj_sbuf_addf(&b2, "no live instance of %s; start it with "
 				                    "`qs -p %s`",
@@ -351,7 +360,7 @@ int shoji_cmd_instance_list(struct shoji_context *ctx, const struct shoji_option
 
 			if (i)
 				shj_sbuf_addch(&b, ',');
-			json_instance(&b, inst, instance_matches(ctx, inst), pl.have_store);
+			json_instance(&b, inst, instance_matches(ctx, inst), pl.have_store, -1);
 		}
 		shj_sbuf_addch(&b, ']');
 		shj_sbuf_addch(&b, '\n');
@@ -393,7 +402,7 @@ int shoji_cmd_instance_current(struct shoji_context *ctx, const struct shoji_opt
 		struct shj_sbuf b;
 
 		shj_sbuf_init(&b);
-		json_instance(&b, inst, instance_matches(ctx, inst), pl.have_store);
+		json_instance(&b, inst, instance_matches(ctx, inst), pl.have_store, -1);
 		shj_sbuf_addch(&b, '\n');
 		fputs(b.s, stdout);
 		shj_sbuf_free(&b);
@@ -425,11 +434,11 @@ int shoji_cmd_instance_inspect(struct shoji_context *ctx, const struct shoji_opt
 	inst = pl.sel.selected;
 	if (opts->json) {
 		struct shj_sbuf b;
+		int probe = shoji_ipc_probe(ctx, inst);
 
 		shj_sbuf_init(&b);
-		json_instance(&b, inst, instance_matches(ctx, inst), pl.have_store);
-		shj_sbuf_addf(&b, ",\"ipc_accessible\":%s",
-		              shoji_ipc_probe(ctx, inst) == 0 ? "true" : "false");
+		json_instance(&b, inst, instance_matches(ctx, inst), pl.have_store,
+		              probe == 0);
 		shj_sbuf_addch(&b, '\n');
 		fputs(b.s, stdout);
 		shj_sbuf_free(&b);

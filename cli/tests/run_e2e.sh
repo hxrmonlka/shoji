@@ -182,9 +182,10 @@ grep -qF -- "call island toggle" "$MOCK_QS_LOG" \
 expect_exit 67 "unknown instance id exits 67" "$CLI" --instance-id zzz island toggle
 
 # store resolution errors ----------------------------------------------------
+# Deterministic and host-independent: a nonexistent --store override decides,
+# the test never relies on unsetting an environment variable.
 expect_exit 66 "missing store override exits 66" \
-  env -u SHOJI_STORE_PATH SHOJI_PROFILE_ROOTS="$WORK/none" \
-  XDG_CONFIG_HOME="$WORK/none" "$CLI" island toggle
+  "$CLI" --store "$WORK/does-not-exist" island toggle
 expect_exit 66 "nonexistent store override exits 66" \
   env SHOJI_STORE_PATH="$WORK/nope" "$CLI" island toggle
 expect_exit 64 "--store without value exits 64" "$CLI" --store
@@ -230,15 +231,49 @@ expect_exit 67 "bare empty-list notice exits 67" "$CLI" island toggle
 expect_exit 67 "empty list output exits 67" "$CLI" island toggle
 
 # dead instance reporting -----------------------------------------------------
+# Upstream marks a row dead only by its absence from the live listing: the
+# --show-dead output of a dead instance still carries its launch-time pid,
+# which can stay positive after a crash. Dead rows must never dispatch.
 cat > "$WORK/instances.json" <<EOF
+No running instances.
+EOF
+cat > "$WORK/dead.json" <<EOF
 [
-  {"id": "dead1abcdefgh", "pid": -1, "shell_id": "p0",
+  {"id": "dead1abcdefgh", "pid": 4711, "shell_id": "p0",
    "config_path": "$STORE/shell.qml", "launch_time": "2026-11-17T07:00:00"}
 ]
 EOF
-expect_exit 67 "dead-only instance exits 67" "$CLI" island toggle
-"$CLI" status | grep -q "verdict: no-instance-dead-only" \
+expect_exit 67 "dead-only instance exits 67" \
+  env MOCK_DEAD_LIST_FILE="$WORK/dead.json" "$CLI" island toggle
+expect_exit 67 "dead-only positive-pid instance exits 67" \
+  env MOCK_DEAD_LIST_FILE="$WORK/dead.json" "$CLI" --instance-id dead1 island toggle
+env MOCK_DEAD_LIST_FILE="$WORK/dead.json" "$CLI" status 2>/dev/null | grep -q "verdict: no-instance-dead-only" \
   && ok "status verdict reports dead-only" || bad "status verdict reports dead-only"
+
+# discovery failure classes ---------------------------------------------------
+cat > "$WORK/instances.json" <<EOF
+[
+  {"id": "inst1abcdefgh", "pid": 4242, "shell_id": "p1",
+   "config_path": "$STORE/shell.qml", "launch_time": "2026-11-17T08:00:00"}
+]
+EOF
+: > "$MOCK_QS_LOG"
+expect_exit 1 "generic list failure exits 1" env MOCK_LIST_FAIL=1 "$CLI" island toggle
+list_calls=$(grep -c '^list ' "$MOCK_QS_LOG")
+[ "$list_calls" = "1" ] && ok "generic list failure is not retried" \
+  || bad "generic list failure is not retried" "$list_calls list invocations"
+
+: > "$MOCK_QS_LOG"
+expect_exit 0 "unsupported --show-dead falls back" \
+  env MOCK_DEAD_FAIL=1 "$CLI" island toggle
+list_calls=$(grep -c '^list ' "$MOCK_QS_LOG")
+[ "$list_calls" = "2" ] && ok "compatibility probe ran after rejection" \
+  || bad "compatibility probe ran after rejection" "$list_calls list invocations"
+
+expect_exit 69 "missing quickshell exits 69" \
+  env SHOJI_QS_BIN="$WORK/definitely-not-qs" "$CLI" island toggle
+expect_exit 1 "hung quickshell times out" env MOCK_QS_SLEEP=5 SHOJI_QS_TIMEOUT_MS=300 \
+  "$CLI" island toggle
 
 # doctor --------------------------------------------------------------------
 cp "$WORK/instances.json" "$WORK/instances-dead.json"
@@ -254,8 +289,7 @@ expect_out "[ok] IPC accessibility" "doctor checks ipc" "$CLI" doctor
 expect_exit 1 "doctor fails without quickshell" \
   env SHOJI_QS_BIN="$WORK/definitely-not-qs" "$CLI" doctor
 expect_exit 1 "doctor fails without store" \
-  env -u SHOJI_STORE_PATH SHOJI_PROFILE_ROOTS="$WORK/none" \
-  XDG_CONFIG_HOME="$WORK/none" SHOJI_QS_BIN="$HERE/fixtures/mock-qs" "$CLI" doctor
+  "$CLI" --store "$WORK/does-not-exist" doctor
 
 # timeout -------------------------------------------------------------------
 cat > "$WORK/instances.json" <<EOF
@@ -264,8 +298,6 @@ cat > "$WORK/instances.json" <<EOF
    "config_path": "$STORE/shell.qml", "launch_time": "2026-11-17T08:00:00"}
 ]
 EOF
-expect_exit 1 "hung quickshell times out" env MOCK_QS_SLEEP=5 SHOJI_QS_TIMEOUT_MS=300 \
-  "$CLI" island toggle
 
 # --store precedence over environment ----------------------------------------
 STORE2="$WORK/store/bbbbbbbb-shoji"

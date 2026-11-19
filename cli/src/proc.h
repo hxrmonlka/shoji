@@ -21,6 +21,12 @@ struct shj_proc_result {
         char *err;
 };
 
+/* Failure classes of shj_proc_result::exit (negative values); explicit
+ * names instead of bare magic numbers at call sites. */
+#define SHJ_PROC_EXIT_SPAWN (-1)
+#define SHJ_PROC_EXIT_TIMEOUT (-2)
+#define SHJ_PROC_EXIT_INTERNAL (-3)
+
 /* A stream reached SHOJI_PROC_MAX_OUTPUT and further output was discarded
  * while draining continued. The corresponding out/err payload is partial. */
 #define SHOJI_TRUNC_OUT 0x1u
