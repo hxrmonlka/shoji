@@ -7,6 +7,8 @@
 #include "resolver.h"
 #include "util.h"
 
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +21,7 @@ static char g_tmp[256];
  * -Wformat-truncation analysis provably within bounds. */
 static char g_store[512];
 static char g_profile[512];
+static char g_empty_config_dirs[512];
 
 /* rotate 8 static buffers for building small paths in tests */
 static const char *cat2(const char *a, const char *b)
@@ -32,26 +35,42 @@ static const char *cat2(const char *a, const char *b)
 }
 
 
+
+static int write_fixture_file(const char *path, const char *contents)
+{
+        FILE *f = fopen(path, "w");
+        int write_failed;
+        int close_failed;
+
+        if (!f)
+                return -1;
+        write_failed = fputs(contents, f) == EOF;
+        close_failed = fclose(f) != 0;
+        return write_failed || close_failed ? -1 : 0;
+}
+
 /* Create a fake nix-store shoji config under a temp dir. */
-static void make_fixture(void)
+static int make_fixture(void)
 {
         const char *tpl = "/tmp/shoji-test-XXXXXX";
         char *dir = mkdtemp(shj_strdup(tpl));
 
+        if (!dir)
+                return -1;
         snprintf(g_tmp, sizeof(g_tmp), "%s", dir);
         free(dir);
         snprintf(g_store, sizeof(g_store), "%s/store/aaaaaaaa-shoji-1.0", g_tmp);
         snprintf(g_profile, sizeof(g_profile), "%s/profile", g_tmp);
+        snprintf(g_empty_config_dirs, sizeof(g_empty_config_dirs),
+                 "%s/nonexistent-config-dirs", g_tmp);
 
         mkdir(cat2(g_tmp, "/store"), 0755);
         mkdir(g_store, 0755);
-        {
-                FILE *f = fopen(cat2(g_store, "/shell.qml"), "w");
-
-                fputs("import QtQuick\nimport qs.Commons\nShellRoot {}\n", f);
-                fclose(f);
-        }
+        if (write_fixture_file(cat2(g_store, "/shell.qml"),
+                               "import QtQuick\nimport qs.Commons\nShellRoot {}\n") != 0)
+                return -1;
         mkdir(g_profile, 0755);
+        return 0;
 }
 
 static void rmtree(const char *path)
@@ -70,7 +89,7 @@ static struct shoji_resolver_env base_env(void)
         env.home = g_tmp;
         env.user = "tester";
         env.config_home = NULL;
-        env.config_dirs = NULL;
+        env.config_dirs = g_empty_config_dirs;
         return env;
 }
 
@@ -88,7 +107,10 @@ void test_resolver(void)
         char *dir;
 
         test_section("store resolver");
-        make_fixture();
+        if (make_fixture() != 0) {
+                test_fail("resolver fixture created");
+                return;
+        }
 
         /* 1. explicit --store wins over everything */
         env = base_env();
@@ -139,11 +161,11 @@ void test_resolver(void)
                 mkdir(cat2(xdg, "/quickshell"), 0755);
                 mkdir(qsdir, 0755);
                 mkdir(fake_store, 0755);
-                {
-                        FILE *f = fopen(cat2(fake_store, "/shell.qml"), "w");
-
-                        fputs("import qs.Commons\nShellRoot {}\n", f);
-                        fclose(f);
+                if (write_fixture_file(cat2(fake_store, "/shell.qml"),
+                                       "import qs.Commons\nShellRoot {}\n") != 0) {
+                        test_fail("config-link fixture written");
+                        free(xdg); free(qsdir); free(fake_store);
+                        goto cleanup;
                 }
                 set_link(cat2(qsdir, "/shell.qml"), cat2(fake_store, "/shell.qml"));
 
@@ -154,6 +176,8 @@ void test_resolver(void)
                 CHECK_STR_EQ(store.source_name, "config-link", "config-link source name");
                 CHECK_STR_EQ(store.shell_qml, cat2(fake_store, "/shell.qml"),
                              "config link canonicalizes through symlink");
+                CHECK_STR_EQ(store.dir, fake_store,
+                             "config link directory follows canonical shell.qml target");
                 shoji_store_free(&store);
                 rmtree(xdg);
                 free(xdg);
@@ -170,11 +194,11 @@ void test_resolver(void)
                 mkdir(cat2(g_profile, "/share/quickshell"), 0755);
                 mkdir(layout, 0755);
                 mkdir(fake_store, 0755);
-                {
-                        FILE *f = fopen(cat2(fake_store, "/shell.qml"), "w");
-
-                        fputs("import qs.Commons\nShellRoot {}\n", f);
-                        fclose(f);
+                if (write_fixture_file(cat2(fake_store, "/shell.qml"),
+                                       "import qs.Commons\nShellRoot {}\n") != 0) {
+                        test_fail("profile fixture written");
+                        free(layout); free(fake_store);
+                        goto cleanup;
                 }
                 set_link(cat2(layout, "/shell.qml"), cat2(fake_store, "/shell.qml"));
 
@@ -183,6 +207,8 @@ void test_resolver(void)
                 CHECK_INT_EQ(shoji_resolve_store(&env, &store), 0, "profile scan resolves");
                 CHECK_STR_EQ(store.source_name, "profile-scan", "profile-scan source name");
                 CHECK_STR_EQ(store.shell_qml, cat2(fake_store, "/shell.qml"), "profile link canonical");
+                CHECK_STR_EQ(store.dir, fake_store,
+                             "profile directory follows canonical shell.qml target");
                 shoji_store_free(&store);
                 free(layout);
                 free(fake_store);
@@ -215,10 +241,13 @@ void test_resolver(void)
                 mkdir(s1, 0755); mkdir(s2, 0755); mkdir(s3, 0755);
                 for (int i = 0; i < 3; i++) {
                         const char *paths[] = { s1, s2, s3 };
-                        FILE *f = fopen(cat2(paths[i], "/shell.qml"), "w");
 
-                        fputs("import qs.Commons\nShellRoot {}\n", f);
-                        fclose(f);
+                        if (write_fixture_file(cat2(paths[i], "/shell.qml"),
+                                               "import qs.Commons\nShellRoot {}\n") != 0) {
+                                test_fail("precedence fixture written");
+                                free(s1); free(s2); free(s3);
+                                goto cleanup;
+                        }
                 }
 
                 env = base_env();
@@ -273,6 +302,33 @@ void test_resolver(void)
         dir = shj_find_in_path("definitely-not-here-xyz", g_tmp);
         CHECK(!dir, "find_in_path misses missing binary");
         free(dir);
+        {
+                char *program = shj_strcat(2, g_tmp, "/qs");
+                char cwd[PATH_MAX];
+                char *old_path = getenv("PATH") ? shj_strdup(getenv("PATH")) : NULL;
+
+                if (write_fixture_file(program, "#!/bin/sh\nexit 0\n") != 0 ||
+                    chmod(program, 0755) != 0 || !getcwd(cwd, sizeof(cwd)) ||
+                    chdir(g_tmp) != 0) {
+                        test_fail("PATH lookup fixture prepared");
+                        free(program); free(old_path);
+                        goto cleanup;
+                }
+                unsetenv("PATH");
+                dir = shj_find_in_path(program, NULL);
+                CHECK(dir != NULL, "explicit executable path works without PATH");
+                free(dir);
+                dir = shj_find_in_path("qs", ":/usr/bin");
+                CHECK(dir && strcmp(dir, "./qs") == 0,
+                      "empty PATH entry resolves in current directory");
+                free(dir);
+                (void)chdir(cwd);
+                if (old_path) {
+                        setenv("PATH", old_path, 1);
+                        free(old_path);
+                }
+                free(program);
+        }
 
         /* 11. XDG_CONFIG_DIRS tokenization: one, several, empty entries and
          * the directory cap. The resolver env is injected directly, so
@@ -286,17 +342,13 @@ void test_resolver(void)
                 mkdir(base, 0755);
                 mkdir(store1, 0755);
                 mkdir(store2, 0755);
-                {
-                        FILE *f = fopen(cat2(store1, "/shell.qml"), "w");
-
-                        fputs("import qs.Commons\nShellRoot {}\n", f);
-                        fclose(f);
-                }
-                {
-                        FILE *f = fopen(cat2(store2, "/shell.qml"), "w");
-
-                        fputs("import qs.Commons\nShellRoot {}\n", f);
-                        fclose(f);
+                if (write_fixture_file(cat2(store1, "/shell.qml"),
+                                       "import qs.Commons\nShellRoot {}\n") != 0 ||
+                    write_fixture_file(cat2(store2, "/shell.qml"),
+                                       "import qs.Commons\nShellRoot {}\n") != 0) {
+                        test_fail("XDG fixture files written");
+                        free(base); free(store1); free(store2);
+                        goto cleanup;
                 }
 
                 /* one directory */
@@ -444,5 +496,6 @@ void test_resolver(void)
                 free(store2);
         }
 
+cleanup:
         rmtree(g_tmp);
 }

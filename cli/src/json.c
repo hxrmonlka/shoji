@@ -182,6 +182,8 @@ static char *parse_string_raw(struct parser *ps)
                                 goto bad;
                         }
                 } else {
+                        if (c < 0x20)
+                                goto bad;
                         shj_sbuf_addch(&b, (char)c);
                 }
         }
@@ -193,31 +195,42 @@ bad:
 static struct shj_json *parse_number(struct parser *ps)
 {
         size_t start = ps->off;
-        int isnum = 0;
-        double d;
+        size_t i = start;
         char *end;
+        double d;
         struct shj_json *v;
 
-        if (peek(ps) == '-')
-                ps->off++;
-        while (ps->off < ps->len) {
-                char c = ps->p[ps->off];
-
-                if ((c >= '0' && c <= '9') || c == '.' || c == 'e' || c == 'E' ||
-                    c == '+' || c == '-') {
-                        isnum = 1;
-                        ps->off++;
-                } else {
-                        break;
-                }
+        if (i < ps->len && ps->p[i] == '-')
+                i++;
+        if (i >= ps->len)
+                return fail(ps, start), NULL;
+        if (ps->p[i] == '0') {
+                i++;
+                if (i < ps->len && ps->p[i] >= '0' && ps->p[i] <= '9')
+                        return fail(ps, start), NULL;
+        } else if (ps->p[i] >= '1' && ps->p[i] <= '9') {
+                do { i++; } while (i < ps->len && ps->p[i] >= '0' && ps->p[i] <= '9');
+        } else {
+                return fail(ps, start), NULL;
         }
-        if (!isnum)
-                return fail(ps, start), NULL;
-
+        if (i < ps->len && ps->p[i] == '.') {
+                i++;
+                if (i >= ps->len || ps->p[i] < '0' || ps->p[i] > '9')
+                        return fail(ps, start), NULL;
+                do { i++; } while (i < ps->len && ps->p[i] >= '0' && ps->p[i] <= '9');
+        }
+        if (i < ps->len && (ps->p[i] == 'e' || ps->p[i] == 'E')) {
+                i++;
+                if (i < ps->len && (ps->p[i] == '+' || ps->p[i] == '-'))
+                        i++;
+                if (i >= ps->len || ps->p[i] < '0' || ps->p[i] > '9')
+                        return fail(ps, start), NULL;
+                do { i++; } while (i < ps->len && ps->p[i] >= '0' && ps->p[i] <= '9');
+        }
         d = strtod(ps->p + start, &end);
-        if (end != ps->p + ps->off)
+        if (end != ps->p + i)
                 return fail(ps, start), NULL;
-
+        ps->off = i;
         v = node(SHOJI_JSON_NUMBER);
         v->number = d;
         return v;

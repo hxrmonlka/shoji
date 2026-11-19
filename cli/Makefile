@@ -59,7 +59,7 @@ $(CLI_BIN): $(CLI_OBJS)
 $(TEST_BIN): $(UNIT_OBJS) $(LIB_OBJS)
 	$(CC) $(ALL_CFLAGS) -o $@ $(UNIT_OBJS) $(LIB_OBJS) $(LDFLAGS)
 
-$(BUILD)/test%.o: $(TEST_DIR)/test%.c | $(BUILD)
+$(BUILD)/test%.o: $(TEST_DIR)/test%.c $(wildcard $(TEST_DIR)/*.h) $(wildcard $(SRC_DIR)/*.h) | $(BUILD)
 	$(CC) $(ALL_CFLAGS) -I$(SRC_DIR) -c -o $@ $<
 
 $(BUILD)/spawn-helper: $(TEST_DIR)/fixtures/spawn_helper.c | $(BUILD)

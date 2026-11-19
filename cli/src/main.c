@@ -14,6 +14,7 @@
 #include "report.h"
 #include "util.h"
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -50,11 +51,22 @@ int main(int argc, char **argv)
                 shoji_options_free(&opts);
                 return code;
         }
-        shoji_context_init(&ctx, &opts);
-
         timeout_env = getenv("SHOJI_QS_TIMEOUT_MS");
-        if (timeout_env && *timeout_env)
-                shj_proc_set_timeout_ms(strtol(timeout_env, NULL, 10));
+        if (timeout_env && *timeout_env) {
+                char *end = NULL;
+                long timeout_ms;
+
+                errno = 0;
+                timeout_ms = strtol(timeout_env, &end, 10);
+                if (errno == ERANGE || end == timeout_env || !end || *end || timeout_ms < 0) {
+                        shj_msg("SHOJI_QS_TIMEOUT_MS must be a non-negative integer");
+                        shoji_options_free(&opts);
+                        return SHOJI_EXIT_USAGE;
+                }
+                shj_proc_set_timeout_ms(timeout_ms);
+        }
+
+        shoji_context_init(&ctx, &opts);
 
         switch (opts.kind) {
         case SHOJI_CMD_HELP:

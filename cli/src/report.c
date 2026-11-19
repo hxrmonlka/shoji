@@ -196,12 +196,18 @@ int shoji_cmd_status(struct shoji_context *ctx, const struct shoji_options *opts
 		struct shoji_instance *inst = &pl.list->items[i];
 		int match = instance_matches(ctx, inst);
 
-		printf("  %s %-20s pid %-8s %-13s %s (launched %s)\n",
-		       match ? "*" : " ", inst->id,
-		       inst->dead ? "(dead)" : "",
-		       match ? "MATCH" : "other config",
-		       inst->config_path ? inst->config_path : "?",
-		       inst->launch_time ? inst->launch_time : "?");
+		if (inst->dead)
+			printf("  %s %-20s pid %-8s %-13s %s (launched %s)\n",
+			       match ? "*" : " ", inst->id, "(dead)",
+			       match ? "MATCH" : "other config",
+			       inst->config_path ? inst->config_path : "?",
+			       inst->launch_time ? inst->launch_time : "?");
+		else
+			printf("  %s %-20s pid %-8ld %-13s %s (launched %s)\n",
+			       match ? "*" : " ", inst->id, inst->pid,
+			       match ? "MATCH" : "other config",
+			       inst->config_path ? inst->config_path : "?",
+			       inst->launch_time ? inst->launch_time : "?");
 	}
 	printf("verdict: %s\n", verdict_for(ctx, &pl));
 
@@ -283,38 +289,51 @@ int shoji_cmd_doctor(struct shoji_context *ctx, const struct shoji_options *opts
 		doctor_check(0, 0, "instance discovery", b.s);
 		shj_sbuf_free(&b);
 
-		/* 4. expected configuration running */
+		/* 4. expected configuration running. This is independent of an
+		 * explicit --instance-id override, which may select another config. */
 		if (!ctx->have_store) {
 			doctor_check(1, 0, "expected configuration running",
 			             "store path unresolved, instances cannot be matched");
 			failures++;
-		} else if (pl.sel.status == SHOJI_SELECT_OK && pl.sel.selected &&
-		           !pl.sel.selected->dead) {
-			doctor_check(0, 0, "expected configuration running",
-			             pl.sel.selected->id);
-		} else if (pl.sel.status == SHOJI_SELECT_AMBIGUOUS) {
-			doctor_check(0, 1, "expected configuration running",
-			             "multiple instances match; dispatch requires --instance-id");
 		} else {
-			struct shj_sbuf b2;
+			struct shoji_instance *expected = NULL;
+			int expected_count = 0;
 
-			shj_sbuf_init(&b2);
-			if (pl.sel.dead_match_count > 0)
-				shj_sbuf_addf(&b2, "no live instance of %s (but %d dead instance(s) "
-				                    "exist; the shell may have crashed or been replaced)",
-				              ctx->store.shell_qml, pl.sel.dead_match_count);
-			else if (pl.sel.uncertain_matches > 0)
-				shj_sbuf_addf(&b2, "%d running instance(s) of %s cannot be selected "
-				                    "automatically (the recorded path's launch-time target "
-				                    "cannot be established); dispatch explicitly with --instance-id",
-				              pl.sel.uncertain_matches, ctx->store.shell_qml);
-			else
-				shj_sbuf_addf(&b2, "no live instance of %s; start it with "
-				                    "`qs -p %s`",
-				              ctx->store.shell_qml, ctx->store.shell_qml);
-			doctor_check(1, 0, "expected configuration running", b2.s);
-			shj_sbuf_free(&b2);
-			failures++;
+			for (int i = 0; i < pl.list->count; i++) {
+				struct shoji_instance *inst = &pl.list->items[i];
+
+				if (!inst->dead && instance_matches(ctx, inst) == 1) {
+					expected = inst;
+					expected_count++;
+				}
+			}
+			if (expected_count == 1) {
+				doctor_check(0, 0, "expected configuration running", expected->id);
+			} else if (expected_count > 1) {
+				doctor_check(0, 1, "expected configuration running",
+				             "multiple instances match; dispatch requires --instance-id");
+			} else {
+				struct shj_sbuf b2;
+
+				shj_sbuf_init(&b2);
+				if (pl.sel.dead_match_count > 0) {
+					shj_sbuf_addf(&b2, "no live instance of %s (but %d dead instance(s) "
+					                    "exist; the shell may have crashed or been replaced)",
+					              ctx->store.shell_qml, pl.sel.dead_match_count);
+				} else if (pl.sel.uncertain_matches > 0) {
+					shj_sbuf_addf(&b2, "%d running instance(s) of %s cannot be selected "
+					                    "automatically (the recorded path's launch-time target "
+					                    "cannot be established); dispatch explicitly with --instance-id",
+					              pl.sel.uncertain_matches, ctx->store.shell_qml);
+				} else {
+					shj_sbuf_addf(&b2, "no live instance of %s; start it with "
+					                    "`qs -p %s`",
+					              ctx->store.shell_qml, ctx->store.shell_qml);
+				}
+				doctor_check(1, 0, "expected configuration running", b2.s);
+				shj_sbuf_free(&b2);
+				failures++;
+			}
 		}
 
 		/* 5. IPC accessibility */
@@ -372,12 +391,16 @@ int shoji_cmd_instance_list(struct shoji_context *ctx, const struct shoji_option
 			struct shoji_instance *inst = &pl.list->items[i];
 			int match = instance_matches(ctx, inst);
 
-			printf("%-22s %-8s %-6s %-8s %s\n",
-			       inst->id,
-			       inst->dead ? "-" : "",
-			       inst->dead ? "dead" : "live",
-			       pl.have_store ? (match ? "yes" : "no") : "unknown",
-			       inst->config_path ? inst->config_path : "?");
+			if (inst->dead)
+				printf("%-22s %-8s %-6s %-8s %s\n",
+				       inst->id, "-", "dead",
+				       pl.have_store ? (match ? "yes" : "no") : "unknown",
+				       inst->config_path ? inst->config_path : "?");
+			else
+				printf("%-22s %-8ld %-6s %-8s %s\n",
+				       inst->id, inst->pid, "live",
+				       pl.have_store ? (match ? "yes" : "no") : "unknown",
+				       inst->config_path ? inst->config_path : "?");
 		}
 	}
 

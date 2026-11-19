@@ -2,7 +2,7 @@
  * Executes nothing but its own modes, so proc tests never need a shell or
  * a real Quickshell session.
  *
- * Usage: spawn-helper <mode> [arg]
+ * Usage: spawn-helper <mode> [arg ...]
  *   echo <text>      write <text> + newline to stdout, exit 0
  *   echo-err <text>  write <text> + newline to stderr, exit 0
  *   exit <code>      exit with <code>
@@ -12,7 +12,8 @@
  *                    64 KiB chunks, exit 0 (truncation + concurrent drain)
  *   emit-hang <kib>  emit, then sleep forever (partial capture on timeout)
  *   slow-exit <ms>   sleep <ms>, exit 0 (timeout-disabled mode)
- *   fork-marker <p>  leave a child that writes marker <p> after 500 ms
+ *   fork-marker <p> <pid-file> leave a child that writes marker <p> after 500 ms
+ *   close-pipes-sleep <ms> close stdout/stderr, sleep, then exit 0
  */
 #define _POSIX_C_SOURCE 200809L
 
@@ -91,14 +92,23 @@ int main(int argc, char **argv)
                 nanosleep(&ts, NULL);
                 return 0;
         }
-        if (strcmp(argv[1], "fork-marker") == 0 && argc >= 3) {
+        if (strcmp(argv[1], "fork-marker") == 0 && argc >= 4) {
                 pid_t child = fork();
 
                 if (child < 0)
                         return 3;
                 if (child == 0) {
                         struct timespec ts = { .tv_sec = 0, .tv_nsec = 500000000L };
+                        char pid_text[32];
                         int fd;
+                        int n = snprintf(pid_text, sizeof(pid_text), "%ld\n", (long)getpid());
+
+                        fd = open(argv[3], O_WRONLY | O_CREAT | O_TRUNC, 0600);
+                        if (fd >= 0) {
+                                if (n > 0)
+                                        (void)write(fd, pid_text, (size_t)n);
+                                close(fd);
+                        }
 
                         nanosleep(&ts, NULL);
                         fd = open(argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0600);
@@ -108,6 +118,16 @@ int main(int argc, char **argv)
                         }
                         _exit(0);
                 }
+                return 0;
+        }
+        if (strcmp(argv[1], "close-pipes-sleep") == 0 && argc >= 3) {
+                int ms = atoi(argv[2]);
+                struct timespec ts = { .tv_sec = ms / 1000,
+                                       .tv_nsec = (long)(ms % 1000) * 1000000L };
+
+                close(STDOUT_FILENO);
+                close(STDERR_FILENO);
+                nanosleep(&ts, NULL);
                 return 0;
         }
         return 2;

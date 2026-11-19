@@ -34,9 +34,11 @@ struct shj_proc_result {
 
 typedef struct shj_proc_result *(*shj_spawn_fn)(const char *const argv[], void *user);
 
-/* The real implementation: fork + execvp(argv[0], argv), stdout/stderr both
- * captured. Runs the child in a dedicated process group; timeout cleanup
- * sends SIGKILL to the group so wrapper-spawned descendants are cancelled too. */
+/* The real implementation: fork + execve(argv[0], argv), stdout/stderr both
+ * captured. Bare program names are resolved through PATH without execvp's
+ * interpreter fallback. Runs the child in a dedicated process group; timeout
+ * cleanup signals that group. Descendants that leave the group (for example by
+ * starting a new session) are outside the cancellation guarantee. */
 struct shj_proc_result *shj_proc_run(const char *const argv[], void *user);
 
 void shj_proc_result_free(struct shj_proc_result *r);

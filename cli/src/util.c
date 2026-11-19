@@ -261,31 +261,50 @@ int shj_is_flag(const char *s)
 
 char *shj_find_in_path(const char *name, const char *path_override)
 {
-        const char *path = path_override;
-        char *dup;
-        char *tok;
-        char *save = NULL;
-        char *found = NULL;
+        const char *path;
+        const char *entry;
+        const char *end;
+        int denied = 0;
 
-        if (!path || !*path) {
-                path = getenv("PATH");
-                if (!path)
-                        return NULL;
+        if (!name || !*name) {
+                errno = ENOENT;
+                return NULL;
         }
         if (strchr(name, '/')) {
-                /* Explicit path component: execvp semantics. */
-                return shj_is_regular_file(name) ? shj_strdup(name) : NULL;
+                if (shj_is_regular_file(name) && access(name, X_OK) == 0)
+                        return shj_strdup(name);
+                if (errno != EACCES)
+                        errno = ENOENT;
+                return NULL;
         }
 
-        dup = shj_strdup(path);
-        for (tok = dup; !found && (tok = strtok_r(tok, ":", &save)); tok = NULL) {
-                char *candidate = shj_path_join(*tok ? tok : "/", name);
-
-                if (shj_is_regular_file(candidate) && access(candidate, X_OK) == 0)
-                        found = candidate;
-                else
-                        free(candidate);
+        path = path_override ? path_override : getenv("PATH");
+        if (!path) {
+                errno = ENOENT;
+                return NULL;
         }
-        free(dup);
-        return found;
+        entry = path;
+        for (;;) {
+                char *dir;
+                char *candidate;
+                size_t len;
+
+                end = strchr(entry, ':');
+                len = end ? (size_t)(end - entry) : strlen(entry);
+                dir = len ? shj_strndup(entry, len) : shj_strdup(".");
+                candidate = shj_path_join(dir, name);
+                free(dir);
+                if (shj_is_regular_file(candidate)) {
+                        if (access(candidate, X_OK) == 0)
+                                return candidate;
+                        if (errno == EACCES)
+                                denied = 1;
+                }
+                free(candidate);
+                if (!end)
+                        break;
+                entry = end + 1;
+        }
+        errno = denied ? EACCES : ENOENT;
+        return NULL;
 }

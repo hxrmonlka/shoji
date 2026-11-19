@@ -53,7 +53,7 @@ static void store_unresolved_hints(void)
 
 static void print_instance_line(const struct shoji_instance *inst, const char *mark)
 {
-        printf("  %s %-20s pid %-8ld %s%s\n",
+        fprintf(stderr, "  %s %-20s pid %-8ld %s%s\n",
                mark ? mark : " ",
                inst->id && *inst->id ? inst->id : "(no valid id)",
                inst->pid,
@@ -296,9 +296,9 @@ int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *
         if (r->out && *r->out)
                 fputs(r->out, stdout);
         code = r->exit;
+        if (r->err && *r->err)
+                fputs(r->err, stderr);
         if (code != 0) {
-                if (r->err && *r->err)
-                        fputs(r->err, stderr);
                 {
                         int classified = 0;
 
@@ -339,6 +339,12 @@ int shoji_dispatch_show(struct shoji_context *ctx, const struct shoji_pipeline *
                 shj_proc_result_free(r);
                 return SHOJI_EXIT_NOQS;
         }
+        if (r->exit == -2) {
+                shj_msg("quickshell did not answer `ipc show` in time");
+                warn_timeout();
+                shj_proc_result_free(r);
+                return SHOJI_EXIT_FAILED;
+        }
         if (r->exit == -3) {
                 shj_msg("internal error reading quickshell output: %s",
                         strerror(r->spawn_errno));
@@ -351,11 +357,10 @@ int shoji_dispatch_show(struct shoji_context *ctx, const struct shoji_pipeline *
         if (r->out && *r->out)
                 fputs(r->out, stdout);
         code = r->exit;
-        if (code != 0) {
-                if (r->err && *r->err)
-                        fputs(r->err, stderr);
+        if (r->err && *r->err)
+                fputs(r->err, stderr);
+        if (code != 0)
                 code = SHOJI_EXIT_FAILED;
-        }
         shj_proc_result_free(r);
         return code;
 }

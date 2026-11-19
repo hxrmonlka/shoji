@@ -7,6 +7,7 @@
 # Everything runs against tests/fixtures/mock-qs; no real quickshell needed.
 
 set -u
+set -o pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CLI=""
@@ -22,6 +23,17 @@ fi
 SHELL_QML="$HERE/../../shell.qml"
 failures=0
 pass=0
+
+umask 077
+WORK="$(mktemp -d /tmp/shoji-e2e-XXXXXX 2>/dev/null)" || {
+  echo "could not create temporary test workspace" >&2
+  exit 70
+}
+if [ -z "$WORK" ] || [ ! -d "$WORK" ]; then
+  echo "mktemp did not create a test workspace" >&2
+  exit 70
+fi
+trap 'rm -rf "$WORK"' EXIT
 
 ok() { pass=$((pass + 1)); echo "  ok   $1"; }
 bad() { failures=$((failures + 1)); echo "  FAIL $1"; if [ -n "${2:-}" ]; then echo "       got: $2"; fi; }
@@ -49,15 +61,20 @@ expect_out() {
 check_qml_mapping() {
   echo "== shell.qml mapping drift =="
   if [ ! -f "$SHELL_QML" ]; then bad "shell.qml found at $SHELL_QML"; return; fi
-  awk -f "$HERE/qml_ipc.awk" "$SHELL_QML" | sort > "$HERE/.qml_handlers.txt"
-  "$CLI" debug map | awk -F'\t' '{ print $3 "\t" $4 }' | sort \
-      > "$HERE/.cli_handlers.txt" || true
-  if diff -u "$HERE/.qml_handlers.txt" "$HERE/.cli_handlers.txt"; then
+  if ! awk -f "$HERE/qml_ipc.awk" "$SHELL_QML" | sort > "$WORK/qml_handlers.txt"; then
+    bad "shell.qml handler extraction failed"
+    return
+  fi
+  if ! "$CLI" debug map | awk -F'\t' '{ print $3 "\t" $4 }' | sort \
+       > "$WORK/cli_handlers.txt"; then
+    bad "compiled IPC map extraction failed"
+    return
+  fi
+  if diff -u "$WORK/qml_handlers.txt" "$WORK/cli_handlers.txt"; then
     ok "cli table matches shell.qml handlers"
   else
     bad "cli table drifted from shell.qml (diff above)"
   fi
-  rm -f "$HERE/.qml_handlers.txt" "$HERE/.cli_handlers.txt"
 }
 
 if [ "$QML_ONLY" = 1 ]; then
@@ -75,9 +92,6 @@ if [ -z "$CLI" ] || [ ! -x "$CLI" ]; then
   echo "usage: run_e2e.sh /path/to/shoji-binary" >&2
   exit 70
 fi
-
-WORK="$(mktemp -d /tmp/shoji-e2e-XXXXXX)"
-trap 'rm -rf "$WORK"' EXIT
 
 # fixture: fake nix-store shoji config + instance list from the mock
 STORE="$WORK/store/aaaaaaaa-shoji"
@@ -145,17 +159,25 @@ expect_exit 0 "wallpaper set path dispatches" "$CLI" wallpaper set /nix/store/wa
 grep -qF -- "call wallpaper set /nix/store/wall.jpg" "$MOCK_QS_LOG" \
   && ok "path argument passed" || bad "path argument passed" "$(cat "$MOCK_QS_LOG")"
 
+wall_path="$WORK/wall paper.jpg"
+: > "$MOCK_QS_LOG"
+expect_exit 0 "wallpaper path containing spaces dispatches" "$CLI" wallpaper set "$wall_path"
+grep -qF -- " ${#wall_path}:$wall_path" "$MOCK_QS_LOG" \
+  && ok "IPC argument boundary survives spaces" || bad "IPC argument boundary survives spaces" "$(cat "$MOCK_QS_LOG")"
+
 # status and instance commands ----------------------------------------------
 expect_exit 0 "status exits 0" "$CLI" status
 expect_out "verdict: match" "status verdict match" "$CLI" status
 expect_out "$STORE/shell.qml" "status shows expected store path" "$CLI" status
 expect_out "inst1abcdefgh" "status lists instance id" "$CLI" status
+expect_out "pid 4242" "status prints live instance PID" "$CLI" status
 expect_exit 0 "status --json exits 0" "$CLI" status --json
 "$CLI" status --json | grep -q '"verdict":"match"' \
   && ok "status --json verdict" || bad "status --json verdict" "$("$CLI" status --json)"
 expect_out "inst2abcdefgh" "status lists foreign instance" "$CLI" status
 expect_exit 0 "instance list exits 0" "$CLI" instance list
 expect_out "inst1abcdefgh" "instance list shows instance" "$CLI" instance list
+expect_out "4242" "instance list prints live instance PID" "$CLI" instance list
 expect_exit 0 "instance current exits 0" "$CLI" instance current
 expect_out "inst1abcdefgh" "instance current selects expected" "$CLI" instance current
 expect_exit 0 "instance inspect exits 0" "$CLI" instance inspect
@@ -169,6 +191,12 @@ expect_exit 0 "ipc call passthrough works" "$CLI" ipc call wallpaper next
 grep -qF -- "call wallpaper next" "$MOCK_QS_LOG" \
   && ok "ipc call passthrough argv" || bad "ipc call passthrough argv" "$(cat "$MOCK_QS_LOG")"
 
+env MOCK_QS_SUCCESS_ERR="expected child warning" \
+  "$CLI" island toggle > "$WORK/success.stdout" 2> "$WORK/success.stderr" \
+  && grep -qF "expected child warning" "$WORK/success.stderr" \
+  && ok "successful IPC relays child stderr" \
+  || bad "successful IPC relays child stderr" "$(cat "$WORK/success.stderr")"
+
 # instance override ----------------------------------------------------------
 : > "$MOCK_QS_LOG"
 "$CLI" --instance-id inst2 island toggle >/dev/null 2>"$WORK/warn.txt"
@@ -176,7 +204,7 @@ got=$?
 if [ "$got" = 0 ]; then ok "override dispatches with warning"; else bad "override dispatches with warning" "exit $got"; fi
 grep -q "not the expected configuration" "$WORK/warn.txt" \
   && ok "foreign-config override warns" || bad "foreign-config override warns" "$(cat "$WORK/warn.txt")"
-grep -qF -- "call island toggle" "$MOCK_QS_LOG" \
+grep -qF -- "-i inst2abcdefgh --any-display call island toggle" "$MOCK_QS_LOG" \
   && ok "override still dispatches" || bad "override still dispatches" "$(cat "$MOCK_QS_LOG")"
 
 expect_exit 67 "unknown instance id exits 67" "$CLI" --instance-id zzz island toggle
@@ -189,6 +217,8 @@ expect_exit 66 "missing store override exits 66" \
 expect_exit 66 "nonexistent store override exits 66" \
   env SHOJI_STORE_PATH="$WORK/nope" "$CLI" island toggle
 expect_exit 64 "--store without value exits 64" "$CLI" --store
+expect_exit 64 "malformed timeout environment exits 64" \
+  env SHOJI_QS_TIMEOUT_MS=abc "$CLI" status
 
 # quickshell unavailable ------------------------------------------------------
 expect_exit 69 "missing quickshell exits 69" \
@@ -206,7 +236,8 @@ EOF
 expect_exit 68 "ambiguous instances exit 68" "$CLI" island toggle
 expect_exit 0 "override resolves ambiguity" "$CLI" --instance-id inst9 island toggle
 expect_exit 68 "ambiguous id prefix exits 68" "$CLI" --instance-id inst island toggle
-"$CLI" --instance-id inst island toggle 2>/dev/null | grep -c "inst[19]abcdefgh" > "$WORK/ambig.txt"
+"$CLI" --instance-id inst island toggle > "$WORK/ambig.stdout" 2> "$WORK/ambig.stderr" || true
+grep -c "inst[19]abcdefgh" "$WORK/ambig.stderr" > "$WORK/ambig.txt"
 grep -q "^2$" "$WORK/ambig.txt" && ok "ambiguous prefix lists both matches" \
   || bad "ambiguous prefix lists both matches" "$(cat "$WORK/ambig.txt")"
 
@@ -250,6 +281,23 @@ expect_exit 67 "dead-only positive-pid instance exits 67" \
 env MOCK_DEAD_LIST_FILE="$WORK/dead.json" "$CLI" status 2>/dev/null | grep -q "verdict: no-instance-dead-only" \
   && ok "status verdict reports dead-only" || bad "status verdict reports dead-only"
 
+cat > "$WORK/dead.json" <<EOF
+[
+  {"id": "dead2abcdefgh", "pid": 4712, "shell_id": "p0",
+   "config_path": "$STORE/shell.qml", "launch_time": "2026-11-17T07:30:00"}
+]
+EOF
+cat > "$WORK/instances.json" <<EOF
+[
+  {"id": "inst1abcdefgh", "pid": 4242, "shell_id": "p1",
+   "config_path": "$STORE/shell.qml", "launch_time": "2026-11-17T08:00:00"}
+]
+EOF
+env MOCK_DEAD_LIST_FILE="$WORK/dead.json" "$CLI" status > "$WORK/mixed-status.txt" 2> "$WORK/mixed-status.err"
+grep -q "1 running, 1 dead" "$WORK/mixed-status.txt" \
+  && ok "mixed live/dead listing is valid JSON" \
+  || bad "mixed live/dead listing is valid JSON" "$(cat "$WORK/mixed-status.txt" "$WORK/mixed-status.err")"
+
 # discovery failure classes ---------------------------------------------------
 cat > "$WORK/instances.json" <<EOF
 [
@@ -274,6 +322,17 @@ expect_exit 69 "missing quickshell exits 69" \
   env SHOJI_QS_BIN="$WORK/definitely-not-qs" "$CLI" island toggle
 expect_exit 1 "hung quickshell times out" env MOCK_QS_SLEEP=5 SHOJI_QS_TIMEOUT_MS=300 \
   "$CLI" island toggle
+env MOCK_QS_SLEEP=5 SHOJI_QS_TIMEOUT_MS=300 \
+  "$CLI" ipc show > "$WORK/ipc-show-timeout.stdout" 2> "$WORK/ipc-show-timeout.stderr"
+show_timeout_exit=$?
+if [ "$show_timeout_exit" = 1 ] && grep -qF 'did not answer `ipc show` in time' \
+     "$WORK/ipc-show-timeout.stderr" && grep -qF "SHOJI_QS_TIMEOUT_MS" \
+     "$WORK/ipc-show-timeout.stderr"; then
+  ok "ipc show timeout reports the timeout and configuration hint"
+else
+  bad "ipc show timeout reports the timeout and configuration hint" \
+    "exit $show_timeout_exit: $(cat "$WORK/ipc-show-timeout.stderr")"
+fi
 
 # doctor --------------------------------------------------------------------
 cp "$WORK/instances.json" "$WORK/instances-dead.json"
@@ -290,6 +349,15 @@ expect_exit 1 "doctor fails without quickshell" \
   env SHOJI_QS_BIN="$WORK/definitely-not-qs" "$CLI" doctor
 expect_exit 1 "doctor fails without store" \
   "$CLI" --store "$WORK/does-not-exist" doctor
+
+cat > "$WORK/foreign-only.json" <<EOF
+[
+  {"id": "inst2abcdefgh", "pid": 5001, "shell_id": "p2",
+   "config_path": "$WORK/other/shell.qml", "launch_time": "2026-11-17T09:00:00"}
+]
+EOF
+expect_exit 1 "doctor rejects foreign-only explicit selection" \
+  env MOCK_LIST_FILE="$WORK/foreign-only.json" "$CLI" --instance-id inst2 doctor
 
 # timeout -------------------------------------------------------------------
 cat > "$WORK/instances.json" <<EOF

@@ -84,6 +84,23 @@ void test_json(void)
         CHECK(!v, "trailing garbage fails");
         shj_json_free(v);
 
+        v = shj_json_parse("{\"x\":\"line\nbreak\"}", NULL);
+        CHECK(!v, "unescaped control characters in strings are rejected");
+        shj_json_free(v);
+
+        v = shj_json_parse("[{\"n\":01}]", NULL);
+        CHECK(!v, "leading-zero JSON number is rejected");
+        shj_json_free(v);
+        v = shj_json_parse("[{\"n\":1.}]", NULL);
+        CHECK(!v, "JSON fraction requires at least one digit");
+        shj_json_free(v);
+        v = shj_json_parse("[{\"n\":-.5}]", NULL);
+        CHECK(!v, "JSON number requires an integer part before fraction");
+        shj_json_free(v);
+        v = shj_json_parse("[{\"n\":1.5},{\"n\":1e2},{\"n\":-1}]", NULL);
+        CHECK(v && v->type == SHOJI_JSON_ARRAY, "valid JSON number forms are accepted");
+        shj_json_free(v);
+
         v = shj_json_parse("\"bad \\x escape\"", NULL);
         CHECK(!v, "invalid escape fails");
         shj_json_free(v);

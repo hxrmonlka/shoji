@@ -45,7 +45,8 @@ static int set_flag_value(char **slot, const char *value, const char *flag)
  * *rest_out is published before the first possible failure so the caller can
  * free it without reading an uninitialized pointer. */
 static int extract_global_flags(int argc, char **argv, const char ***rest_out,
-                                int *rest_count, struct shoji_options *opts)
+                                int *rest_count, struct shoji_options *opts,
+                                int *want_help, int *want_version)
 {
         const char **rest = shj_alloc(sizeof(char *) * (size_t)(argc + 1));
         int n = 0;
@@ -70,10 +71,12 @@ static int extract_global_flags(int argc, char **argv, const char ***rest_out,
                         opts->json = 1;
                         continue;
                 }
-                if (strcmp(tok, "--help") == 0 || strcmp(tok, "-h") == 0 ||
-                    strcmp(tok, "--version") == 0 || strcmp(tok, "-V") == 0) {
-                        /* Consumed by the pre-scan; keep them out of command
-                         * tokens so `shoji status --version` still runs status. */
+                if (strcmp(tok, "--help") == 0 || strcmp(tok, "-h") == 0) {
+                        *want_help = 1;
+                        continue;
+                }
+                if (strcmp(tok, "--version") == 0 || strcmp(tok, "-V") == 0) {
+                        *want_version = 1;
                         continue;
                 }
                 if (strcmp(tok, "--store") == 0) {
@@ -112,28 +115,8 @@ int shoji_parse(int argc, char **argv, struct shoji_options *opts)
 
         memset(opts, 0, sizeof(*opts));
 
-        /* Pre-scan for --help/--version anywhere among global flags. */
-        {
-                int i;
-                int flags_done = 0;
-
-                for (i = 1; i < argc; i++) {
-                        const char *tok = argv[i];
-
-                        if (flags_done)
-                                break;
-                        if (strcmp(tok, "--") == 0) {
-                                flags_done = 1;
-                                continue;
-                        }
-                        if (strcmp(tok, "--help") == 0 || strcmp(tok, "-h") == 0)
-                                want_help = 1;
-                        else if (strcmp(tok, "--version") == 0 || strcmp(tok, "-V") == 0)
-                                want_version = 1;
-                }
-        }
-
-        if (extract_global_flags(argc, argv, &rest, &n, opts) != 0) {
+        if (extract_global_flags(argc, argv, &rest, &n, opts,
+                                 &want_help, &want_version) != 0) {
                 free(rest);
                 return SHOJI_EXIT_USAGE;
         }
@@ -156,12 +139,16 @@ int shoji_parse(int argc, char **argv, struct shoji_options *opts)
         }
 
         if (strcmp(rest[0], "help") == 0) {
+                if (n != 1) goto bad_arity;
                 opts->kind = SHOJI_CMD_HELP;
         } else if (strcmp(rest[0], "version") == 0) {
+                if (n != 1) goto bad_arity;
                 opts->kind = SHOJI_CMD_VERSION;
         } else if (strcmp(rest[0], "status") == 0) {
+                if (n != 1) goto bad_arity;
                 opts->kind = SHOJI_CMD_STATUS;
         } else if (strcmp(rest[0], "doctor") == 0) {
+                if (n != 1) goto bad_arity;
                 opts->kind = SHOJI_CMD_DOCTOR;
         } else if (strcmp(rest[0], "instance") == 0) {
                 if (n < 2) {
@@ -169,6 +156,7 @@ int shoji_parse(int argc, char **argv, struct shoji_options *opts)
                         free(rest);
                         return SHOJI_EXIT_USAGE;
                 }
+                if (n != 2) goto bad_arity;
                 if (strcmp(rest[1], "list") == 0)
                         opts->kind = SHOJI_CMD_INSTANCE_LIST;
                 else if (strcmp(rest[1], "current") == 0)
@@ -187,6 +175,7 @@ int shoji_parse(int argc, char **argv, struct shoji_options *opts)
                         return SHOJI_EXIT_USAGE;
                 }
                 if (strcmp(rest[1], "show") == 0) {
+                        if (n != 2) goto bad_arity;
                         opts->kind = SHOJI_CMD_IPC_SHOW;
                 } else if (strcmp(rest[1], "call") == 0) {
                         if (n < 4) {
@@ -207,7 +196,7 @@ int shoji_parse(int argc, char **argv, struct shoji_options *opts)
                         return SHOJI_EXIT_USAGE;
                 }
         } else if (strcmp(rest[0], "debug") == 0) {
-                if (n < 2 || strcmp(rest[1], "map") != 0) {
+                if (n != 2 || strcmp(rest[1], "map") != 0) {
                         shj_msg("usage: shoji debug map");
                         free(rest);
                         return SHOJI_EXIT_USAGE;
@@ -247,6 +236,11 @@ int shoji_parse(int argc, char **argv, struct shoji_options *opts)
 
         free(rest);
         return 0;
+
+bad_arity:
+        shj_msg("command '%s' does not accept extra arguments", rest[0]);
+        free(rest);
+        return SHOJI_EXIT_USAGE;
 }
 
 void shoji_print_version(void)

@@ -15,7 +15,7 @@ of its own** — Quickshell remains the authority.
 
 ```sh
 cd cli
-make            # builds build/shoji (binary at build/shoji)
+make            # builds obj/shoji (binary at obj/shoji)
 make clean
 ```
 
@@ -56,7 +56,7 @@ make install PREFIX=/usr/local      # -> $PREFIX/bin/shoji
 make test        # unit tests + end-to-end tests + shell.qml mapping check
 ```
 
-- `make unit` — C unit tests (`build/shoji-tests`): argument parsing,
+- `make unit` — C unit tests (`obj/shoji-tests`): argument parsing,
   command-to-IPC mapping, argument validation/normalization, store resolver
   precedence and canonicalization (including `XDG_CONFIG_DIRS`
   tokenization: one, several, empty entries, the directory cap), instance
@@ -72,20 +72,20 @@ make test        # unit tests + end-to-end tests + shell.qml mapping check
   failure classes (generic failures are not retried; the `--show-dead`
   compatibility probe is contained), dead-instance reporting with positive
   pids, status/doctor output, deterministic store-resolution failures via a
-  nonexistent `--store`, ambiguity refusal, timeouts (including wrapper
-  descendants), and the doctor flow.
+  nonexistent `--store`, ambiguity refusal, timeouts (including descendants that remain in the dedicated process
+  group), and the doctor flow.
 - `make check-qml` — builds `obj/shoji` when needed, then re-extracts every
   `IpcHandler` target/function from `shell.qml` (`tests/qml_ipc.awk`) and diffs
   it against the compiled IPC table (`shoji debug map`). Fails when either
   side drifts. The unit test independently compares the compiled table with
   the frozen `frozen_handlers` list in `tests/test_commands.c`.
 
-Latest validation for this patch (branch snapshot `feat/cli`):
+Latest validation for the current CLI branch snapshot:
 
 ```
-GCC:    unit 424 passed; e2e 71 passed; check-qml 1 passed
-Clang:  unit 424 passed; e2e 71 passed; check-qml 1 passed
-ASan + UBSan: unit 424 passed; e2e 71 passed; check-qml 1 passed
+GCC:       unit 455 passed; e2e 80 passed; check-qml 1 passed
+Clang:     unit 455 passed; e2e 80 passed; check-qml 1 passed
+ASan+UBSan: unit 455 passed; e2e 80 passed; check-qml 1 passed
 ```
 
 The sanitizer build used `-fsanitize=address,undefined`. Runtime integration
@@ -325,8 +325,9 @@ Subprocess results are preserved: quickshell's stdout/stderr are relayed
 verbatim, its exit status drives the exit code, and stderr is additionally
 classified (`Target not found.` / `Function not found.` / argument parse
 errors → exit 65). A configurable timeout (`SHOJI_QS_TIMEOUT_MS`, default
-10 s) kills the dedicated subprocess process group (including descendants
-started by a `--qs` wrapper) and reports failure instead of blocking a keybind
+10 s) sends SIGKILL to the dedicated subprocess process group and reports
+failure instead of blocking a keybind. Descendants that deliberately leave
+that process group (for example, by starting a new session) are not covered.
 forever.
 
 ## Exit codes

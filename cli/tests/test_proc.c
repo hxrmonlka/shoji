@@ -10,10 +10,12 @@
 #include <dirent.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -41,6 +43,50 @@ static struct shj_proc_result *run_helper(const char *mode, const char *arg)
                 argv[i++] = arg;
         argv[i] = NULL;
         return shj_proc_run(argv, NULL);
+}
+
+static int process_is_running(pid_t pid)
+{
+        char path[64];
+        char line[512];
+        char *state;
+        FILE *f;
+
+        snprintf(path, sizeof(path), "/proc/%ld/stat", (long)pid);
+        f = fopen(path, "r");
+        if (!f)
+                return 0;
+        if (!fgets(line, sizeof(line), f)) {
+                fclose(f);
+                return 0;
+        }
+        fclose(f);
+        state = strrchr(line, ')');
+        if (!state || state[1] != ' ' || state[2] == '\0')
+                return 0;
+        return state[2] != 'Z' && state[2] != 'X';
+}
+
+static int reap_or_confirm_gone(pid_t pid)
+{
+        struct timespec pause = { .tv_sec = 0, .tv_nsec = 10000000L };
+        int i;
+
+        for (i = 0; i < 100; i++) {
+                int status;
+                pid_t r = waitpid(pid, &status, WNOHANG);
+
+                if (r == pid)
+                        return 1;
+                if (r < 0 && errno == ECHILD)
+                        return !process_is_running(pid);
+                if (!process_is_running(pid)) {
+                        (void)waitpid(pid, &status, WNOHANG);
+                        return 1;
+                }
+                nanosleep(&pause, NULL);
+        }
+        return 0;
 }
 
 /* Count our children still in Z state (reaped children are gone entirely). */
@@ -164,9 +210,13 @@ static void test_timeout_kills_wrapper_descendants(void)
         const char *tpl = "/tmp/shoji-descendant-XXXXXX";
         char *dir = mkdtemp(shj_strdup(tpl));
         char marker[512];
-        const char *argv[4];
+        char pidfile[512];
+        char pid_text[64];
+        const char *argv[5];
         struct shj_proc_result *r;
         struct timespec pause = { .tv_sec = 0, .tv_nsec = 650000000L };
+        FILE *f;
+        long child_pid = -1;
 
         test_section("proc: timeout cancels wrapper descendants");
         if (!dir) {
@@ -174,10 +224,12 @@ static void test_timeout_kills_wrapper_descendants(void)
                 return;
         }
         snprintf(marker, sizeof(marker), "%s/marker", dir);
+        snprintf(pidfile, sizeof(pidfile), "%s/pid", dir);
         argv[0] = getenv(HELPER_ENV);
         argv[1] = "fork-marker";
         argv[2] = marker;
-        argv[3] = NULL;
+        argv[3] = pidfile;
+        argv[4] = NULL;
         shj_proc_set_timeout_ms(150);
         r = shj_proc_run(argv, NULL);
         if (r) {
@@ -185,10 +237,19 @@ static void test_timeout_kills_wrapper_descendants(void)
                              "descendant timeout: wrapper exceeds deadline");
                 shj_proc_result_free(r);
         }
+        f = fopen(pidfile, "r");
+        if (f) {
+                if (fgets(pid_text, sizeof(pid_text), f))
+                        child_pid = strtol(pid_text, NULL, 10);
+                fclose(f);
+        }
         nanosleep(&pause, NULL);
         CHECK(access(marker, F_OK) != 0,
               "descendant timeout: child did not write marker after Shoji returned");
+        CHECK_INT_EQ(child_pid > 0 && reap_or_confirm_gone((pid_t)child_pid), 1,
+                     "descendant timeout: known child is terminated and reaped when adopted");
         unlink(marker);
+        unlink(pidfile);
         rmdir(dir);
         free(dir);
         shj_proc_set_timeout_ms(5000);
@@ -202,10 +263,15 @@ static void test_timeout_overflow(void)
         shj_proc_set_timeout_ms(LONG_MAX);
         r = run_helper("exit", "0");
         if (r) {
+#if LONG_MAX > INT32_MAX
                 CHECK_INT_EQ(r->exit, SHJ_PROC_EXIT_INTERNAL,
                              "LONG_MAX timeout returns internal error");
                 CHECK_INT_EQ(r->spawn_errno, ERANGE,
                              "LONG_MAX timeout reports checked deadline overflow");
+#else
+                CHECK_INT_EQ(r->exit, 0,
+                             "32-bit LONG_MAX timeout fits the wide deadline");
+#endif
                 shj_proc_result_free(r);
         }
         shj_proc_set_timeout_ms(-1);
@@ -297,6 +363,59 @@ static void test_spawn_failure_eacces(void)
         unlink(nos);
         rmdir(dir);
         free(nos);
+        free(dir);
+}
+
+static void test_spawn_failure_enoexec(void)
+{
+        const char *tpl = "/tmp/shoji-enoexec-XXXXXX";
+        char *dir = mkdtemp(shj_strdup(tpl));
+        char *bad_exec;
+        const char *argv[2];
+        struct shj_proc_result *r;
+        FILE *f;
+
+        test_section("proc: executable text without a shebang is not interpreted");
+        if (!dir) {
+                test_fail("ENOEXEC fixture directory created");
+                return;
+        }
+        bad_exec = shj_path_join(dir, "no-shebang");
+        f = fopen(bad_exec, "w");
+        if (!f) {
+                test_fail("ENOEXEC fixture opened");
+                rmdir(dir);
+                free(bad_exec);
+                free(dir);
+                return;
+        }
+        {
+                int write_failed = fputs("exit 0\n", f) == EOF;
+                int close_failed = fclose(f) != 0;
+
+                if (write_failed || close_failed || chmod(bad_exec, 0700) != 0) {
+                        test_fail("ENOEXEC fixture written and made executable");
+                        unlink(bad_exec);
+                        rmdir(dir);
+                        free(bad_exec);
+                        free(dir);
+                        return;
+                }
+        }
+        argv[0] = bad_exec;
+        argv[1] = NULL;
+        shj_proc_set_timeout_ms(5000);
+        r = shj_proc_run(argv, NULL);
+        if (r) {
+                CHECK_INT_EQ(r->exit, SHJ_PROC_EXIT_SPAWN,
+                             "ENOEXEC: no implicit shell fallback");
+                CHECK_INT_EQ(r->spawn_errno, ENOEXEC,
+                             "ENOEXEC: executable text reports ENOEXEC");
+                shj_proc_result_free(r);
+        }
+        unlink(bad_exec);
+        rmdir(dir);
+        free(bad_exec);
         free(dir);
 }
 
@@ -420,10 +539,21 @@ static void test_timeout_lifecycle(void)
         CHECK_INT_EQ(count_zombie_children(), 0, "emit-hang: no zombie left");
 
         /* timeout 0 means disabled: a slow child completes normally. */
+        shj_proc_set_timeout_ms(400);
         shj_proc_set_timeout_ms(0);
-        r = run_helper("slow-exit", "250");
+        r = run_helper("slow-exit", "650");
         if (r) {
                 CHECK_INT_EQ(r->exit, 0, "timeout 0: slow child not killed");
+                shj_proc_result_free(r);
+        }
+
+        /* The process exits after closing its output pipes, just beyond the
+         * deadline. Reaping it after the budget must not become success. */
+        shj_proc_set_timeout_ms(400);
+        r = run_helper("close-pipes-sleep", "410");
+        if (r) {
+                CHECK_INT_EQ(r->exit, SHJ_PROC_EXIT_TIMEOUT,
+                             "late exit after pipe EOF remains a timeout");
                 shj_proc_result_free(r);
         }
         shj_proc_set_timeout_ms(5000);
@@ -498,6 +628,7 @@ void test_proc(void)
         test_timeout_overflow();
         test_spawn_failure();
         test_spawn_failure_eacces();
+        test_spawn_failure_enoexec();
         test_fd_hygiene();
         test_timeout_lifecycle();
         test_truncation();

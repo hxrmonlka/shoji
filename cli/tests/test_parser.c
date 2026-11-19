@@ -186,6 +186,38 @@ void test_parser(void)
                 ARGV_END();
         }
         {
+                ARGV("--store", "-h", "status");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_OK,
+                             "dash-prefixed store value is not treated as help");
+                CHECK_STR_EQ(_opts.store_override, "-h", "dash-prefixed store value retained");
+                CHECK_INT_EQ(_opts.kind, SHOJI_CMD_STATUS, "command after dash-prefixed value parsed");
+                ARGV_END();
+        }
+        {
+                ARGV("status", "--unknown-flag");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_USAGE,
+                             "fixed-arity status rejects extra arguments");
+                ARGV_END();
+        }
+        {
+                ARGV("instance", "list", "extra");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_USAGE,
+                             "instance list rejects extra arguments");
+                ARGV_END();
+        }
+        {
+                ARGV("ipc", "show", "extra");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_USAGE,
+                             "ipc show rejects extra arguments");
+                ARGV_END();
+        }
+        {
+                ARGV("debug", "map", "extra");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_USAGE,
+                             "debug map rejects extra arguments");
+                ARGV_END();
+        }
+        {
                 ARGV("ipc", "call", "island", "tab", "calendar", "extra");
                 CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_OK,
                              "raw ipc call accepts extra args");

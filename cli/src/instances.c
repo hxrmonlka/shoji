@@ -205,28 +205,40 @@ static void remove_rows_from(struct shoji_instance_list *list, int first)
         }
 }
 
-/* Rows first seen in --show-dead may have started after the authoritative
- * live snapshot. Recheck the live listing before calling them dead: if the
- * optional recheck fails, discard those rows rather than misclassifying them. */
-static void reconcile_new_rows(struct shoji_instance_list *list, int live_count,
-                               const struct shoji_instance_list *fresh)
+/* A successful fresh live listing is authoritative for selection. Preserve
+ * rows that disappeared only as dead diagnostics, and add newly live rows. */
+static void reconcile_live_snapshot(struct shoji_instance_list *list,
+                                    const struct shoji_instance_list *fresh)
 {
         int i;
 
-        for (i = 0; i < fresh->count; i++) {
-                const struct shoji_instance *src = &fresh->items[i];
-                struct shoji_instance *dst = find_instance_id(list, src->id);
+        for (i = 0; i < list->count; i++) {
+                struct shoji_instance *old = &list->items[i];
+                const struct shoji_instance *current = NULL;
 
-                if (dst) {
-                        if (dst >= list->items + live_count)
-                                copy_instance(dst, src);
-                        continue;
+                for (int j = 0; j < fresh->count; j++) {
+                        if (old->id && fresh->items[j].id &&
+                            strcmp(old->id, fresh->items[j].id) == 0) {
+                                current = &fresh->items[j];
+                                break;
+                        }
                 }
-                list->items = shj_realloc(list->items,
-                        sizeof(*list->items) * (size_t)(list->count + 1));
-                memset(&list->items[list->count], 0, sizeof(*list->items));
-                copy_instance(&list->items[list->count], src);
-                list->count++;
+                if (current) {
+                        copy_instance(old, current);
+                        old->dead = 0;
+                } else {
+                        old->dead = 1;
+                }
+        }
+        for (i = 0; i < fresh->count; i++) {
+                if (!find_instance_id(list, fresh->items[i].id)) {
+                        list->items = shj_realloc(list->items,
+                                sizeof(*list->items) * (size_t)(list->count + 1));
+                        memset(&list->items[list->count], 0, sizeof(*list->items));
+                        copy_instance(&list->items[list->count], &fresh->items[i]);
+                        list->items[list->count].dead = 0;
+                        list->count++;
+                }
         }
 }
 
@@ -422,7 +434,7 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
                         return list;
                 }
                 /* pr == 1 is a valid, complete empty live snapshot. */
-                reconcile_new_rows(list, live_count, &fresh);
+                reconcile_live_snapshot(list, &fresh);
                 while (fresh.count > 0) {
                         fresh.count--;
                         free_instance(&fresh.items[fresh.count]);

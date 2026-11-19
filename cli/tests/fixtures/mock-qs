@@ -2,7 +2,8 @@
 # Mock quickshell executable for shoji-cli end-to-end tests.
 #
 # Environment:
-#   MOCK_QS_LOG         file that receives every invocation (argv joined)
+#   MOCK_QS_LOG         file that receives every invocation (human log plus
+#                       length-prefixed argv records)
 #   MOCK_LIST_FILE      JSON output returned by `qs list ...` (live instances)
 #   MOCK_DEAD_LIST_FILE extra dead-instance rows appended to `qs list
 #                       --show-dead` (optional; mirrors upstream, where dead
@@ -37,13 +38,17 @@ case "${1:-}" in
         exit "$MOCK_DEAD_FAIL"
       fi
       if [ -n "${MOCK_DEAD_LIST_FILE:-}" ] && [ -f "$MOCK_DEAD_LIST_FILE" ]; then
-        # A live listing that is the bare empty notice is not JSON: upstream
-        # prints the JSON array only when rows exist, so a dead listing
-        # replaces it entirely.
+        live_rows=""
         if [ "$(head -c 1 "${MOCK_LIST_FILE:?}")" = "[" ]; then
-          cat "${MOCK_LIST_FILE:?}" "$MOCK_DEAD_LIST_FILE"
+          live_rows="$(sed -e '1s/^[[:space:]]*\[//' -e '$s/\][[:space:]]*$//' "$MOCK_LIST_FILE")"
+        fi
+        dead_rows="$(sed -e '1s/^[[:space:]]*\[//' -e '$s/\][[:space:]]*$//' "$MOCK_DEAD_LIST_FILE")"
+        if [ -n "$live_rows" ] && [ -n "$dead_rows" ]; then
+          printf '[%s,%s]\n' "$live_rows" "$dead_rows"
+        elif [ -n "$live_rows" ]; then
+          printf '[%s]\n' "$live_rows"
         else
-          cat "$MOCK_DEAD_LIST_FILE"
+          printf '[%s]\n' "$dead_rows"
         fi
         exit 0
       fi
@@ -52,6 +57,11 @@ case "${1:-}" in
     exit 0
     ;;
   ipc)
+    printf 'ARGV' >> "$LOG"
+    for arg in "$@"; do
+      printf ' %d:%s' "${#arg}" "$arg" >> "$LOG"
+    done
+    printf '\n' >> "$LOG"
     shift
     printf '%s\n' "$*" >> "$LOG"
     # consume instance-selection options the way real qs does
@@ -72,6 +82,9 @@ case "${1:-}" in
         shift || true
         fn="${1:-?}"
         shift || true
+        if [ -n "${MOCK_QS_SUCCESS_ERR:-}" ]; then
+          printf '%s\n' "$MOCK_QS_SUCCESS_ERR" >&2
+        fi
         printf 'ok %s.%s %s\n' "$target" "$fn" "$*"
         exit 0
         ;;

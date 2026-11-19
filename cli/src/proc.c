@@ -16,6 +16,8 @@
 #include <time.h>
 #include <unistd.h>
 
+extern char **environ;
+
 #define SHOJI_PROC_MAX_OUTPUT (4u * 1024u * 1024u) /* 4 MiB per stream */
 
 /* Result exit classes: see proc.h (SHJ_PROC_EXIT_*). */
@@ -82,19 +84,20 @@ struct pipebuf {
         int truncated;
 };
 
-static long mono_ms(void)
+static int64_t mono_ms(void)
 {
         struct timespec ts;
 
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+        if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
+                return -1;
+        return (int64_t)ts.tv_sec * INT64_C(1000) + ts.tv_nsec / 1000000;
 }
 
-/* Convert the configured timeout to an absolute monotonic deadline without
- * overflowing signed long. A zero timeout remains the documented disable. */
-static int make_deadline(long timeout_ms, long *deadline_ms)
+/* Convert the configured timeout to an absolute monotonic deadline using a
+ * fixed-width type, even on targets where long is 32 bits. */
+static int make_deadline(long timeout_ms, int64_t *deadline_ms)
 {
-        long now;
+        int64_t now;
 
         *deadline_ms = 0;
         if (timeout_ms < 0) {
@@ -104,11 +107,15 @@ static int make_deadline(long timeout_ms, long *deadline_ms)
         if (timeout_ms == 0)
                 return 0;
         now = mono_ms();
-        if (timeout_ms > LONG_MAX - now) {
+        if (now < 0) {
+                errno = EIO;
+                return -1;
+        }
+        if ((int64_t)timeout_ms > INT64_MAX - now) {
                 errno = ERANGE;
                 return -1;
         }
-        *deadline_ms = now + timeout_ms;
+        *deadline_ms = now + (int64_t)timeout_ms;
         return 0;
 }
 
@@ -162,9 +169,16 @@ static unsigned trunc_bits(const struct pipebuf *ob, const struct pipebuf *eb)
 /* Non-blocking bounded reap: 0 when the child was reaped, 1 when it did
  * not exit within the budget (it may still be alive), -1 when waitpid
  * failed unexpectedly (errno set). */
-static int reap_bounded(pid_t pid, int *status, long budget_ms)
+static int reap_bounded(pid_t pid, int *status, int64_t budget_ms)
 {
-        long end = mono_ms() + budget_ms;
+        int64_t now = mono_ms();
+        int64_t end;
+
+        if (now < 0 || budget_ms < 0 || budget_ms > INT64_MAX - now) {
+                errno = ERANGE;
+                return -1;
+        }
+        end = now + budget_ms;
 
         for (;;) {
                 pid_t w = waitpid(pid, status, WNOHANG);
@@ -252,13 +266,19 @@ static int cleanup_child(pid_t pid, int *status)
  * is killed and reaped instead of blocking the caller indefinitely.
  * Returns 0 when reaped, -1 when the deadline forced a kill+reap (status
  * reflects the kill), -2 when waitpid failed unexpectedly (errno set). */
-static int reap_within(pid_t pid, int *status, long deadline_ms)
+static int reap_within(pid_t pid, int *status, int64_t deadline_ms)
 {
         for (;;) {
-                pid_t w = waitpid(pid, status, WNOHANG);
+                pid_t w;
 
+                if (deadline_ms > 0 && mono_ms() >= deadline_ms) {
+                        if (cleanup_child(pid, status) == -1)
+                                return -2;
+                        return -1;
+                }
+                w = waitpid(pid, status, WNOHANG);
                 if (w == pid)
-                        return 0;
+                        return deadline_ms > 0 && mono_ms() >= deadline_ms ? -1 : 0;
                 if (w < 0) {
                         if (errno == EINTR)
                                 continue;
@@ -282,7 +302,7 @@ static int reap_within(pid_t pid, int *status, long deadline_ms)
  * The caller must treat a -2 as an internal error, never as success with
  * partially captured output. */
 static int drain_streams(int out_fd, struct pipebuf *ob, int err_fd, struct pipebuf *eb,
-                         long deadline_ms)
+                         int64_t deadline_ms)
 {
         int open_out = 1, open_err = 1;
 
@@ -293,7 +313,7 @@ static int drain_streams(int out_fd, struct pipebuf *ob, int err_fd, struct pipe
                 int r;
 
                 if (deadline_ms > 0) {
-                        long left = deadline_ms - mono_ms();
+                        int64_t left = deadline_ms - mono_ms();
 
                         if (left <= 0)
                                 return -1;
@@ -321,8 +341,11 @@ static int drain_streams(int out_fd, struct pipebuf *ob, int err_fd, struct pipe
                                 continue; /* interrupted wait: retry unchanged */
                         return -2; /* unexpected poll failure: propagate */
                 }
-                if (r == 0)
-                        return -1; /* deadline expired, streams still open */
+                if (r == 0) {
+                        if (mono_ms() >= deadline_ms)
+                                return -1;
+                        continue;
+                }
 
                 for (nfds_t i = 0; i < n; i++) {
                         char chunk[8192];
@@ -363,7 +386,7 @@ static int drain_streams(int out_fd, struct pipebuf *ob, int err_fd, struct pipe
  * child reported an exec failure (*exec_errno set), -1 when the deadline
  * expired before the handshake completed, -2 on an unexpected poll/read
  * failure (errno set). */
-static int await_exec(int execfd, long deadline_ms, int *exec_errno)
+static int await_exec(int execfd, int64_t deadline_ms, int *exec_errno)
 {
         int e = 0;
         ssize_t n = 0;
@@ -374,7 +397,7 @@ static int await_exec(int execfd, long deadline_ms, int *exec_errno)
                 int r;
 
                 if (deadline_ms > 0) {
-                        long left = deadline_ms - mono_ms();
+                        int64_t left = deadline_ms - mono_ms();
 
                         if (left <= 0)
                                 return -1;
@@ -392,8 +415,11 @@ static int await_exec(int execfd, long deadline_ms, int *exec_errno)
                                 continue; /* retry with the remaining budget */
                         return -2;
                 }
-                if (r == 0)
-                        return -1; /* deadline expired before the handshake resolved */
+                if (r == 0) {
+                        if (mono_ms() >= deadline_ms)
+                                return -1;
+                        continue;
+                }
 
                 if (pfd.revents & POLLNVAL) {
                         errno = EBADF; /* bad descriptor: internal error, not exec success */
@@ -446,7 +472,7 @@ static int cloexec_pipe(int fds[2])
         return 0;
 }
 
-/* Child side of the CLOEXEC handshake: report a failed dup2/execvp by
+/* Child side of the CLOEXEC handshake: report a failed dup2/execve by
  * writing the full errno to the handshake pipe. write() is retried on
  * EINTR and on partial writes so the parent can never read a truncated
  * payload; only async-signal-safe operations are used. A report that
@@ -482,7 +508,8 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
         int execfd[2] = { -1, -1 };
         pid_t pid;
         int status = 0;
-        long deadline_ms = 0;
+        int64_t deadline_ms = 0;
+        char *exec_path;
         struct pipebuf ob, eb;
         struct shj_proc_result *res;
 
@@ -490,6 +517,10 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
 
         if (make_deadline(g_timeout_ms, &deadline_ms) != 0)
                 return proc_error_result(SHJ_PROC_EXIT_INTERNAL, errno);
+
+        exec_path = shj_find_in_path(argv[0], NULL);
+        if (!exec_path)
+                return proc_error_result(SHJ_PROC_EXIT_SPAWN, errno ? errno : ENOENT);
 
         if (cloexec_pipe(outfd) != 0 || cloexec_pipe(errfd) != 0 ||
             cloexec_pipe(execfd) != 0) {
@@ -500,6 +531,7 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                 close_pair(outfd);
                 close_pair(errfd);
                 close_pair(execfd);
+                free(exec_path);
                 return proc_error_result(SHJ_PROC_EXIT_INTERNAL, saved);
         }
 
@@ -510,11 +542,12 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                 close_pair(outfd);
                 close_pair(errfd);
                 close_pair(execfd);
+                free(exec_path);
                 return proc_error_result(SHJ_PROC_EXIT_INTERNAL, saved);
         } else if (pid == 0) {
-                /* A --qs wrapper may spawn descendants. Put the complete
-                 * subprocess tree in its own process group so timeout cleanup
-                 * can cancel work that outlives the wrapper itself. */
+                /* Put the launched process in a dedicated group. Timeout
+                 * cleanup signals this group; descendants that deliberately
+                 * leave it are outside the cancellation guarantee. */
                 if (setpgid(0, 0) != 0) {
                         write_exec_errno(execfd[1], errno);
                         _exit(127);
@@ -533,11 +566,13 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                 close(outfd[1]);
                 close(errfd[0]);
                 close(errfd[1]);
-                execvp(argv[0], (char *const *)(uintptr_t)argv);
+                execve(exec_path, (char *const *)(uintptr_t)argv, environ);
                 /* Report the exec failure through the CLOEXEC pipe. */
                 write_exec_errno(execfd[1], errno);
                 _exit(127);
         }
+
+        free(exec_path);
 
         /* The parent also establishes the group: either side may run first,
          * and EACCES means the child already exec'd after its own setpgid(). */

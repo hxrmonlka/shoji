@@ -84,7 +84,7 @@ static int try_candidate(const char *candidate, char **out_qml, char **out_dir)
         if (!real)
                 return -1;
         if (out_dir) {
-                char *raw_dir = dirname_of(candidate);
+                char *raw_dir = dirname_of(real);
                 char *dir = shj_realpath_safe(raw_dir);
 
                 free(raw_dir);
@@ -141,7 +141,7 @@ int shoji_canonicalize_store_path(const char *raw, char **out_qml, char **out_di
                 if (!real_qml)
                         return -1;
                 {
-                        char *dir = dirname_of(raw);
+                        char *dir = dirname_of(real_qml);
 
                         real_dir = shj_realpath_safe(dir);
                         free(dir);

@@ -63,7 +63,6 @@ static char g_json_recheck[2048];
 static const char *g_list_json;   /* authoritative live listing output */
 static const char *g_dead_json;   /* --show-dead output; NULL = same as live */
 static const char *g_recheck_json; /* optional fresh live output; NULL = live output */
-static int g_probe_phase; /* 0=live, 1=show-dead, 2=optional fresh live */
 static int g_list_arg_errors;
 static unsigned g_list_truncated;
 static int g_ipc_calls;
@@ -134,8 +133,6 @@ static void set_script(const int *steps, int n)
         memcpy(g_list_script, steps, sizeof(int) * (size_t)n);
         g_list_script_len = n;
         g_list_calls = 0;
-        g_probe_phase = 0;
-        g_list_arg_errors = 0;
 }
 
 static struct shj_proc_result *fake_spawn(const char *const argv[], void *user)
@@ -159,7 +156,7 @@ static struct shj_proc_result *fake_spawn(const char *const argv[], void *user)
                 const char *expected_dead[] = {
                         "mockqs", "list", "-a", "-j", "--show-dead", NULL
                 };
-                int phase = g_probe_phase;
+                int phase = g_list_calls;
                 int cls = g_list_calls < g_list_script_len
                               ? g_list_script[g_list_calls]
                               : 0;
@@ -177,7 +174,6 @@ static struct shj_proc_result *fake_spawn(const char *const argv[], void *user)
                         g_list_calls++;
                         return r;
                 }
-                g_probe_phase = phase == 0 ? 1 : phase == 1 ? 2 : 0;
                 g_list_calls++;
                 if (phase == 1)
                         response = g_dead_json ? g_dead_json : g_list_json;
@@ -282,6 +278,7 @@ static void remove_fixture(void)
 
 static struct shoji_instance_list *discover_err(enum shoji_discover_err *err)
 {
+        g_list_calls = 0;
         return shoji_discover_instances(fake_spawn, NULL, "mockqs", err);
 }
 
@@ -429,6 +426,7 @@ void test_instances(void)
         const int probe_generic[8] = { 2 };
 
         test_section("instance discovery and selection");
+        g_list_arg_errors = 0;
         if (make_fixture() != 0) {
                 test_fail("fixture setup failed; skipping instance tests");
                 return;
@@ -557,12 +555,30 @@ void test_instances(void)
         shoji_selection_clear(&sel);
         list->items[1].dead = 0;
 
-        /* explicitly empty override must refuse rather than falling through
-         * to the expected-config auto-selection path */
+        /* Empty override must not fall through to auto-selection when a
+         * real expected-config candidate exists. */
+        shoji_instance_list_free(list);
+        set_list("[{\"id\":\"expected77\",\"pid\":77,\"shell_id\":\"s\","
+                 "\"config_path\":\"%s\",\"launch_time\":\"t\"}]", g_expected);
+        clear_dead_list();
+        set_script(probe_ok, 1);
+        list = discover();
+        CHECK_INT_EQ(shoji_select_instance(list, g_expected, NULL, &sel),
+                     SHOJI_SELECT_OK, "omitted instance-id auto-selects expected match");
+        shoji_selection_clear(&sel);
         CHECK_INT_EQ(shoji_select_instance(list, g_expected, "", &sel),
                      SHOJI_SELECT_NONE, "empty explicit instance-id is refused");
         CHECK(sel.selected == NULL, "empty explicit instance-id selects nothing");
         shoji_selection_clear(&sel);
+        shoji_instance_list_free(list);
+
+        set_list("["
+            "{\"id\":\"abcd111\",\"pid\":11,\"shell_id\":\"s\","
+            "\"config_path\":\"/some/other/shell.qml\",\"launch_time\":\"t\"},"
+            "{\"id\":\"abcd222\",\"pid\":12,\"shell_id\":\"s\","
+            "\"config_path\":\"/some/other/shell.qml\",\"launch_time\":\"t2\"}] ");
+        set_script(probe_ok, 1);
+        list = discover();
 
         /* ambiguous prefix override: both matches must be published so the
          * caller can list them instead of reading uninitialized entries */
@@ -691,6 +707,39 @@ void test_instances(void)
         CHECK_INT_EQ(list->count, 1, "fresh live row retained exactly once");
         CHECK_INT_EQ(list->items[0].dead, 0, "freshly confirmed row is live");
         CHECK_INT_EQ(shoji_live_count(list), 1, "freshly confirmed row counted as running");
+        shoji_instance_list_free(list);
+        clear_dead_list();
+        clear_recheck_list();
+
+        /* A successful full live recheck supersedes the earlier snapshot.
+         * If A stops and B starts between probes, A must become diagnostic
+         * only, even when B belongs to another configuration. */
+        set_list("[{\"id\":\"oldmatchA\",\"pid\":11,\"shell_id\":\"sA\","
+                 "\"config_path\":\"%s\",\"launch_time\":\"tA\"}]", g_expected);
+        set_dead_list("["
+                      "{\"id\":\"oldmatchA\",\"pid\":11,\"shell_id\":\"sA\","
+                      "\"config_path\":\"%s\",\"launch_time\":\"tA\"},"
+                      "{\"id\":\"newforeignB\",\"pid\":22,\"shell_id\":\"sB\","
+                      "\"config_path\":\"/other/shell.qml\",\"launch_time\":\"tB\"}]", g_expected);
+        set_recheck_list("[{\"id\":\"newforeignB\",\"pid\":22,\"shell_id\":\"sB\","
+                         "\"config_path\":\"/other/shell.qml\",\"launch_time\":\"tB\"}]");
+        set_script(probe_ok, 3);
+        list = discover();
+        CHECK_INT_EQ(shoji_live_count(list), 1,
+                     "fresh live snapshot is the complete selectable set");
+        CHECK_INT_EQ(list->count, 2, "stopped row remains only for diagnostics");
+        CHECK_INT_EQ(list->items[0].dead, 1, "row absent from recheck becomes dead");
+        CHECK_INT_EQ(list->items[1].dead, 0, "new live row remains selectable");
+        CHECK_INT_EQ(shoji_select_instance(list, g_expected, NULL, &sel),
+                     SHOJI_SELECT_NONE,
+                     "stale earlier match cannot be selected after live recheck");
+        shoji_selection_clear(&sel);
+        CHECK_INT_EQ(shoji_select_instance(list, g_expected, "newforeign", &sel),
+                     SHOJI_SELECT_OK,
+                     "explicit prefix can select the fresh foreign live row");
+        CHECK_STR_EQ(sel.selected->id, "newforeignB",
+                     "fresh explicit selection identifies the new live instance");
+        shoji_selection_clear(&sel);
         shoji_instance_list_free(list);
         clear_dead_list();
         clear_recheck_list();
@@ -900,6 +949,7 @@ void test_instances(void)
         shoji_pipeline_release(&pl);
 
         /* qs reports an unknown target -> mapped to exit 65 */
+        set_script(probe_ok, 1);
         shoji_pipeline_run(&ctx, &opts, 1, &pl);
         g_call_exit = 255;
         g_call_err = "Target not found.\n";
@@ -908,6 +958,7 @@ void test_instances(void)
         shoji_pipeline_release(&pl);
 
         /* generic qs failure -> exit 1 */
+        set_script(probe_ok, 1);
         shoji_pipeline_run(&ctx, &opts, 1, &pl);
         g_call_exit = 255;
         g_call_err = "something else failed\n";
@@ -921,6 +972,7 @@ void test_instances(void)
                  "\"launch_time\":\"2026-11-17T09:00:00\"}]");
         g_recorded[0] = '\0';
         g_ipc_calls = 0;
+        set_script(probe_ok, 1);
         shoji_pipeline_run(&ctx, &opts, 1, &pl);
         CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_NOINSTANCE,
                      "no match refuses to dispatch");
