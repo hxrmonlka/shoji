@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Mock quickshell executable for shoji-cli end-to-end tests.
+#
+# Environment:
+#   MOCK_QS_LOG         file that receives every invocation (human log plus
+#                       length-prefixed argv records)
+#   MOCK_LIST_FILE      JSON output returned by `qs list ...` (live instances)
+#   MOCK_DEAD_LIST_FILE extra dead-instance rows appended to `qs list
+#                       --show-dead` (optional; mirrors upstream, where dead
+#                       instances appear only with --show-dead and keep their
+#                       launch-time pid)
+#   MOCK_LIST_FAIL      exit code for `qs list` (simulates a listing failure)
+#   MOCK_DEAD_FAIL      exit code for `qs list --show-dead` (simulates a
+#                       quickshell build without --show-dead)
+#   MOCK_QS_SLEEP       seconds to sleep before answering `ipc` (timeout tests)
+#
+# This is a test fixture only; shoji itself never spawns a shell.
+
+set -u
+LOG="${MOCK_QS_LOG:-/dev/null}"
+
+case "${1:-}" in
+  --version)
+    echo "Quickshell 9.9.9-mock"
+    exit 0
+    ;;
+  list)
+    shift
+    printf 'list %s\n' "$*" >> "$LOG"
+    if [ -n "${MOCK_LIST_FAIL:-}" ]; then
+      exit "$MOCK_LIST_FAIL"
+    fi
+    if [ "${1:-}" = "-a" ]; then shift; fi
+    if [ "${1:-}" = "-j" ]; then shift; fi
+    if [ "${1:-}" = "--show-dead" ]; then
+      shift
+      if [ -n "${MOCK_DEAD_FAIL:-}" ]; then
+        exit "$MOCK_DEAD_FAIL"
+      fi
+      if [ -n "${MOCK_DEAD_LIST_FILE:-}" ] && [ -f "$MOCK_DEAD_LIST_FILE" ]; then
+        live_rows=""
+        if [ "$(head -c 1 "${MOCK_LIST_FILE:?}")" = "[" ]; then
+          live_rows="$(sed -e '1s/^[[:space:]]*\[//' -e '$s/\][[:space:]]*$//' "$MOCK_LIST_FILE")"
+        fi
+        dead_rows="$(sed -e '1s/^[[:space:]]*\[//' -e '$s/\][[:space:]]*$//' "$MOCK_DEAD_LIST_FILE")"
+        if [ -n "$live_rows" ] && [ -n "$dead_rows" ]; then
+          printf '[%s,%s]\n' "$live_rows" "$dead_rows"
+        elif [ -n "$live_rows" ]; then
+          printf '[%s]\n' "$live_rows"
+        else
+          printf '[%s]\n' "$dead_rows"
+        fi
+        exit 0
+      fi
+    fi
+    cat "${MOCK_LIST_FILE:?}"
+    exit 0
+    ;;
+  ipc)
+    printf 'ARGV' >> "$LOG"
+    for arg in "$@"; do
+      printf ' %d:%s' "${#arg}" "$arg" >> "$LOG"
+    done
+    printf '\n' >> "$LOG"
+    shift
+    printf '%s\n' "$*" >> "$LOG"
+    # consume instance-selection options the way real qs does
+    while [ "${1:-}" = "-i" ] || [ "${1:-}" = "--any-display" ]; do
+      if [ "$1" = "-i" ]; then shift 2; else shift; fi
+    done
+    if [ -n "${MOCK_QS_SLEEP:-}" ]; then sleep "$MOCK_QS_SLEEP"; fi
+    case "${1:-}" in
+      show)
+        echo "target island"
+        echo "function toggle(): void"
+        echo "function tab(name: string): void"
+        exit 0
+        ;;
+      call)
+        shift
+        target="${1:-?}"
+        shift || true
+        fn="${1:-?}"
+        shift || true
+        if [ -n "${MOCK_QS_SUCCESS_ERR:-}" ]; then
+          printf '%s\n' "$MOCK_QS_SUCCESS_ERR" >&2
+        fi
+        printf 'ok %s.%s %s\n' "$target" "$fn" "$*"
+        exit 0
+        ;;
+      *)
+        echo "Target not found." >&2
+        exit 255
+        ;;
+    esac
+    ;;
+  *)
+    echo "mock qs: unexpected invocation: $*" >&2
+    exit 255
+    ;;
+esac
