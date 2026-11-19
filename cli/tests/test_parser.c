@@ -228,6 +228,31 @@ void test_parser(void)
                 ARGV_END();
         }
         {
+                ARGV("run", "--daemonize", "--no-duplicate", "--verbose");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_OK,
+                             "run accepts Quickshell launch options");
+                CHECK_INT_EQ(_opts.kind, SHOJI_CMD_RUN, "run command kind");
+                CHECK_INT_EQ(_opts.run_argc, 3, "run option count");
+                CHECK_STR_EQ(_opts.run_args[0], "--daemonize", "run daemonize option");
+                CHECK_STR_EQ(_opts.run_args[1], "--no-duplicate", "run no-duplicate option");
+                CHECK_STR_EQ(_opts.run_args[2], "--verbose", "run verbose option");
+                ARGV_END();
+        }
+        {
+                ARGV("run", "--", "--help");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_OK,
+                             "run forwards options after separator");
+                CHECK_INT_EQ(_opts.kind, SHOJI_CMD_RUN, "run separator command kind");
+                CHECK_STR_EQ(_opts.run_args[0], "--help", "run forwards Quickshell help");
+                ARGV_END();
+        }
+        {
+                ARGV("run", "--path", "/tmp/other/shell.qml");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_USAGE,
+                             "run rejects conflicting config selectors");
+                ARGV_END();
+        }
+        {
                 ARGV("ipc", "call", "island");
                 CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_USAGE,
                              "raw ipc call without function rejected");

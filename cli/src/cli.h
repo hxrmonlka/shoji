@@ -8,6 +8,7 @@ enum shoji_cmd_kind {
         SHOJI_CMD_NONE,
         SHOJI_CMD_HELP,
         SHOJI_CMD_VERSION,
+        SHOJI_CMD_RUN,
         SHOJI_CMD_STATUS,
         SHOJI_CMD_DOCTOR,
         SHOJI_CMD_INSTANCE_LIST,
@@ -27,6 +28,9 @@ struct shoji_options {
         char *qs_bin;                     /* --qs (or env/default) */
         char *instance_id;                /* --instance-id */
         int json;                         /* --json */
+
+        int run_argc;
+        char **run_args;
 
         char *ipc_target;                 /* ipc call */
         char *ipc_function;

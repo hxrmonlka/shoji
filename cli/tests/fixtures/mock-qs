@@ -19,7 +19,17 @@
 set -u
 LOG="${MOCK_QS_LOG:-/dev/null}"
 
+if [ "${QS_CONFIG_PATH+x}" = x ] || [ "${QS_CONFIG_NAME+x}" = x ] ||
+   [ "${QS_MANIFEST+x}" = x ]; then
+  echo "Quickshell configuration selector leaked into child environment" >&2
+  exit 108
+fi
+
 case "${1:-}" in
+  --path|-p)
+    printf 'run %s\n' "$*" >> "$LOG"
+    exit 0
+    ;;
   --version)
     echo "Quickshell 9.9.9-mock"
     exit 0

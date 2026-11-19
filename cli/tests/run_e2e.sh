@@ -128,6 +128,26 @@ expect_exit 64 "unknown command exits 64" "$CLI" explode
 expect_exit 64 "unknown facade subcommand exits 64" "$CLI" island explode
 expect_exit 64 "awake on without int exits 64" "$CLI" awake on xx
 
+# Launch the shell through Shoji so Quickshell records the immutable store path.
+: > "$MOCK_QS_LOG"
+expect_exit 0 "run forwards daemonize and no-duplicate" \
+  env QS_CONFIG_PATH="$WORK/legacy/shell.qml" QS_CONFIG_NAME=legacy QS_MANIFEST="$WORK/manifest" \
+  "$CLI" --store "$STORE" run --daemonize --no-duplicate --verbose
+grep -qF -- "run --path $STORE/shell.qml --daemonize --no-duplicate --verbose" "$MOCK_QS_LOG" \
+  && ok "run pins the resolved Shoji store path" || bad "run pins the resolved Shoji store path" "$(cat "$MOCK_QS_LOG")"
+expect_exit 64 "run rejects Quickshell config overrides" \
+  "$CLI" run --path "$WORK/other/shell.qml"
+expect_exit 66 "run requires a resolvable Shoji store" \
+  "$CLI" --store "$WORK/missing-run-store" run --daemonize
+
+# Quickshell's inherited config selectors conflict with explicit IPC instance selection.
+: > "$MOCK_QS_LOG"
+expect_exit 0 "IPC ignores inherited Quickshell config selectors" \
+  env QS_CONFIG_PATH="$WORK/legacy/shell.qml" QS_CONFIG_NAME=legacy QS_MANIFEST="$WORK/manifest" \
+  "$CLI" island toggle
+grep -qF -- "call island toggle" "$MOCK_QS_LOG" \
+  && ok "IPC runs without config-selection environment" || bad "IPC environment was not sanitized" "$(cat "$MOCK_QS_LOG")"
+
 # dispatch ------------------------------------------------------------------
 : > "$MOCK_QS_LOG"
 expect_exit 0 "island toggle dispatches" "$CLI" island toggle

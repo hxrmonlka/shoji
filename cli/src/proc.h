@@ -40,6 +40,7 @@ typedef struct shj_proc_result *(*shj_spawn_fn)(const char *const argv[], void *
  * cleanup signals that group. Descendants that leave the group (for example by
  * starting a new session) are outside the cancellation guarantee. */
 struct shj_proc_result *shj_proc_run(const char *const argv[], void *user);
+struct shj_proc_result *shj_proc_run_qs(const char *const argv[], void *user);
 
 void shj_proc_result_free(struct shj_proc_result *r);
 

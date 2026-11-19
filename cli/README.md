@@ -80,7 +80,7 @@ make test        # unit tests + end-to-end tests + shell.qml mapping check
   side drifts. The unit test independently compares the compiled table with
   the frozen `frozen_handlers` list in `tests/test_commands.c`.
 
-Latest validation for the current CLI branch snapshot:
+Baseline validation before the launch-wrapper and environment-isolation changes:
 
 ```
 GCC:       unit 455 passed; e2e 80 passed; check-qml 1 passed
@@ -129,6 +129,27 @@ Every `--json` output is a single valid JSON value: `instance inspect
 successful and failed probes) INSIDE the instance object. The unit suite
 parses each complete command output (not substrings) against the bundled
 JSON parser.
+
+### Launch
+
+```sh
+shoji run
+shoji run --daemonize --no-duplicate
+shoji run --verbose --log-times
+shoji run -- --help
+```
+
+`run` resolves the same Shoji store configuration used by `status`, then
+executes Quickshell with `--path <resolved shell.qml>`. Quickshell launch
+options are forwarded unchanged. Configuration selectors (`--path`, `--config`,
+and `--manifest`, including their short forms) are reserved by Shoji; use
+`--store` to select a different Shoji generation. The `--` separator allows
+Quickshell flags that overlap with Shoji's global flags to be forwarded.
+
+For MangoWC autostart, use `shoji run --daemonize --no-duplicate` instead of
+launching the mutable Home Manager configuration symlink directly. A shell
+already running from that symlink must be restarted once after switching the
+autostart command; its recorded launch path cannot be changed in place.
 
 ### Instance management
 

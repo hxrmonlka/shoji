@@ -14,6 +14,9 @@ void shoji_options_free(struct shoji_options *opts)
         free(opts->store_override);
         free(opts->qs_bin);
         free(opts->instance_id);
+        for (i = 0; i < opts->run_argc; i++)
+                free(opts->run_args[i]);
+        free(opts->run_args);
         free(opts->ipc_target);
         free(opts->ipc_function);
         for (i = 0; i < opts->ipc_argc; i++)
@@ -107,6 +110,16 @@ static int extract_global_flags(int argc, char **argv, const char ***rest_out,
         return 0;
 }
 
+static int run_arg_is_config_selector(const char *arg)
+{
+        return strcmp(arg, "-p") == 0 || strncmp(arg, "-p", 2) == 0 ||
+               strcmp(arg, "--path") == 0 || strncmp(arg, "--path=", 7) == 0 ||
+               strcmp(arg, "-c") == 0 || strncmp(arg, "-c", 2) == 0 ||
+               strcmp(arg, "--config") == 0 || strncmp(arg, "--config=", 9) == 0 ||
+               strcmp(arg, "-m") == 0 || strncmp(arg, "-m", 2) == 0 ||
+               strcmp(arg, "--manifest") == 0 || strncmp(arg, "--manifest=", 11) == 0;
+}
+
 int shoji_parse(int argc, char **argv, struct shoji_options *opts)
 {
         const char **rest;
@@ -144,6 +157,20 @@ int shoji_parse(int argc, char **argv, struct shoji_options *opts)
         } else if (strcmp(rest[0], "version") == 0) {
                 if (n != 1) goto bad_arity;
                 opts->kind = SHOJI_CMD_VERSION;
+        } else if (strcmp(rest[0], "run") == 0) {
+                for (int i = 1; i < n; i++) {
+                        if (run_arg_is_config_selector(rest[i])) {
+                                shj_msg("'shoji run' controls Quickshell configuration selection; "
+                                        "use --store instead of %s", rest[i]);
+                                free(rest);
+                                return SHOJI_EXIT_USAGE;
+                        }
+                }
+                opts->kind = SHOJI_CMD_RUN;
+                opts->run_argc = n - 1;
+                opts->run_args = shj_alloc(sizeof(char *) * (size_t)(opts->run_argc + 1));
+                for (int i = 0; i < opts->run_argc; i++)
+                        opts->run_args[i] = shj_strdup(rest[i + 1]);
         } else if (strcmp(rest[0], "status") == 0) {
                 if (n != 1) goto bad_arity;
                 opts->kind = SHOJI_CMD_STATUS;
@@ -264,6 +291,7 @@ void shoji_print_help(void)
         printf("  -h, --help          show this help\n");
         printf("  -V, --version       show the version\n\n");
         printf("general:\n");
+        printf("  shoji run [qs options]        launch the resolved Shoji configuration\n");
         printf("  shoji status                  expected store path, running instances, match verdict\n");
         printf("  shoji doctor                  check CLI, quickshell, store path, instance, IPC\n\n");
         printf("instance management:\n");
@@ -295,6 +323,7 @@ void shoji_print_help(void)
         printf("  shoji island tab calendar\n");
         printf("  shoji wallpaper set /path/to/image.jpg\n");
         printf("  shoji awake on 30\n");
+        printf("  shoji run --daemonize --no-duplicate\n");
         printf("  shoji --store /nix/store/…-shoji/status\n");
         printf("  shoji --instance-id abc123 ipc show\n\n");
         printf("exit codes: 0 ok; 1 quickshell failure; 64 usage; 65 bad IPC target/function;\n");

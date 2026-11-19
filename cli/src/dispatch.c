@@ -12,7 +12,7 @@
 void shoji_context_init(struct shoji_context *ctx, const struct shoji_options *opts)
 {
         memset(ctx, 0, sizeof(*ctx));
-        ctx->spawn = shj_proc_run;
+        ctx->spawn = shj_proc_run_qs;
         ctx->spawn_user = NULL;
         if (opts && opts->qs_bin)
                 ctx->qs_bin = opts->qs_bin;

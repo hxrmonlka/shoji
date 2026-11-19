@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static int run_facade(struct shoji_context *ctx, const struct shoji_options *opts,
                       const struct shoji_cmd *cmd)
@@ -37,6 +38,57 @@ static int run_facade(struct shoji_context *ctx, const struct shoji_options *opt
         code = shoji_dispatch_call(ctx, &pl, cmd->target, cmd->function, args, cmd->arg_count);
         shoji_pipeline_release(&pl);
         return code;
+}
+
+static int run_shoji(struct shoji_context *ctx, const struct shoji_options *opts)
+{
+        char **qs_argv;
+        char *qs_exe;
+        int argc = opts->run_argc + 3;
+
+        shoji_context_resolve_store(ctx, opts);
+        if (!ctx->have_store) {
+                shj_msg("could not resolve the Shoji configuration to launch");
+                shj_hint("use --store /path/to/shoji, set SHOJI_STORE_PATH, or install "
+                         "shoji-cli with its default store path configured");
+                return SHOJI_EXIT_NOSTORE;
+        }
+
+        qs_exe = shj_find_in_path(ctx->qs_bin, NULL);
+        if (!qs_exe) {
+                shj_msg("cannot find quickshell executable (%s) on PATH", ctx->qs_bin);
+                return SHOJI_EXIT_NOQS;
+        }
+
+        qs_argv = shj_alloc(sizeof(char *) * (size_t)(argc + 1));
+        qs_argv[0] = qs_exe;
+        qs_argv[1] = "--path";
+        qs_argv[2] = ctx->store.shell_qml;
+        for (int i = 0; i < opts->run_argc; i++)
+                qs_argv[i + 3] = opts->run_args[i];
+        qs_argv[argc] = NULL;
+
+        if (unsetenv("QS_CONFIG_PATH") != 0 ||
+            unsetenv("QS_CONFIG_NAME") != 0 ||
+            unsetenv("QS_MANIFEST") != 0) {
+                shj_msg("could not clear inherited Quickshell configuration selectors: %s",
+                        strerror(errno));
+                free(qs_argv);
+                free(qs_exe);
+                return SHOJI_EXIT_INTERNAL;
+        }
+
+        execv(qs_exe, qs_argv);
+        {
+                int saved_errno = errno;
+                shj_msg("cannot execute quickshell (%s): %s", qs_exe,
+                        strerror(saved_errno));
+                free(qs_argv);
+                free(qs_exe);
+                return saved_errno == ENOENT || saved_errno == ENOTDIR
+                           ? SHOJI_EXIT_NOQS
+                           : SHOJI_EXIT_FAILED;
+        }
 }
 
 int main(int argc, char **argv)
@@ -72,6 +124,10 @@ int main(int argc, char **argv)
         case SHOJI_CMD_HELP:
                 shoji_print_help();
                 code = SHOJI_EXIT_OK;
+                break;
+
+        case SHOJI_CMD_RUN:
+                code = run_shoji(&ctx, &opts);
                 break;
 
         case SHOJI_CMD_VERSION:

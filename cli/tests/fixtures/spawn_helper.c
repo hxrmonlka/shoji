@@ -56,6 +56,13 @@ int main(int argc, char **argv)
         if (argc < 2)
                 return 2;
 
+        if (strcmp(argv[1], "qs-env") == 0) {
+                if (getenv("QS_CONFIG_PATH") || getenv("QS_CONFIG_NAME") ||
+                    getenv("QS_MANIFEST"))
+                        return 3;
+                puts("clean");
+                return 0;
+        }
         if (strcmp(argv[1], "echo") == 0 && argc >= 3) {
                 printf("%s\n", argv[2]);
                 return 0;

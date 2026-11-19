@@ -498,7 +498,40 @@ static void write_exec_errno(int fd, int e)
         }
 }
 
-struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
+static int is_qs_config_selector_env(const char *entry)
+{
+        static const char *const names[] = {
+                "QS_CONFIG_PATH", "QS_CONFIG_NAME", "QS_MANIFEST", NULL
+        };
+
+        for (int i = 0; names[i]; i++) {
+                size_t len = strlen(names[i]);
+
+                if (strncmp(entry, names[i], len) == 0 && entry[len] == '=')
+                        return 1;
+        }
+        return 0;
+}
+
+static char **filtered_environment(void)
+{
+        size_t count = 0;
+        size_t used = 0;
+        char **envp;
+
+        while (environ[count])
+                count++;
+        envp = shj_alloc(sizeof(char *) * (count + 1));
+        for (size_t i = 0; i < count; i++) {
+                if (!is_qs_config_selector_env(environ[i]))
+                        envp[used++] = environ[i];
+        }
+        envp[used] = NULL;
+        return envp;
+}
+
+static struct shj_proc_result *shj_proc_run_internal(const char *const argv[], void *user,
+                                                      int strip_qs_config_env)
 {
         /* All descriptors start at -1: every cleanup path closes only
          * initialized descriptors (close_fd skips -1) and can never close
@@ -510,6 +543,7 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
         int status = 0;
         int64_t deadline_ms = 0;
         char *exec_path;
+        char **child_env = NULL;
         struct pipebuf ob, eb;
         struct shj_proc_result *res;
 
@@ -535,6 +569,9 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                 return proc_error_result(SHJ_PROC_EXIT_INTERNAL, saved);
         }
 
+        if (strip_qs_config_env)
+                child_env = filtered_environment();
+
         pid = fork();
         if (pid < 0) {
                 int saved = errno;
@@ -542,6 +579,7 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                 close_pair(outfd);
                 close_pair(errfd);
                 close_pair(execfd);
+                free(child_env);
                 free(exec_path);
                 return proc_error_result(SHJ_PROC_EXIT_INTERNAL, saved);
         } else if (pid == 0) {
@@ -566,12 +604,14 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
                 close(outfd[1]);
                 close(errfd[0]);
                 close(errfd[1]);
-                execve(exec_path, (char *const *)(uintptr_t)argv, environ);
+                execve(exec_path, (char *const *)(uintptr_t)argv,
+                       child_env ? child_env : environ);
                 /* Report the exec failure through the CLOEXEC pipe. */
                 write_exec_errno(execfd[1], errno);
                 _exit(127);
         }
 
+        free(child_env);
         free(exec_path);
 
         /* The parent also establishes the group: either side may run first,
@@ -705,6 +745,16 @@ struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
         res->out = ob.data;
         res->err = eb.data;
         return res;
+}
+
+struct shj_proc_result *shj_proc_run(const char *const argv[], void *user)
+{
+        return shj_proc_run_internal(argv, user, 0);
+}
+
+struct shj_proc_result *shj_proc_run_qs(const char *const argv[], void *user)
+{
+        return shj_proc_run_internal(argv, user, 1);
 }
 
 void shj_proc_result_free(struct shj_proc_result *r)

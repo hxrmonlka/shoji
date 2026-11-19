@@ -612,6 +612,47 @@ static void test_reap_hygiene(void)
         shj_proc_set_timeout_ms(5000);
 }
 
+static void test_qs_environment(void)
+{
+        const char *names[] = { "QS_CONFIG_PATH", "QS_CONFIG_NAME", "QS_MANIFEST" };
+        char *saved[3] = { NULL, NULL, NULL };
+        int had[3] = { 0, 0, 0 };
+        const char *argv[] = { NULL, "qs-env", NULL };
+        struct shj_proc_result *r;
+
+        test_section("proc: Quickshell selector environment");
+        argv[0] = getenv(HELPER_ENV);
+        for (int i = 0; i < 3; i++) {
+                const char *value = getenv(names[i]);
+
+                if (value) {
+                        saved[i] = shj_strdup(value);
+                        had[i] = 1;
+                }
+                setenv(names[i], "inherited-config", 1);
+        }
+
+        r = shj_proc_run_qs(argv, NULL);
+        if (r) {
+                CHECK_INT_EQ(r->exit, 0, "Quickshell selectors removed in child");
+                CHECK_STR_EQ(r->out, "clean\n", "child receives sanitized environment");
+                for (int i = 0; i < 3; i++)
+                        CHECK_STR_EQ(getenv(names[i]), "inherited-config",
+                                     "parent environment remains unchanged");
+                shj_proc_result_free(r);
+        } else {
+                test_fail("Quickshell environment subprocess returned no result");
+        }
+        for (int i = 0; i < 3; i++) {
+                if (had[i]) {
+                        setenv(names[i], saved[i], 1);
+                        free(saved[i]);
+                } else {
+                        unsetenv(names[i]);
+                }
+        }
+}
+
 void test_proc(void)
 {
         long saved = shj_proc_get_timeout_ms();
@@ -633,6 +674,7 @@ void test_proc(void)
         test_timeout_lifecycle();
         test_truncation();
         test_reap_hygiene();
+        test_qs_environment();
 
         shj_proc_set_timeout_ms(saved);
 }
