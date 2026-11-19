@@ -248,7 +248,7 @@ int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *
                 return SHOJI_EXIT_INTERNAL;
         }
 
-        /* qs ipc -i <id> --any-display call <target> <function> [args...] */
+        /* qs ipc -i <id> call <target> <function> [args...] */
         argv = shj_alloc(sizeof(char *) * (size_t)(argc + 9));
         {
                 int i = 0;
@@ -257,7 +257,6 @@ int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *
                 argv[i++] = "ipc";
                 argv[i++] = "-i";
                 argv[i++] = inst->id;
-                argv[i++] = "--any-display";
                 argv[i++] = "call";
                 argv[i++] = target;
                 argv[i++] = function;
@@ -318,7 +317,7 @@ int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *
 int shoji_dispatch_show(struct shoji_context *ctx, const struct shoji_pipeline *pl)
 {
         const struct shoji_instance *inst = pl->sel.selected;
-        const char *argv[] = { ctx->qs_bin, "ipc", "-i", NULL, "--any-display", "show", NULL };
+        const char *argv[] = { ctx->qs_bin, "ipc", "-i", NULL, "show", NULL };
         struct shj_proc_result *r;
         int code;
 
@@ -367,7 +366,7 @@ int shoji_dispatch_show(struct shoji_context *ctx, const struct shoji_pipeline *
 
 int shoji_ipc_probe(struct shoji_context *ctx, const struct shoji_instance *inst)
 {
-        const char *argv[] = { ctx->qs_bin, "ipc", "-i", NULL, "--any-display", "show", NULL };
+        const char *argv[] = { ctx->qs_bin, "ipc", "-i", NULL, "show", NULL };
         struct shj_proc_result *r;
         int ok;
 
