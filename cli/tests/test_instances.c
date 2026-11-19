@@ -695,94 +695,34 @@ void test_instances(void)
         shoji_instance_list_free(list);
 
         /* ------------------------------------------------------------------ */
-        /* mutable symlink retargeting                                         */
+        /* mutable symlink identity must remain uncertain                     */
         /* ------------------------------------------------------------------ */
 
         {
                 const char *alias = cat2(g_tmp, "/alias");
                 const char *alias_qml = cat2(g_tmp, "/alias/shell.qml");
-                char *real_a = shj_realpath_safe(cat2(g_tmp, "/store/aaaaaaaa-shoji/shell.qml"));
                 char *real_b = shj_realpath_safe(cat2(g_tmp, "/gen-b/shell.qml"));
-                struct timespec ts[2];
-                long launched = iso_epoch("2026-11-17T08:00:00");
 
-                CHECK(launched > 0, "retarget: launch time parsed");
-                CHECK(real_a && real_b, "retarget: fixture paths resolve");
+                CHECK(real_b != NULL, "alias: generation B resolves");
+                CHECK(unlink(alias) == 0, "alias: fixture symlink removed");
+                CHECK(symlink(cat2(g_tmp, "/gen-b"), alias) == 0,
+                      "alias: retargeted to generation B");
 
                 set_list("[{\"id\":\"ro1aa\",\"pid\":900,\"shell_id\":\"g\","
                          "\"config_path\":\"%s\",\"launch_time\":\"2026-11-17T08:00:00\"}]",
                          alias_qml);
-                set_dead_list("[{\"id\":\"ro1aa\",\"pid\":900,\"shell_id\":\"g\","
-                              "\"config_path\":\"%s\",\"launch_time\":\"2026-11-17T08:00:00\"}]",
-                              alias_qml);
+                clear_dead_list();
                 set_script(probe_ok, 2);
                 list = discover();
 
-                /* Sub-case 1: the alias was retargeted to generation B after
-                 * the instance launched. The recorded path now RESOLVES to
-                 * the expected path, but a mutable alias is the only match
-                 * evidence: fail safe, never auto-select. */
-                CHECK(unlink(alias) == 0, "retarget: alias removed");
-                CHECK(symlink(cat2(g_tmp, "/gen-b"), alias) == 0, "retarget: alias -> gen-b");
-                /* the fresh symlink's mtime is "now", i.e. after the
-                 * recorded launch time; make that explicit anyway */
-                ts[0].tv_sec = (time_t)launched + 60;
-                ts[0].tv_nsec = 0;
-                ts[1] = ts[0];
-                CHECK(utimensat(AT_FDCWD, alias, ts, AT_SYMLINK_NOFOLLOW) == 0,
-                      "retarget: alias mtime set after launch");
-
                 CHECK_INT_EQ(shoji_select_instance(list, real_b, NULL, &sel),
                              SHOJI_SELECT_NONE,
-                             "retarget: uncertain alias is not selected for B");
-                CHECK_INT_EQ(sel.match_count, 0, "retarget: no candidate");
-                CHECK_INT_EQ(sel.uncertain_matches, 1, "retarget: uncertainty reported");
-                shoji_selection_clear(&sel);
-                /* The CLI of generation A cannot establish the identity
-                 * either (the record only names the alias): fail safe. */
-                CHECK_INT_EQ(shoji_select_instance(list, real_a, NULL, &sel),
-                             SHOJI_SELECT_NONE,
-                             "retarget: uncertain alias is not selected for A");
-                CHECK_INT_EQ(sel.uncertain_matches, 0, "retarget: A simply does not match");
-                shoji_selection_clear(&sel);
-
-                /* An unparseable launch time must also fail safe when the
-                 * alias is newer than any known launch moment. */
-                shoji_instance_list_free(list);
-                set_list("[{\"id\":\"ro1aa\",\"pid\":900,\"shell_id\":\"g\","
-                         "\"config_path\":\"%s\",\"launch_time\":\"not-a-date\"}]",
-                         alias_qml);
-                list = discover();
-                CHECK_INT_EQ(shoji_select_instance(list, real_b, NULL, &sel),
-                             SHOJI_SELECT_NONE,
-                             "retarget: unparseable launch time is uncertain");
-                CHECK_INT_EQ(sel.uncertain_matches, 1, "retarget: unparseable time reported");
+                             "alias: resolved target is not treated as certain identity");
+                CHECK_INT_EQ(sel.match_count, 0, "alias: uncertain row is not a match");
+                CHECK_INT_EQ(sel.uncertain_matches, 1,
+                             "alias: uncertainty is reported without timestamp inference");
                 shoji_selection_clear(&sel);
                 shoji_instance_list_free(list);
-
-                /* Sub-case 2: the alias has not moved since launch (the
-                 * normal deployed case): automatic selection works. */
-                set_list("[{\"id\":\"ro1aa\",\"pid\":900,\"shell_id\":\"g\","
-                         "\"config_path\":\"%s\",\"launch_time\":\"2026-11-17T08:00:00\"}]",
-                         alias_qml);
-                list = discover();
-                ts[0].tv_sec = (time_t)launched - 60;
-                ts[0].tv_nsec = 0;
-                ts[1] = ts[0];
-                CHECK(utimensat(AT_FDCWD, alias, ts, AT_SYMLINK_NOFOLLOW) == 0,
-                      "retarget: alias mtime set before launch");
-                CHECK_INT_EQ(shoji_select_instance(list, real_b, NULL, &sel),
-                             SHOJI_SELECT_OK, "stable alias matches generation B");
-                CHECK_STR_EQ(sel.selected->id, "ro1aa", "stable alias selects the instance");
-                shoji_selection_clear(&sel);
-                /* generation A's CLI keeps refusing: the alias now resolves
-                 * to B, so the recorded string can never establish A */
-                CHECK_INT_EQ(shoji_select_instance(list, real_a, NULL, &sel),
-                             SHOJI_SELECT_NONE, "stable alias does not match generation A");
-                shoji_selection_clear(&sel);
-                shoji_instance_list_free(list);
-
-                free(real_a);
                 free(real_b);
         }
         clear_dead_list();

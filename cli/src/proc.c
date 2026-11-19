@@ -144,8 +144,6 @@ static int reap_bounded(pid_t pid, int *status, long budget_ms)
  * still be running); -1 when waitpid failed unexpectedly (errno set). */
 static int kill_and_reap(pid_t pid, int *status, int *kill_errno)
 {
-        pid_t w;
-
         *kill_errno = 0;
         for (;;) {
                 if (kill(pid, SIGKILL) == 0)
@@ -158,12 +156,11 @@ static int kill_and_reap(pid_t pid, int *status, int *kill_errno)
                 shj_msg("kill(%ld, SIGKILL): %s", (long)pid, strerror(errno));
                 break;
         }
-        if (*kill_errno != 0)
-                return reap_bounded(pid, status, PROC_KILL_GRACE_MS);
-        do {
-                w = waitpid(pid, status, 0);
-        } while (w < 0 && errno == EINTR);
-        return w == pid ? 0 : -1;
+        /* A successful SIGKILL only queues termination; it does not guarantee
+         * the child is immediately waitable (e.g. uninterruptible sleep).
+         * Never follow it with a blocking waitpid: cleanup must remain bounded
+         * even when the kernel cannot promptly reap the child. */
+        return reap_bounded(pid, status, PROC_KILL_GRACE_MS);
 }
 
 /* Shared kill+reap for cleanup paths: preserves the caller's failure
@@ -176,10 +173,16 @@ static int cleanup_child(pid_t pid, int *status)
 
         if (r == -1)
                 shj_msg("cleanup: waitpid: %s", strerror(errno));
-        else if (r == 1)
-                shj_msg("cleanup: child %ld could not be killed (%s) and did not exit "
-                        "within %d ms; it may still be running",
-                        (long)pid, strerror(kill_errno), PROC_KILL_GRACE_MS);
+        else if (r == 1) {
+                if (kill_errno != 0)
+                        shj_msg("cleanup: child %ld kill failed (%s) and it did not exit "
+                                "within %d ms; it may still be running",
+                                (long)pid, strerror(kill_errno), PROC_KILL_GRACE_MS);
+                else
+                        shj_msg("cleanup: child %ld received SIGKILL but was not reaped "
+                                "within %d ms; it may still be running",
+                                (long)pid, PROC_KILL_GRACE_MS);
+        }
         return r;
 }
 

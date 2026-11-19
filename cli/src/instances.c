@@ -329,77 +329,6 @@ int shoji_live_count(const struct shoji_instance_list *list)
  * offset or fractional seconds are accepted): an unparseable launch time
  * degrades matching to "uncertain" instead of widening the match window.
  * Returns 0 on success. */
-static int parse_launch_time(const char *s, long *epoch)
-{
-        int y, mo, d, h, mi, sec, npos = 0;
-        char sep;
-        struct tm tm;
-
-        if (!s || sscanf(s, "%4d-%2d-%2d%c%2d:%2d:%2d%n",
-                         &y, &mo, &d, &sep, &h, &mi, &sec, &npos) != 7)
-                return -1;
-        if (s[npos] != '\0')
-                return -1;
-        if ((sep != 'T' && sep != 't' && sep != ' ') || mo < 1 || mo > 12 || d < 1 ||
-            d > 31 || h < 0 || h > 23 || mi < 0 || mi > 59 || sec < 0 || sec > 61)
-                return -1;
-        memset(&tm, 0, sizeof(tm));
-        tm.tm_year = y - 1900;
-        tm.tm_mon = mo - 1;
-        tm.tm_mday = d;
-        tm.tm_hour = h;
-        tm.tm_min = mi;
-        tm.tm_sec = sec;
-        tm.tm_isdst = -1;
-        *epoch = (long)mktime(&tm);
-        if (*epoch < 0)
-                return -1;
-        return 0;
-}
-
-/* Walk every component of path and report the newest modification time
- * among the SYMLINK components (a mutable alias chain, e.g. a Home-Manager
- * generation link). Returns 1 when at least one component is a symlink,
- * 0 when the path has none (or cannot be inspected). */
-static int alias_witness(const char *path, long *newest)
-{
-        char buf[PATH_MAX];
-        struct stat st;
-        const char *p = path;
-        size_t len = 0;
-        int found = 0;
-
-        if (!path || !*path || strlen(path) >= sizeof(buf))
-                return 0;
-        if (path[0] == '/')
-                buf[len++] = '/';
-        for (;;) {
-                const char *q;
-                size_t clen;
-
-                while (*p == '/')
-                        p++;
-                if (!*p)
-                        break;
-                q = strchr(p, '/');
-                clen = q ? (size_t)(q - p) : strlen(p);
-                if (len > 0 && buf[len - 1] != '/')
-                        buf[len++] = '/';
-                memcpy(buf + len, p, clen);
-                len += clen;
-                buf[len] = '\0';
-                if (lstat(buf, &st) == 0 && S_ISLNK(st.st_mode)) {
-                        if (!found || st.st_mtime > (time_t)*newest)
-                                *newest = (long)st.st_mtime;
-                        found = 1;
-                }
-                if (!q)
-                        break;
-                p = q;
-        }
-        return found;
-}
-
 int shoji_instance_matches_config(const struct shoji_instance *inst,
                                   const char *expected_qml)
 {
@@ -413,63 +342,23 @@ int shoji_instance_matches_config(const struct shoji_instance *inst,
         if (!rec || !*rec)
                 return 0;
 
-        /* Configuration identity policy.
-         *
-         * Upstream evidence (quickshell master, 0.3.x line): the per-
-         * instance lock file stores InstanceInfo serialized at launch
-         * (src/core/paths.cpp QsPaths::createLock), and
-         * InstanceInfo::configPath is the path quickshell launched with
-         * after locateConfigFile/locateNamedConfig -- QFileInfo(path).
-         * absoluteFilePath(), i.e. absolute but NOT symlink-resolved.
-         * `qs list -j` prints exactly that recorded string
-         * (src/launch/command.cpp listInstances). quickshell exposes no
-         * launch-time canonical path (shell_id is an MD5 of the same
-         * recorded string; launch_time is the wall-clock launch second).
-         *
-         * Therefore the recorded path is trustworthy launch-time identity
-         * ONLY as a string. Re-resolving it with realpath() at selection
-         * time would read a mutable alias's CURRENT target (a Home-Manager
-         * or Nix generation symlink retargeted to generation B), making an
-         * instance that still runs generation A look like B.
-         *
-         * 1. recorded path == canonical expected path: the instance was
-         *    launched with exactly this path; the match is certain.
-         * 2. recorded path currently RESOLVES to the expected path through
-         *    a symlink chain: the chain's newest symlink mtime is the
-         *    retarget witness. If every alias component was last
-         *    retargeted strictly BEFORE the instance's launch time, the
-         *    chain has not moved since launch, so its current target IS
-         *    the configuration loaded at launch: match. Otherwise (alias
-         *    retargeted at or after launch, second-granularity ties, or an
-         *    unparseable launch time): the loaded generation is uncertain
-         *    (-1): no automatic match, explicit --instance-id required.
-         * 3. anything else: no match. A garbage-collected recorded path
-         *    only ever matches by its recorded string (case 1). */
+        /* quickshell records the config path string at launch, but does not
+         * provide a launch-time canonical path. An exact string comparison
+         * against the canonical expected path is reliable. If the recorded
+         * path currently resolves to that config via a mutable alias, the
+         * alias may have been retargeted after launch; do not infer identity
+         * from symlink mtimes or launch_time (which has no timezone). Mark
+         * the result uncertain and require explicit --instance-id. */
         expected_real = shj_realpath_safe(expected_qml);
-        if (!expected_real) {
-                /* The expected path does not resolve (missing store, foreign
-                 * config, test data): fall back to the given spelling. Only
-                 * an exact string match can come out of this, never a
-                 * re-resolved alias. */
+        if (!expected_real)
                 expected_real = shj_strdup(expected_qml);
-        }
         if (strcmp(rec, expected_real) == 0) {
                 free(expected_real);
                 return 1;
         }
         rec_real = shj_realpath_safe(rec);
-        if (rec_real && strcmp(rec_real, expected_real) == 0) {
-                long witness = 0, launched = 0;
-
-                if (!alias_witness(rec, &witness)) {
-                        match = 1; /* spelling difference without an alias: stable identity */
-                } else if (parse_launch_time(inst->launch_time, &launched) == 0 &&
-                           witness < launched) {
-                        match = 1;
-                } else {
-                        match = -1;
-                }
-        }
+        if (rec_real && strcmp(rec_real, expected_real) == 0)
+                match = -1;
         free(rec_real);
         free(expected_real);
         return match;
