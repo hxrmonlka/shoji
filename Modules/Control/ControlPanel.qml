@@ -10,6 +10,7 @@ Item {
     property string detail: ""
     property bool tabHost: false
     property bool appsOpen: false
+    property real appsProgress: 0
     property string trayId: ""
     property var trayAnchor: null
 
@@ -28,6 +29,22 @@ Item {
     onDetailChanged: {
         if (tabHost)
             ShellState.controlDetail = detail !== "";
+    }
+
+    onAppsOpenChanged: {
+        appsAnim.stop();
+        appsAnim.to = appsOpen ? 1 : 0;
+        appsAnim.duration = appsOpen ? 300 : 130;
+        appsAnim.easing.bezierCurve = appsOpen ? [0.16, 1, 0.3, 1, 1, 1] : [0.7, 0, 0.84, 0, 1, 1];
+        appsAnim.start();
+    }
+
+    NumberAnimation {
+        id: appsAnim
+
+        target: root
+        property: "appsProgress"
+        easing.type: Easing.BezierSpline
     }
 
     function toggleDetail(name) {
@@ -184,51 +201,74 @@ Item {
                 IconButton {
                     icon: "\uf078"
                     iconSize: 11
+                    iconRotation: 180 * root.appsProgress
                     active: root.appsOpen
                     onClicked: root.appsOpen = !root.appsOpen
                 }
             }
 
-            ColumnLayout {
+            Item {
+                id: appsClip
+
                 Layout.fillWidth: true
-                spacing: 6
-                visible: root.appsOpen
+                Layout.topMargin: -col.spacing * (1 - root.appsProgress)
+                Layout.preferredHeight: appsInner.implicitHeight * root.appsProgress
+                clip: true
+                visible: root.appsProgress > 0
 
-                Text {
-                    Layout.fillWidth: true
-                    visible: Audio.streams.length === 0
-                    text: "No apps playing audio"
-                    color: Theme.m3OnSurfaceVariant
-                    font.family: Theme.fontUi
-                    font.pixelSize: 12
-                }
+                ColumnLayout {
+                    id: appsInner
 
-                Repeater {
-                    model: root.appsOpen ? Audio.streams : []
+                    width: parent.width
+                    spacing: 6
+                    transform: Translate {
+                        y: -8 * (1 - root.appsProgress)
+                    }
 
-                    RowLayout {
-                        id: appRow
-
-                        required property var modelData
-
+                    Text {
                         Layout.fillWidth: true
-                        spacing: 8
+                        visible: Audio.streams.length === 0
+                        text: "No apps playing audio"
+                        color: Theme.m3OnSurfaceVariant
+                        font.family: Theme.fontUi
+                        font.pixelSize: 12
+                        opacity: Motion.clamp01(root.appsProgress * 1.5)
+                    }
 
-                        ValueSlider {
+                    Repeater {
+                        model: root.appsProgress > 0 ? Audio.streams : []
+
+                        RowLayout {
+                            id: appRow
+
+                            required property var modelData
+                            required property int index
+
+                            readonly property real reveal: Motion.clamp01((root.appsProgress - Math.min(index, 5) * 0.12) / 0.4)
+
                             Layout.fillWidth: true
-                            label: Audio.streamName(appRow.modelData)
-                            showValue: true
-                            value: appRow.modelData.audio.volume
-                            onMoved: v => Audio.setStreamVolume(appRow.modelData, v)
-                        }
+                            spacing: 8
+                            opacity: reveal
+                            transform: Translate {
+                                y: -6 * (1 - appRow.reveal)
+                            }
 
-                        IconButton {
-                            implicitWidth: 28
-                            implicitHeight: 28
-                            iconSize: 12
-                            icon: appRow.modelData.audio.muted ? "\uf026" : "\uf028"
-                            active: !appRow.modelData.audio.muted
-                            onClicked: Audio.toggleStreamMute(appRow.modelData)
+                            ValueSlider {
+                                Layout.fillWidth: true
+                                label: Audio.streamName(appRow.modelData)
+                                showValue: true
+                                value: appRow.modelData.audio.volume
+                                onMoved: v => Audio.setStreamVolume(appRow.modelData, v)
+                            }
+
+                            IconButton {
+                                implicitWidth: 28
+                                implicitHeight: 28
+                                iconSize: 12
+                                icon: appRow.modelData.audio.muted ? "\uf026" : "\uf028"
+                                active: !appRow.modelData.audio.muted
+                                onClicked: Audio.toggleStreamMute(appRow.modelData)
+                            }
                         }
                     }
                 }

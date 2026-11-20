@@ -7,6 +7,7 @@ Rectangle {
     property string icon: ""
     property bool active: false
     property int iconSize: 15
+    property real iconRotation: 0
 
     signal clicked
 
@@ -34,6 +35,7 @@ Rectangle {
         color: root.active ? Theme.m3OnPrimaryContainer : Theme.m3OnSurfaceVariant
         font.family: Theme.fontIcon
         font.pixelSize: root.iconSize
+        rotation: root.iconRotation
     }
 
     MouseArea {
