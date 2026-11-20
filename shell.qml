@@ -286,7 +286,7 @@ ShellRoot {
             ShellState.adjust("volume", steps * 120);
         }
 
-        function brightness(steps: int): void {
+        function brightness(steps: real): void {
             ShellState.adjust("brightness", steps * 120);
         }
     }
