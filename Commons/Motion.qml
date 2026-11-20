@@ -6,12 +6,18 @@ QtObject {
     readonly property var spatialFast: ({ stiffness: 800, damping: 0.6 })
     readonly property var spatialDefault: ({ stiffness: 380, damping: 0.8 })
     readonly property var spatialSlow: ({ stiffness: 200, damping: 0.8 })
+    readonly property var settle: ({ stiffness: 420, damping: 0.7 })
+    readonly property var lag: ({ stiffness: 300, damping: 0.75 })
     readonly property var effectsFast: ({ stiffness: 3800, damping: 1 })
     readonly property var effectsDefault: ({ stiffness: 1600, damping: 1 })
     readonly property var effectsSlow: ({ stiffness: 800, damping: 1 })
 
     function clamp01(x) {
         return Math.max(0, Math.min(1, x));
+    }
+
+    function soft(x, k) {
+        return x < 0 ? x * k : x;
     }
 
     function lerp(a, b, t) {

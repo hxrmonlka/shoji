@@ -42,8 +42,13 @@ PanelWindow {
     readonly property real popupProgress: Math.max(0, popupSpring.value)
     readonly property real osdProgress: Math.max(0, osdSpring.value)
     readonly property real mergeProgress: Math.max(popupProgress, osdProgress, powerProgress)
-    readonly property real restWidth: Motion.lerp(Motion.lerp(pillWidth, popupWidth, popupProgress), osdWidth, osdProgress)
-    readonly property real restHeight: Motion.lerp(Motion.lerp(pillHeight, popupHeight, popupProgress), osdHeight, osdProgress)
+    readonly property real impact: 0.3
+    readonly property real shellProgress: Motion.soft(morph.value, impact)
+    readonly property real shellPopup: Motion.soft(popupSpring.value, impact)
+    readonly property real shellOsd: Motion.soft(osdSpring.value, impact)
+    readonly property real shellPower: Motion.soft(powerSpring.value, impact)
+    readonly property real shellRestWidth: Motion.lerp(Motion.lerp(pillWidth, popupWidth, shellPopup), osdWidth, shellOsd)
+    readonly property real shellRestHeight: Motion.lerp(Motion.lerp(pillHeight, popupHeight, shellPopup), osdHeight, shellOsd)
 
     property bool keysGrabbed: false
     property bool handoff: false
@@ -121,7 +126,7 @@ PanelWindow {
         id: morph
 
         target: win.expanded ? 1 : 0
-        token: Motion.spatialDefault
+        token: win.expanded ? Motion.spatialDefault : Motion.settle
         epsilon: 0.0005
     }
 
@@ -129,7 +134,7 @@ PanelWindow {
         id: popupSpring
 
         target: win.popupOpen ? 1 : 0
-        token: Motion.spatialDefault
+        token: win.popupOpen ? Motion.spatialDefault : Motion.settle
         epsilon: 0.0005
     }
 
@@ -187,7 +192,7 @@ PanelWindow {
         id: osdSpring
 
         target: win.osdOpen ? 1 : 0
-        token: Motion.spatialDefault
+        token: win.osdOpen ? Motion.spatialDefault : Motion.settle
         epsilon: 0.0005
     }
 
@@ -203,7 +208,7 @@ PanelWindow {
         id: powerSpring
 
         target: win.powerOpen ? 1 : 0
-        token: Motion.spatialDefault
+        token: win.powerOpen ? Motion.spatialDefault : Motion.settle
         epsilon: 0.0005
     }
 
@@ -212,6 +217,14 @@ PanelWindow {
 
         target: win.controlOpen ? 1 : 0
         token: Motion.spatialDefault
+        epsilon: 0.0005
+    }
+
+    Spring {
+        id: headSpring
+
+        target: win.expanded ? 0 : 1
+        token: win.expanded ? Motion.effectsFast : Motion.lag
         epsilon: 0.0005
     }
 
@@ -305,8 +318,8 @@ PanelWindow {
 
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        width: Motion.lerp(Motion.lerp(win.restWidth, panelW.value, win.progress), win.powerWidth, win.powerProgress)
-        height: Motion.lerp(Motion.lerp(win.restHeight, panelH.value, win.progress), win.powerHeight, win.powerProgress)
+        width: Motion.lerp(Motion.lerp(win.shellRestWidth, panelW.value, win.shellProgress), win.powerWidth, win.shellPower)
+        height: Motion.lerp(Motion.lerp(win.shellRestHeight, panelH.value, win.shellProgress), win.powerHeight, win.shellPower)
         radius: Motion.lerp(Motion.lerp(Motion.lerp(win.pillHeight / 2, Math.min(Settings.panelRadius, 28), win.popupProgress), win.osdHeight / 2, win.osdProgress), Settings.panelRadius, Math.max(win.progress, win.powerProgress))
         color: Theme.glass(Theme.m3SurfaceContainer)
         border.width: 1
@@ -339,10 +352,11 @@ PanelWindow {
             id: header
 
             anchors.horizontalCenter: parent.horizontalCenter
-            y: 0
+            y: Math.min(0, (parent.height - win.pillHeight) / 2)
             height: win.pillHeight
             spacing: Settings.pillSpacing
-            opacity: (1 - Motion.clamp01(win.progress / 0.25)) * (1 - Motion.clamp01(win.mergeProgress / 0.3))
+            scale: 0.94 + 0.06 * headSpring.value
+            opacity: (1 - Motion.clamp01(win.progress / 0.25)) * Motion.clamp01(headSpring.value) * (1 - Motion.clamp01(win.mergeProgress / 0.3))
             visible: opacity > 0
 
             UpdateStar {
