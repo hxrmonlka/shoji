@@ -11,6 +11,7 @@ enum shoji_cmd_kind {
         SHOJI_CMD_RUN,
         SHOJI_CMD_STATUS,
         SHOJI_CMD_DOCTOR,
+        SHOJI_CMD_KILL,
         SHOJI_CMD_INSTANCE_LIST,
         SHOJI_CMD_INSTANCE_CURRENT,
         SHOJI_CMD_INSTANCE_INSPECT,
@@ -28,6 +29,7 @@ struct shoji_options {
         char *qs_bin;                     /* --qs (or env/default) */
         char *instance_id;                /* --instance-id */
         int json;                         /* --json */
+        int kill_all;                     /* kill --all */
 
         int run_argc;
         char **run_args;

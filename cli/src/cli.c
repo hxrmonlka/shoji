@@ -177,6 +177,21 @@ int shoji_parse(int argc, char **argv, struct shoji_options *opts)
         } else if (strcmp(rest[0], "doctor") == 0) {
                 if (n != 1) goto bad_arity;
                 opts->kind = SHOJI_CMD_DOCTOR;
+        } else if (strcmp(rest[0], "kill") == 0) {
+                opts->kind = SHOJI_CMD_KILL;
+                for (int i = 1; i < n; i++) {
+                        if (strcmp(rest[i], "--all") != 0) {
+                                shj_msg("usage: shoji kill [--all]");
+                                free(rest);
+                                return SHOJI_EXIT_USAGE;
+                        }
+                        opts->kill_all = 1;
+                }
+                if (opts->kill_all && opts->instance_id) {
+                        shj_msg("'shoji kill --all' and '--instance-id' are mutually exclusive");
+                        free(rest);
+                        return SHOJI_EXIT_USAGE;
+                }
         } else if (strcmp(rest[0], "instance") == 0) {
                 if (n < 2) {
                         shj_msg("missing subcommand for 'instance' (expected list, current or inspect)");
@@ -293,7 +308,9 @@ void shoji_print_help(void)
         printf("general:\n");
         printf("  shoji run [qs options]        launch the resolved Shoji configuration\n");
         printf("  shoji status                  expected store path, running instances, match verdict\n");
-        printf("  shoji doctor                  check CLI, quickshell, store path, instance, IPC\n\n");
+        printf("  shoji doctor                  check CLI, quickshell, store path, instance, IPC\n");
+        printf("  shoji kill                    stop the newest instance of the expected configuration\n");
+        printf("  shoji kill --all              stop every instance of the expected configuration\n\n");
         printf("instance management:\n");
         printf("  shoji instance list           all running quickshell instances (marked by match)\n");
         printf("  shoji instance current        the instance shoji would dispatch to\n");
@@ -324,6 +341,7 @@ void shoji_print_help(void)
         printf("  shoji wallpaper set /path/to/image.jpg\n");
         printf("  shoji awake on 30\n");
         printf("  shoji run --daemonize --no-duplicate\n");
+        printf("  shoji kill\n");
         printf("  shoji --store /nix/store/…-shoji/status\n");
         printf("  shoji --instance-id abc123 ipc show\n\n");
         printf("exit codes: 0 ok; 1 quickshell failure; 64 usage; 65 bad IPC target/function;\n");

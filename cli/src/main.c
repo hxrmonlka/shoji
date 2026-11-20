@@ -148,6 +148,10 @@ int main(int argc, char **argv)
                 code = shoji_cmd_doctor(&ctx, &opts);
                 break;
 
+        case SHOJI_CMD_KILL:
+                code = shoji_cmd_kill(&ctx, &opts);
+                break;
+
         case SHOJI_CMD_INSTANCE_LIST:
                 code = shoji_cmd_instance_list(&ctx, &opts);
                 break;

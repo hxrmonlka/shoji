@@ -197,7 +197,7 @@ static struct shj_proc_result *fake_spawn(const char *const argv[], void *user)
                 r->err = shj_strdup("");
                 return r;
         }
-        if (argv[1] && strcmp(argv[1], "ipc") == 0) {
+        if (argv[1] && (strcmp(argv[1], "ipc") == 0 || strcmp(argv[1], "kill") == 0)) {
                 int i;
 
                 g_ipc_calls++;
@@ -932,19 +932,18 @@ void test_instances(void)
                              SHOJI_EXIT_OK, "dispatch succeeds on qs exit 0");
         }
         CHECK_STR_EQ(g_recorded,
-                     "mockqs ipc -i aaa111xxx --any-display call island tab calendar item",
+                     "mockqs ipc -i aaa111xxx call island tab calendar item",
                      "dispatch diagnostic rendering retains the argv content");
         CHECK_INT_EQ(g_ipc_calls, 1, "dispatch invokes IPC exactly once");
-        CHECK_INT_EQ(g_ipc_argc, 9, "dispatch passes the expected argument count");
+        CHECK_INT_EQ(g_ipc_argc, 8, "dispatch passes the expected argument count");
         CHECK_STR_EQ(g_ipc_argv[0], "mockqs", "IPC argv[0] is quickshell");
         CHECK_STR_EQ(g_ipc_argv[1], "ipc", "IPC argv[1] is command");
         CHECK_STR_EQ(g_ipc_argv[2], "-i", "IPC argv[2] is selector flag");
         CHECK_STR_EQ(g_ipc_argv[3], "aaa111xxx", "IPC selector is one argument");
-        CHECK_STR_EQ(g_ipc_argv[4], "--any-display", "IPC argv[4] is display flag");
-        CHECK_STR_EQ(g_ipc_argv[5], "call", "IPC argv[5] is call subcommand");
-        CHECK_STR_EQ(g_ipc_argv[6], "island", "IPC target remains one argument");
-        CHECK_STR_EQ(g_ipc_argv[7], "tab", "IPC function remains one argument");
-        CHECK_STR_EQ(g_ipc_argv[8], "calendar item",
+        CHECK_STR_EQ(g_ipc_argv[4], "call", "IPC argv[4] is call subcommand");
+        CHECK_STR_EQ(g_ipc_argv[5], "island", "IPC target remains one argument");
+        CHECK_STR_EQ(g_ipc_argv[6], "tab", "IPC function remains one argument");
+        CHECK_STR_EQ(g_ipc_argv[7], "calendar item",
                      "IPC argument containing spaces remains one argument");
         shoji_pipeline_release(&pl);
 
@@ -978,6 +977,126 @@ void test_instances(void)
                      "no match refuses to dispatch");
         CHECK_INT_EQ(g_ipc_calls, 0, "no matching instance: IPC call counter remains zero");
         shoji_pipeline_release(&pl);
+
+        /* ------------------------------------------------------------------ */
+        /* kill: argv vector, newest selection, --all, identity refusals       */
+        /* ------------------------------------------------------------------ */
+
+        free(ctx.store.dir); /* owned field; shell_qml points at a static buffer */
+        memset(&opts, 0, sizeof(opts));
+        opts.store_override = shj_strdup(g_expected);
+        memset(&ctx, 0, sizeof(ctx));
+        ctx.qs_bin = "mockqs";
+        ctx.spawn = fake_spawn;
+        ctx.spawn_user = NULL;
+
+        set_list("[{\"id\":\"aaa111xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                 "\"config_path\":\"%s\","
+                 "\"launch_time\":\"2026-11-17T08:00:00\"}]", g_expected);
+        set_script(probe_ok, 1);
+        g_ipc_calls = 0;
+        g_call_exit = 0;
+        g_call_out = "Killed aaa111xxx\n";
+        g_call_err = "";
+        CHECK_INT_EQ(shoji_cmd_kill(&ctx, &opts), SHOJI_EXIT_OK,
+                     "kill succeeds on qs exit 0");
+        CHECK_STR_EQ(g_recorded, "mockqs kill -i aaa111xxx",
+                     "kill argv vector exact");
+        CHECK_INT_EQ(g_ipc_calls, 1, "kill dispatches exactly once");
+        shoji_store_free(&ctx.store);
+
+        set_list("[{\"id\":\"aaa111xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                 "\"config_path\":\"%s\","
+                 "\"launch_time\":\"2026-11-17T08:00:00\"},"
+                 "{\"id\":\"zzz999xxx\",\"pid\":6001,\"shell_id\":\"s9\","
+                 "\"config_path\":\"%s\","
+                 "\"launch_time\":\"2026-11-17T10:00:00\"}]",
+                 g_expected, g_expected);
+        set_script(probe_ok, 1);
+        g_ipc_calls = 0;
+        g_call_out = "";
+        CHECK_INT_EQ(shoji_cmd_kill(&ctx, &opts), SHOJI_EXIT_OK,
+                     "bare kill with several matches kills the newest");
+        CHECK_STR_EQ(g_recorded, "mockqs kill -i zzz999xxx",
+                     "bare kill selects the highest pid");
+        CHECK_INT_EQ(g_ipc_calls, 1, "bare kill dispatches once");
+        shoji_store_free(&ctx.store);
+
+        opts.kill_all = 1;
+        set_script(probe_ok, 1);
+        g_ipc_calls = 0;
+        CHECK_INT_EQ(shoji_cmd_kill(&ctx, &opts), SHOJI_EXIT_OK,
+                     "kill --all succeeds when every kill succeeds");
+        CHECK_INT_EQ(g_ipc_calls, 2, "kill --all dispatches once per match");
+        CHECK_STR_EQ(g_recorded, "mockqs kill -i zzz999xxx",
+                     "kill --all covers the full target set");
+        shoji_store_free(&ctx.store);
+
+        set_script(probe_ok, 1);
+        g_ipc_calls = 0;
+        g_call_exit = 255;
+        g_call_err = "";
+        CHECK_INT_EQ(shoji_cmd_kill(&ctx, &opts), SHOJI_EXIT_FAILED,
+                     "kill --all fails when a kill fails");
+        CHECK_INT_EQ(g_ipc_calls, 2, "kill --all attempts every match despite failures");
+        g_call_exit = 0;
+        shoji_store_free(&ctx.store);
+        opts.kill_all = 0;
+
+        opts.instance_id = shj_strdup("qqq");
+        set_list("[{\"id\":\"aaa111xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                 "\"config_path\":\"%s\","
+                 "\"launch_time\":\"2026-11-17T08:00:00\"},"
+                 "{\"id\":\"qqq222yyy\",\"pid\":8,\"shell_id\":\"s2\","
+                 "\"config_path\":\"/some/other/shell.qml\","
+                 "\"launch_time\":\"2026-11-17T09:00:00\"}]", g_expected);
+        set_script(probe_ok, 1);
+        g_ipc_calls = 0;
+        CHECK_INT_EQ(shoji_cmd_kill(&ctx, &opts), SHOJI_EXIT_NOINSTANCE,
+                     "explicit foreign selection refuses to kill");
+        CHECK_INT_EQ(g_ipc_calls, 0, "foreign refusal dispatches nothing");
+        free(opts.instance_id);
+        opts.instance_id = NULL;
+        shoji_store_free(&ctx.store);
+
+        opts.instance_id = shj_strdup("aaa111");
+        set_list("[{\"id\":\"aaa111xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                 "\"config_path\":\"%s\","
+                 "\"launch_time\":\"2026-11-17T08:00:00\"},"
+                 "{\"id\":\"aaa111yyy\",\"pid\":6002,\"shell_id\":\"s3\","
+                 "\"config_path\":\"%s\","
+                 "\"launch_time\":\"2026-11-17T11:00:00\"}]",
+                 g_expected, g_expected);
+        set_script(probe_ok, 1);
+        g_ipc_calls = 0;
+        CHECK_INT_EQ(shoji_cmd_kill(&ctx, &opts), SHOJI_EXIT_AMBIGUOUS,
+                     "ambiguous id prefix refuses to kill");
+        CHECK_INT_EQ(g_ipc_calls, 0, "ambiguous prefix dispatches nothing");
+        free(opts.instance_id);
+        opts.instance_id = NULL;
+        shoji_store_free(&ctx.store);
+
+        opts.instance_id = shj_strdup("unc");
+        set_list("[{\"id\":\"unc111xxx\",\"pid\":9,\"shell_id\":\"s4\","
+                 "\"config_path\":\"%s\","
+                 "\"launch_time\":\"2026-11-17T07:00:00\"}]",
+                 cat2(g_tmp, "/alias/shell.qml"));
+        set_script(probe_ok, 1);
+        g_ipc_calls = 0;
+        CHECK_INT_EQ(shoji_cmd_kill(&ctx, &opts), SHOJI_EXIT_NOINSTANCE,
+                     "uncertain generation refuses to kill");
+        CHECK_INT_EQ(g_ipc_calls, 0, "uncertain refusal dispatches nothing");
+        free(opts.instance_id);
+        opts.instance_id = NULL;
+        shoji_store_free(&ctx.store);
+
+        free(opts.store_override);
+        opts.store_override = shj_strcat(2, g_tmp, "/does-not-exist");
+        CHECK_INT_EQ(shoji_cmd_kill(&ctx, &opts), SHOJI_EXIT_NOSTORE,
+                     "kill without a resolvable store refuses");
+        free(opts.store_override);
+        opts.store_override = NULL;
+        shoji_store_free(&ctx.store);
 
         /* ------------------------------------------------------------------ */
         /* unresolved store, host-independent: a nonexistent --store override  */

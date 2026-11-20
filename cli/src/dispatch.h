@@ -11,21 +11,21 @@
 #include "resolver.h"
 
 struct shoji_context {
-	const char *qs_bin;
-	shj_spawn_fn spawn;
-	void *spawn_user;
-	struct shoji_store store;
-	int have_store;
+        const char *qs_bin;
+        shj_spawn_fn spawn;
+        void *spawn_user;
+        struct shoji_store store;
+        int have_store;
 };
 
 /* Shared result of resolve + discover + select. */
 struct shoji_pipeline {
-	struct shoji_instance_list *list;
-	struct shoji_selection sel;
-	int have_store;
-	/* 0 when a live instance was selected and dispatch may proceed;
-	 * otherwise a shoji exit code. */
-	int exit_code;
+        struct shoji_instance_list *list;
+        struct shoji_selection sel;
+        int have_store;
+        /* 0 when a live instance was selected and dispatch may proceed;
+         * otherwise a shoji exit code. */
+        int exit_code;
 };
 
 /* Resolve the qs binary name and prepare the spawn function. */
@@ -52,6 +52,16 @@ int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *
 
 /* Dispatch `qs ipc show` for the selected instance; returns exit code. */
 int shoji_dispatch_show(struct shoji_context *ctx, const struct shoji_pipeline *pl);
+
+/* Kill the pipeline's selected instance via `qs kill -i <full-id>`. */
+int shoji_dispatch_kill(struct shoji_context *ctx, const struct shoji_pipeline *pl);
+
+/* Kill one explicit instance via `qs kill -i <full-id>`. */
+int shoji_dispatch_kill_instance(struct shoji_context *ctx,
+                                 const struct shoji_instance *inst);
+
+/* One diagnostic line describing an instance (stderr). */
+void shoji_print_instance_line(const struct shoji_instance *inst, const char *mark);
 
 /* Probe IPC accessibility without side effects; 0 = reachable. */
 int shoji_ipc_probe(struct shoji_context *ctx, const struct shoji_instance *inst);

@@ -51,7 +51,7 @@ static void store_unresolved_hints(void)
                  "derivation so SHOJI_DEFAULT_STORE is baked in.");
 }
 
-static void print_instance_line(const struct shoji_instance *inst, const char *mark)
+void shoji_print_instance_line(const struct shoji_instance *inst, const char *mark)
 {
         fprintf(stderr, "  %s %-20s pid %-8ld %s%s\n",
                mark ? mark : " ",
@@ -172,7 +172,7 @@ void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *o
                                         struct shoji_instance *inst = &pl->list->items[i];
 
                                         if (!inst->dead)
-                                                print_instance_line(inst, NULL);
+                                                shoji_print_instance_line(inst, NULL);
                                 }
                                 shj_hint("dispatch to one explicitly with --instance-id <id prefix>");
                         } else {
@@ -190,7 +190,7 @@ void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *o
                         shj_msg("multiple running instances match the expected configuration "
                                 "or the given instance id prefix");
                         for (int i = 0; i < pl->sel.match_count; i++)
-                                print_instance_line(pl->sel.matches[i], "*");
+                                shoji_print_instance_line(pl->sel.matches[i], "*");
                         shj_hint("pick one explicitly with --instance-id <id prefix>");
                         pl->exit_code = SHOJI_EXIT_AMBIGUOUS;
                 } else {
@@ -362,6 +362,72 @@ int shoji_dispatch_show(struct shoji_context *ctx, const struct shoji_pipeline *
                 code = SHOJI_EXIT_FAILED;
         shj_proc_result_free(r);
         return code;
+}
+
+int shoji_dispatch_kill_instance(struct shoji_context *ctx,
+                                 const struct shoji_instance *inst)
+{
+        const char *argv[] = { ctx->qs_bin, "kill", "-i", NULL, NULL };
+        struct shj_proc_result *r;
+        int code;
+
+        if (!inst || inst->dead)
+                return SHOJI_EXIT_NOINSTANCE;
+        if (!inst->id_valid) {
+                shj_msg("internal error: refusing to dispatch: instance has no valid id");
+                return SHOJI_EXIT_INTERNAL;
+        }
+
+        argv[3] = inst->id;
+        r = ctx->spawn(argv, ctx->spawn_user);
+        if (!r)
+                return SHOJI_EXIT_INTERNAL;
+        if (r->exit == -1) {
+                shj_msg("cannot execute quickshell (%s): %s", ctx->qs_bin,
+                        strerror(r->spawn_errno));
+                shj_hint("install quickshell or point --qs / SHOJI_QS_BIN at it");
+                shj_proc_result_free(r);
+                return SHOJI_EXIT_NOQS;
+        }
+        if (r->exit == -2) {
+                shj_msg("quickshell did not answer the kill request in time");
+                warn_timeout();
+                shj_proc_result_free(r);
+                return SHOJI_EXIT_FAILED;
+        }
+        if (r->exit == -3) {
+                shj_msg("internal error reading quickshell output: %s",
+                        strerror(r->spawn_errno));
+                shj_proc_result_free(r);
+                return SHOJI_EXIT_INTERNAL;
+        }
+        if (r->truncated)
+                shj_msg("quickshell output hit the 4 MiB per-stream capture cap and was truncated");
+
+        if (r->out && *r->out)
+                fputs(r->out, stdout);
+        code = r->exit;
+        if (r->err && *r->err)
+                fputs(r->err, stderr);
+        if (code != 0) {
+                code = SHOJI_EXIT_FAILED;
+                shj_msg("quickshell exited with status %d", r->exit);
+        }
+        shj_proc_result_free(r);
+        return code;
+}
+
+int shoji_dispatch_kill(struct shoji_context *ctx, const struct shoji_pipeline *pl)
+{
+        const struct shoji_instance *inst = pl->sel.selected;
+
+        if (!inst || inst->dead)
+                return SHOJI_EXIT_NOINSTANCE;
+        if (!inst->id_valid) {
+                shj_msg("internal error: refusing to dispatch: instance has no valid id");
+                return SHOJI_EXIT_INTERNAL;
+        }
+        return shoji_dispatch_kill_instance(ctx, inst);
 }
 
 int shoji_ipc_probe(struct shoji_context *ctx, const struct shoji_instance *inst)

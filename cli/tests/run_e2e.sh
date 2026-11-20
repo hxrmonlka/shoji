@@ -151,7 +151,7 @@ grep -qF -- "call island toggle" "$MOCK_QS_LOG" \
 # dispatch ------------------------------------------------------------------
 : > "$MOCK_QS_LOG"
 expect_exit 0 "island toggle dispatches" "$CLI" island toggle
-grep -qF -- "-i inst1abcdefgh --any-display call island toggle" "$MOCK_QS_LOG" \
+grep -qF -- "-i inst1abcdefgh call island toggle" "$MOCK_QS_LOG" \
   && ok "dispatch argv vector exact" || bad "dispatch argv vector exact" "$(cat "$MOCK_QS_LOG")"
 
 : > "$MOCK_QS_LOG"
@@ -224,10 +224,29 @@ got=$?
 if [ "$got" = 0 ]; then ok "override dispatches with warning"; else bad "override dispatches with warning" "exit $got"; fi
 grep -q "not the expected configuration" "$WORK/warn.txt" \
   && ok "foreign-config override warns" || bad "foreign-config override warns" "$(cat "$WORK/warn.txt")"
-grep -qF -- "-i inst2abcdefgh --any-display call island toggle" "$MOCK_QS_LOG" \
+grep -qF -- "-i inst2abcdefgh call island toggle" "$MOCK_QS_LOG" \
   && ok "override still dispatches" || bad "override still dispatches" "$(cat "$MOCK_QS_LOG")"
 
 expect_exit 67 "unknown instance id exits 67" "$CLI" --instance-id zzz island toggle
+
+# kill -----------------------------------------------------------------------
+: > "$MOCK_QS_LOG"
+expect_exit 0 "kill dispatches to the selected instance" "$CLI" kill
+grep -qF -- " 4:kill 2:-i 13:inst1abcdefgh" "$MOCK_QS_LOG" \
+  && ok "kill argv vector exact" || bad "kill argv vector exact" "$(cat "$MOCK_QS_LOG")"
+expect_out "Killed inst1abcdefgh" "kill relays upstream output" "$CLI" kill
+
+expect_exit 67 "kill refuses foreign explicit selection" "$CLI" --instance-id inst2 kill
+"$CLI" --instance-id inst2 kill 2>"$WORK/kill-foreign.txt" || true
+grep -qF "not the expected" "$WORK/kill-foreign.txt" \
+  && grep -qF "qs kill -i" "$WORK/kill-foreign.txt" \
+  && ok "foreign kill refusal explains" || bad "foreign kill refusal explains" "$(cat "$WORK/kill-foreign.txt")"
+
+expect_exit 64 "kill rejects extra arguments" "$CLI" kill explode
+expect_exit 64 "kill rejects unknown flags" "$CLI" kill --restart
+expect_exit 64 "kill --all rejects a pending instance override" "$CLI" --instance-id inst1 kill --all
+expect_exit 64 "kill --all rejects a later instance override" "$CLI" kill --all --instance-id inst1
+expect_exit 1 "kill propagates quickshell failure" env MOCK_KILL_FAIL=1 "$CLI" kill
 
 # store resolution errors ----------------------------------------------------
 # Deterministic and host-independent: a nonexistent --store override decides,
@@ -236,6 +255,8 @@ expect_exit 66 "missing store override exits 66" \
   "$CLI" --store "$WORK/does-not-exist" island toggle
 expect_exit 66 "nonexistent store override exits 66" \
   env SHOJI_STORE_PATH="$WORK/nope" "$CLI" island toggle
+expect_exit 66 "kill without a resolvable store exits 66" \
+  "$CLI" --store "$WORK/does-not-exist" kill
 expect_exit 64 "--store without value exits 64" "$CLI" --store
 expect_exit 64 "malformed timeout environment exits 64" \
   env SHOJI_QS_TIMEOUT_MS=abc "$CLI" status
@@ -261,6 +282,20 @@ grep -c "inst[19]abcdefgh" "$WORK/ambig.stderr" > "$WORK/ambig.txt"
 grep -q "^2$" "$WORK/ambig.txt" && ok "ambiguous prefix lists both matches" \
   || bad "ambiguous prefix lists both matches" "$(cat "$WORK/ambig.txt")"
 
+: > "$MOCK_QS_LOG"
+expect_exit 0 "bare kill picks the newest matching instance" "$CLI" kill
+grep -qF -- " 4:kill 2:-i 13:inst9abcdefgh" "$MOCK_QS_LOG" \
+  && ok "bare kill selects the highest pid" || bad "bare kill selects the highest pid" "$(cat "$MOCK_QS_LOG")"
+
+: > "$MOCK_QS_LOG"
+expect_exit 0 "kill --all kills every matching instance" "$CLI" kill --all
+[ "$(grep -c ' 4:kill 2:-i ' "$MOCK_QS_LOG")" = "2" ] \
+  && ok "kill --all dispatches once per instance" || bad "kill --all dispatches once per instance" "$(cat "$MOCK_QS_LOG")"
+grep -qF -- "-i 13:inst1abcdefgh" "$MOCK_QS_LOG" && grep -qF -- "-i 13:inst9abcdefgh" "$MOCK_QS_LOG" \
+  && ok "kill --all covers both instances" || bad "kill --all covers both instances" "$(cat "$MOCK_QS_LOG")"
+
+expect_exit 68 "ambiguous id prefix kill exits 68" "$CLI" --instance-id inst kill
+
 # no match --------------------------------------------------------------------
 cat > "$WORK/instances.json" <<EOF
 [
@@ -269,6 +304,8 @@ cat > "$WORK/instances.json" <<EOF
 ]
 EOF
 expect_exit 67 "no matching instance exits 67" "$CLI" island toggle
+expect_exit 67 "bare kill without a match exits 67" "$CLI" kill
+expect_exit 67 "kill --all without a match exits 67" "$CLI" kill --all
 expect_exit 0 "status still informative without match" "$CLI" status
 "$CLI" status | grep -q "verdict: no-match" \
   && ok "status verdict no-match" || bad "status verdict no-match"
@@ -298,6 +335,8 @@ expect_exit 67 "dead-only instance exits 67" \
   env MOCK_DEAD_LIST_FILE="$WORK/dead.json" "$CLI" island toggle
 expect_exit 67 "dead-only positive-pid instance exits 67" \
   env MOCK_DEAD_LIST_FILE="$WORK/dead.json" "$CLI" --instance-id dead1 island toggle
+expect_exit 67 "dead-only bare kill exits 67" \
+  env MOCK_DEAD_LIST_FILE="$WORK/dead.json" "$CLI" kill
 env MOCK_DEAD_LIST_FILE="$WORK/dead.json" "$CLI" status 2>/dev/null | grep -q "verdict: no-instance-dead-only" \
   && ok "status verdict reports dead-only" || bad "status verdict reports dead-only"
 
@@ -317,6 +356,8 @@ env MOCK_DEAD_LIST_FILE="$WORK/dead.json" "$CLI" status > "$WORK/mixed-status.tx
 grep -q "1 running, 1 dead" "$WORK/mixed-status.txt" \
   && ok "mixed live/dead listing is valid JSON" \
   || bad "mixed live/dead listing is valid JSON" "$(cat "$WORK/mixed-status.txt" "$WORK/mixed-status.err")"
+expect_exit 67 "explicit dead instance kill exits 67" \
+  env MOCK_DEAD_LIST_FILE="$WORK/dead.json" "$CLI" --instance-id dead2 kill
 
 # discovery failure classes ---------------------------------------------------
 cat > "$WORK/instances.json" <<EOF

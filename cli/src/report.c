@@ -15,24 +15,24 @@
 
 static void json_escaped(struct shj_sbuf *b, const char *s)
 {
-	if (!s)
-		s = "";
-	shj_sbuf_addch(b, '"');
-	for (; *s; s++) {
-		switch (*s) {
-		case '"': shj_sbuf_add(b, "\\\""); break;
-		case '\\': shj_sbuf_add(b, "\\\\"); break;
-		case '\n': shj_sbuf_add(b, "\\n"); break;
-		case '\r': shj_sbuf_add(b, "\\r"); break;
-		case '\t': shj_sbuf_add(b, "\\t"); break;
-		default:
-			if ((unsigned char)*s < 0x20)
-				shj_sbuf_addf(b, "\\u%04x", (unsigned char)*s);
-			else
-				shj_sbuf_addch(b, *s);
-		}
-	}
-	shj_sbuf_addch(b, '"');
+        if (!s)
+                s = "";
+        shj_sbuf_addch(b, '"');
+        for (; *s; s++) {
+                switch (*s) {
+                case '"': shj_sbuf_add(b, "\\\""); break;
+                case '\\': shj_sbuf_add(b, "\\\\"); break;
+                case '\n': shj_sbuf_add(b, "\\n"); break;
+                case '\r': shj_sbuf_add(b, "\\r"); break;
+                case '\t': shj_sbuf_add(b, "\\t"); break;
+                default:
+                        if ((unsigned char)*s < 0x20)
+                                shj_sbuf_addf(b, "\\u%04x", (unsigned char)*s);
+                        else
+                                shj_sbuf_addch(b, *s);
+                }
+        }
+        shj_sbuf_addch(b, '"');
 }
 
 /* Emit one instance as a JSON object and close it. `ipc_accessible` is a
@@ -42,25 +42,25 @@ static void json_escaped(struct shj_sbuf *b, const char *s)
 static void json_instance(struct shj_sbuf *b, const struct shoji_instance *inst,
                           int matches_expected, int store_known, int ipc_accessible)
 {
-	shj_sbuf_add(b, "{\"id\":");
-	json_escaped(b, inst->id);
-	shj_sbuf_addf(b, ",\"pid\":%ld,\"alive\":%s", inst->pid,
-	              inst->dead ? "false" : "true");
-	shj_sbuf_add(b, ",\"shell_id\":");
-	json_escaped(b, inst->shell_id);
-	shj_sbuf_add(b, ",\"config_path\":");
-	json_escaped(b, inst->config_path);
-	shj_sbuf_add(b, ",\"launch_time\":");
-	json_escaped(b, inst->launch_time);
-	if (store_known)
-		shj_sbuf_addf(b, ",\"matches_expected\":%s",
-		              matches_expected ? "true" : "false");
-	else
-		shj_sbuf_add(b, ",\"matches_expected\":null");
-	if (ipc_accessible >= 0)
-		shj_sbuf_addf(b, ",\"ipc_accessible\":%s",
-		              ipc_accessible ? "true" : "false");
-	shj_sbuf_addch(b, '}');
+        shj_sbuf_add(b, "{\"id\":");
+        json_escaped(b, inst->id);
+        shj_sbuf_addf(b, ",\"pid\":%ld,\"alive\":%s", inst->pid,
+                      inst->dead ? "false" : "true");
+        shj_sbuf_add(b, ",\"shell_id\":");
+        json_escaped(b, inst->shell_id);
+        shj_sbuf_add(b, ",\"config_path\":");
+        json_escaped(b, inst->config_path);
+        shj_sbuf_add(b, ",\"launch_time\":");
+        json_escaped(b, inst->launch_time);
+        if (store_known)
+                shj_sbuf_addf(b, ",\"matches_expected\":%s",
+                              matches_expected ? "true" : "false");
+        else
+                shj_sbuf_add(b, ",\"matches_expected\":null");
+        if (ipc_accessible >= 0)
+                shj_sbuf_addf(b, ",\"ipc_accessible\":%s",
+                              ipc_accessible ? "true" : "false");
+        shj_sbuf_addch(b, '}');
 }
 
 /* ------------------------------------------------------------------ */
@@ -69,79 +69,79 @@ static void json_instance(struct shj_sbuf *b, const struct shoji_instance *inst,
 
 static int instance_matches(const struct shoji_context *ctx, const struct shoji_instance *inst)
 {
-	if (!ctx->have_store || !inst)
-		return 0;
-	/* 1 = the configuration identity is established; 0/-1 (uncertain)
-	 * count as not matching: an unestablishable generation must never
-	 * look like a match in status or list output. */
-	return shoji_instance_matches_config(inst, ctx->store.shell_qml) == 1;
+        if (!ctx->have_store || !inst)
+                return 0;
+        /* 1 = the configuration identity is established; 0/-1 (uncertain)
+         * count as not matching: an unestablishable generation must never
+         * look like a match in status or list output. */
+        return shoji_instance_matches_config(inst, ctx->store.shell_qml) == 1;
 }
 
 static const char *verdict_for(const struct shoji_context *ctx,
                                const struct shoji_pipeline *pl)
 {
-	if (!pl->list)
-		return "discovery-failed";
-	if (!pl->have_store)
-		return "unknown-store";
-	switch (pl->sel.status) {
-	case SHOJI_SELECT_OK:
-		if (!pl->sel.selected)
-			return "unknown";
-		if (pl->sel.selected->dead)
-			return "selected-instance-dead";
-		if (!instance_matches(ctx, pl->sel.selected))
-			return "override-mismatch";
-		return "match";
-	case SHOJI_SELECT_NONE:
-		return pl->sel.dead_match_count > 0 ? "no-instance-dead-only" : "no-match";
-	case SHOJI_SELECT_AMBIGUOUS:
-		return "ambiguous";
-	case SHOJI_SELECT_ERROR:
-		return "discovery-failed";
-	}
-	return "unknown";
+        if (!pl->list)
+                return "discovery-failed";
+        if (!pl->have_store)
+                return "unknown-store";
+        switch (pl->sel.status) {
+        case SHOJI_SELECT_OK:
+                if (!pl->sel.selected)
+                        return "unknown";
+                if (pl->sel.selected->dead)
+                        return "selected-instance-dead";
+                if (!instance_matches(ctx, pl->sel.selected))
+                        return "override-mismatch";
+                return "match";
+        case SHOJI_SELECT_NONE:
+                return pl->sel.dead_match_count > 0 ? "no-instance-dead-only" : "no-match";
+        case SHOJI_SELECT_AMBIGUOUS:
+                return "ambiguous";
+        case SHOJI_SELECT_ERROR:
+                return "discovery-failed";
+        }
+        return "unknown";
 }
 
 static void status_json(struct shoji_context *ctx, const struct shoji_pipeline *pl,
                         const char *qs_resolved, const char *qs_version)
 {
-	struct shj_sbuf b;
+        struct shj_sbuf b;
 
-	shj_sbuf_init(&b);
-	shj_sbuf_add(&b, "{\"cli\":");
-	json_escaped(&b, "shoji-cli " SHOJI_CLI_VERSION);
-	shj_sbuf_add(&b, ",\"quickshell\":{\"bin\":");
-	json_escaped(&b, ctx->qs_bin);
-	shj_sbuf_add(&b, ",\"resolved\":");
-	json_escaped(&b, qs_resolved);
-	shj_sbuf_add(&b, ",\"version\":");
-	json_escaped(&b, qs_version);
-	shj_sbuf_add(&b, "},\"store\":{\"resolved\":");
-	shj_sbuf_add(&b, pl->have_store ? "true" : "false");
-	shj_sbuf_add(&b, ",\"source\":");
-	json_escaped(&b, pl->have_store ? ctx->store.source_name : NULL);
-	shj_sbuf_add(&b, ",\"detail\":");
-	json_escaped(&b, pl->have_store ? ctx->store.source_detail : NULL);
-	shj_sbuf_add(&b, ",\"dir\":");
-	json_escaped(&b, pl->have_store ? ctx->store.dir : NULL);
-	shj_sbuf_add(&b, ",\"shell_qml\":");
-	json_escaped(&b, pl->have_store ? ctx->store.shell_qml : NULL);
-	shj_sbuf_add(&b, "},\"instances\":[");
-	if (pl->list) {
-		for (int i = 0; i < pl->list->count; i++) {
-			struct shoji_instance *inst = &pl->list->items[i];
+        shj_sbuf_init(&b);
+        shj_sbuf_add(&b, "{\"cli\":");
+        json_escaped(&b, "shoji-cli " SHOJI_CLI_VERSION);
+        shj_sbuf_add(&b, ",\"quickshell\":{\"bin\":");
+        json_escaped(&b, ctx->qs_bin);
+        shj_sbuf_add(&b, ",\"resolved\":");
+        json_escaped(&b, qs_resolved);
+        shj_sbuf_add(&b, ",\"version\":");
+        json_escaped(&b, qs_version);
+        shj_sbuf_add(&b, "},\"store\":{\"resolved\":");
+        shj_sbuf_add(&b, pl->have_store ? "true" : "false");
+        shj_sbuf_add(&b, ",\"source\":");
+        json_escaped(&b, pl->have_store ? ctx->store.source_name : NULL);
+        shj_sbuf_add(&b, ",\"detail\":");
+        json_escaped(&b, pl->have_store ? ctx->store.source_detail : NULL);
+        shj_sbuf_add(&b, ",\"dir\":");
+        json_escaped(&b, pl->have_store ? ctx->store.dir : NULL);
+        shj_sbuf_add(&b, ",\"shell_qml\":");
+        json_escaped(&b, pl->have_store ? ctx->store.shell_qml : NULL);
+        shj_sbuf_add(&b, "},\"instances\":[");
+        if (pl->list) {
+                for (int i = 0; i < pl->list->count; i++) {
+                        struct shoji_instance *inst = &pl->list->items[i];
 
-			if (i)
-				shj_sbuf_addch(&b, ',');
-			json_instance(&b, inst, instance_matches(ctx, inst), pl->have_store, -1);
-		}
-	}
-	shj_sbuf_add(&b, "],\"verdict\":");
-	json_escaped(&b, verdict_for(ctx, pl));
-	shj_sbuf_add(&b, "}\n");
-	fputs(b.s, stdout);
-	shj_sbuf_free(&b);
+                        if (i)
+                                shj_sbuf_addch(&b, ',');
+                        json_instance(&b, inst, instance_matches(ctx, inst), pl->have_store, -1);
+                }
+        }
+        shj_sbuf_add(&b, "],\"verdict\":");
+        json_escaped(&b, verdict_for(ctx, pl));
+        shj_sbuf_add(&b, "}\n");
+        fputs(b.s, stdout);
+        shj_sbuf_free(&b);
 }
 
 /* ------------------------------------------------------------------ */
@@ -150,71 +150,71 @@ static void status_json(struct shoji_context *ctx, const struct shoji_pipeline *
 
 int shoji_cmd_status(struct shoji_context *ctx, const struct shoji_options *opts)
 {
-	struct shoji_pipeline pl;
-	char *qs_resolved = shj_find_in_path(ctx->qs_bin, NULL);
-	char *qs_version = shoji_qs_version(ctx);
-	int code;
+        struct shoji_pipeline pl;
+        char *qs_resolved = shj_find_in_path(ctx->qs_bin, NULL);
+        char *qs_version = shoji_qs_version(ctx);
+        int code;
 
-	shoji_context_resolve_store(ctx, opts);
-	shoji_pipeline_run(ctx, opts, 0, &pl);
-	code = !pl.list ? (pl.exit_code ? pl.exit_code : SHOJI_EXIT_FAILED) : SHOJI_EXIT_OK;
+        shoji_context_resolve_store(ctx, opts);
+        shoji_pipeline_run(ctx, opts, 0, &pl);
+        code = !pl.list ? (pl.exit_code ? pl.exit_code : SHOJI_EXIT_FAILED) : SHOJI_EXIT_OK;
 
-	if (opts->json) {
-		status_json(ctx, &pl, qs_resolved, qs_version);
-		shoji_pipeline_release(&pl);
-		free(qs_resolved);
-		free(qs_version);
-		return code;
-	}
+        if (opts->json) {
+                status_json(ctx, &pl, qs_resolved, qs_version);
+                shoji_pipeline_release(&pl);
+                free(qs_resolved);
+                free(qs_version);
+                return code;
+        }
 
-	printf("shoji-cli %s\n", SHOJI_CLI_VERSION);
-	printf("quickshell: %s -> %s (%s)\n", ctx->qs_bin,
-	       qs_resolved ? qs_resolved : "not found on $PATH",
-	       qs_version ? qs_version : "version unknown");
+        printf("shoji-cli %s\n", SHOJI_CLI_VERSION);
+        printf("quickshell: %s -> %s (%s)\n", ctx->qs_bin,
+               qs_resolved ? qs_resolved : "not found on $PATH",
+               qs_version ? qs_version : "version unknown");
 
-	if (ctx->have_store) {
-		printf("store path: %s\n", ctx->store.shell_qml);
-		printf("  directory: %s\n", ctx->store.dir);
-		printf("  source: %s (%s)\n", ctx->store.source_name,
-		       ctx->store.source_detail ? ctx->store.source_detail : "-");
-	} else {
-		printf("store path: unresolved\n");
-		printf("  set --store or SHOJI_STORE_PATH; see `shoji doctor`\n");
-	}
+        if (ctx->have_store) {
+                printf("store path: %s\n", ctx->store.shell_qml);
+                printf("  directory: %s\n", ctx->store.dir);
+                printf("  source: %s (%s)\n", ctx->store.source_name,
+                       ctx->store.source_detail ? ctx->store.source_detail : "-");
+        } else {
+                printf("store path: unresolved\n");
+                printf("  set --store or SHOJI_STORE_PATH; see `shoji doctor`\n");
+        }
 
-	if (!pl.list) {
-		printf("instances: discovery failed\n");
-		shoji_pipeline_release(&pl);
-		free(qs_resolved);
-		free(qs_version);
-		return code;
-	}
+        if (!pl.list) {
+                printf("instances: discovery failed\n");
+                shoji_pipeline_release(&pl);
+                free(qs_resolved);
+                free(qs_version);
+                return code;
+        }
 
-	printf("instances: %d running, %d dead total\n",
-	       shoji_live_count(pl.list), pl.list->count - shoji_live_count(pl.list));
-	for (int i = 0; i < pl.list->count; i++) {
-		struct shoji_instance *inst = &pl.list->items[i];
-		int match = instance_matches(ctx, inst);
+        printf("instances: %d running, %d dead total\n",
+               shoji_live_count(pl.list), pl.list->count - shoji_live_count(pl.list));
+        for (int i = 0; i < pl.list->count; i++) {
+                struct shoji_instance *inst = &pl.list->items[i];
+                int match = instance_matches(ctx, inst);
 
-		if (inst->dead)
-			printf("  %s %-20s pid %-8s %-13s %s (launched %s)\n",
-			       match ? "*" : " ", inst->id, "(dead)",
-			       match ? "MATCH" : "other config",
-			       inst->config_path ? inst->config_path : "?",
-			       inst->launch_time ? inst->launch_time : "?");
-		else
-			printf("  %s %-20s pid %-8ld %-13s %s (launched %s)\n",
-			       match ? "*" : " ", inst->id, inst->pid,
-			       match ? "MATCH" : "other config",
-			       inst->config_path ? inst->config_path : "?",
-			       inst->launch_time ? inst->launch_time : "?");
-	}
-	printf("verdict: %s\n", verdict_for(ctx, &pl));
+                if (inst->dead)
+                        printf("  %s %-20s pid %-8s %-13s %s (launched %s)\n",
+                               match ? "*" : " ", inst->id, "(dead)",
+                               match ? "MATCH" : "other config",
+                               inst->config_path ? inst->config_path : "?",
+                               inst->launch_time ? inst->launch_time : "?");
+                else
+                        printf("  %s %-20s pid %-8ld %-13s %s (launched %s)\n",
+                               match ? "*" : " ", inst->id, inst->pid,
+                               match ? "MATCH" : "other config",
+                               inst->config_path ? inst->config_path : "?",
+                               inst->launch_time ? inst->launch_time : "?");
+        }
+        printf("verdict: %s\n", verdict_for(ctx, &pl));
 
-	shoji_pipeline_release(&pl);
-	free(qs_resolved);
-	free(qs_version);
-	return code;
+        shoji_pipeline_release(&pl);
+        free(qs_resolved);
+        free(qs_version);
+        return code;
 }
 
 /* ------------------------------------------------------------------ */
@@ -223,136 +223,281 @@ int shoji_cmd_status(struct shoji_context *ctx, const struct shoji_options *opts
 
 static void doctor_check(int failed, int warned, const char *name, const char *detail)
 {
-	printf("  [%s] %s%s%s\n", failed ? "fail" : warned ? "warn" : "ok",
-	       name, detail && *detail ? ": " : "", detail ? detail : "");
+        printf("  [%s] %s%s%s\n", failed ? "fail" : warned ? "warn" : "ok",
+               name, detail && *detail ? ": " : "", detail ? detail : "");
 }
 
 int shoji_cmd_doctor(struct shoji_context *ctx, const struct shoji_options *opts)
 {
-	struct shoji_pipeline pl;
-	int failures = 0;
-	char *qs_resolved = NULL;
-	char *qs_version = NULL;
+        struct shoji_pipeline pl;
+        int failures = 0;
+        char *qs_resolved = NULL;
+        char *qs_version = NULL;
 
-	printf("shoji doctor\n");
+        printf("shoji doctor\n");
 
-	/* 1. quickshell executable */
-	qs_resolved = shj_find_in_path(ctx->qs_bin, NULL);
-	qs_version = shoji_qs_version(ctx);
-	doctor_check(!qs_resolved, 0, "quickshell executable",
-	             qs_resolved ? qs_resolved
-	                         : "not found; install quickshell or set --qs / SHOJI_QS_BIN");
-	if (!qs_resolved)
-		failures++;
-	doctor_check(!qs_version, 0, "quickshell version",
-	             qs_version ? qs_version : "`qs --version` failed");
-	if (!qs_version)
-		failures++;
-	free(qs_resolved);
-	free(qs_version);
+        /* 1. quickshell executable */
+        qs_resolved = shj_find_in_path(ctx->qs_bin, NULL);
+        qs_version = shoji_qs_version(ctx);
+        doctor_check(!qs_resolved, 0, "quickshell executable",
+                     qs_resolved ? qs_resolved
+                                 : "not found; install quickshell or set --qs / SHOJI_QS_BIN");
+        if (!qs_resolved)
+                failures++;
+        doctor_check(!qs_version, 0, "quickshell version",
+                     qs_version ? qs_version : "`qs --version` failed");
+        if (!qs_version)
+                failures++;
+        free(qs_resolved);
+        free(qs_version);
 
-	/* 2. store path */
-	shoji_context_resolve_store(ctx, opts);
-	if (!ctx->have_store) {
-		doctor_check(1, 0, "shoji store path", "unresolved");
-		shj_hint("try --store /path/to/shoji (a directory or shell.qml), or set "
-		         "SHOJI_STORE_PATH; when packaged, shoji-cli gets SHOJI_DEFAULT_STORE "
-		         "baked in");
-		failures++;
-	} else {
-		struct shj_sbuf b;
+        /* 2. store path */
+        shoji_context_resolve_store(ctx, opts);
+        if (!ctx->have_store) {
+                doctor_check(1, 0, "shoji store path", "unresolved");
+                shj_hint("try --store /path/to/shoji (a directory or shell.qml), or set "
+                         "SHOJI_STORE_PATH; when packaged, shoji-cli gets SHOJI_DEFAULT_STORE "
+                         "baked in");
+                failures++;
+        } else {
+                struct shj_sbuf b;
 
-		shj_sbuf_init(&b);
-		shj_sbuf_addf(&b, "%s (source: %s", ctx->store.shell_qml,
-		              ctx->store.source_name);
-		if (ctx->store.source_detail)
-			shj_sbuf_addf(&b, ": %s", ctx->store.source_detail);
-		shj_sbuf_add(&b, ")");
-		doctor_check(0, 0, "shoji store path", b.s);
-		shj_sbuf_free(&b);
-	}
+                shj_sbuf_init(&b);
+                shj_sbuf_addf(&b, "%s (source: %s", ctx->store.shell_qml,
+                              ctx->store.source_name);
+                if (ctx->store.source_detail)
+                        shj_sbuf_addf(&b, ": %s", ctx->store.source_detail);
+                shj_sbuf_add(&b, ")");
+                doctor_check(0, 0, "shoji store path", b.s);
+                shj_sbuf_free(&b);
+        }
 
-	/* 3. instance discovery */
-	shoji_pipeline_run(ctx, opts, 0, &pl);
-	if (!pl.list) {
-		doctor_check(1, 0, "instance discovery",
-		             "`qs list -a -j` failed; is quickshell running and is "
-		             "XDG_RUNTIME_DIR set?");
-		failures++;
-	} else {
-		struct shj_sbuf b;
+        /* 3. instance discovery */
+        shoji_pipeline_run(ctx, opts, 0, &pl);
+        if (!pl.list) {
+                doctor_check(1, 0, "instance discovery",
+                             "`qs list -a -j` failed; is quickshell running and is "
+                             "XDG_RUNTIME_DIR set?");
+                failures++;
+        } else {
+                struct shj_sbuf b;
 
-		shj_sbuf_init(&b);
-		shj_sbuf_addf(&b, "%d running, %d dead",
-		              shoji_live_count(pl.list),
-		              pl.list->count - shoji_live_count(pl.list));
-		doctor_check(0, 0, "instance discovery", b.s);
-		shj_sbuf_free(&b);
+                shj_sbuf_init(&b);
+                shj_sbuf_addf(&b, "%d running, %d dead",
+                              shoji_live_count(pl.list),
+                              pl.list->count - shoji_live_count(pl.list));
+                doctor_check(0, 0, "instance discovery", b.s);
+                shj_sbuf_free(&b);
 
-		/* 4. expected configuration running. This is independent of an
-		 * explicit --instance-id override, which may select another config. */
-		if (!ctx->have_store) {
-			doctor_check(1, 0, "expected configuration running",
-			             "store path unresolved, instances cannot be matched");
-			failures++;
-		} else {
-			struct shoji_instance *expected = NULL;
-			int expected_count = 0;
+                /* 4. expected configuration running. This is independent of an
+                 * explicit --instance-id override, which may select another config. */
+                if (!ctx->have_store) {
+                        doctor_check(1, 0, "expected configuration running",
+                                     "store path unresolved, instances cannot be matched");
+                        failures++;
+                } else {
+                        struct shoji_instance *expected = NULL;
+                        int expected_count = 0;
 
-			for (int i = 0; i < pl.list->count; i++) {
-				struct shoji_instance *inst = &pl.list->items[i];
+                        for (int i = 0; i < pl.list->count; i++) {
+                                struct shoji_instance *inst = &pl.list->items[i];
 
-				if (!inst->dead && instance_matches(ctx, inst) == 1) {
-					expected = inst;
-					expected_count++;
-				}
-			}
-			if (expected_count == 1) {
-				doctor_check(0, 0, "expected configuration running", expected->id);
-			} else if (expected_count > 1) {
-				doctor_check(0, 1, "expected configuration running",
-				             "multiple instances match; dispatch requires --instance-id");
-			} else {
-				struct shj_sbuf b2;
+                                if (!inst->dead && instance_matches(ctx, inst) == 1) {
+                                        expected = inst;
+                                        expected_count++;
+                                }
+                        }
+                        if (expected_count == 1) {
+                                doctor_check(0, 0, "expected configuration running", expected->id);
+                        } else if (expected_count > 1) {
+                                doctor_check(0, 1, "expected configuration running",
+                                             "multiple instances match; dispatch requires --instance-id");
+                        } else {
+                                struct shj_sbuf b2;
 
-				shj_sbuf_init(&b2);
-				if (pl.sel.dead_match_count > 0) {
-					shj_sbuf_addf(&b2, "no live instance of %s (but %d dead instance(s) "
-					                    "exist; the shell may have crashed or been replaced)",
-					              ctx->store.shell_qml, pl.sel.dead_match_count);
-				} else if (pl.sel.uncertain_matches > 0) {
-					shj_sbuf_addf(&b2, "%d running instance(s) of %s cannot be selected "
-					                    "automatically (the recorded path's launch-time target "
-					                    "cannot be established); dispatch explicitly with --instance-id",
-					              pl.sel.uncertain_matches, ctx->store.shell_qml);
-				} else {
-					shj_sbuf_addf(&b2, "no live instance of %s; start it with "
-					                    "`qs -p %s`",
-					              ctx->store.shell_qml, ctx->store.shell_qml);
-				}
-				doctor_check(1, 0, "expected configuration running", b2.s);
-				shj_sbuf_free(&b2);
-				failures++;
-			}
-		}
+                                shj_sbuf_init(&b2);
+                                if (pl.sel.dead_match_count > 0) {
+                                        shj_sbuf_addf(&b2, "no live instance of %s (but %d dead instance(s) "
+                                                            "exist; the shell may have crashed or been replaced)",
+                                                      ctx->store.shell_qml, pl.sel.dead_match_count);
+                                } else if (pl.sel.uncertain_matches > 0) {
+                                        shj_sbuf_addf(&b2, "%d running instance(s) of %s cannot be selected "
+                                                            "automatically (the recorded path's launch-time target "
+                                                            "cannot be established); dispatch explicitly with --instance-id",
+                                                      pl.sel.uncertain_matches, ctx->store.shell_qml);
+                                } else {
+                                        shj_sbuf_addf(&b2, "no live instance of %s; start it with "
+                                                            "`qs -p %s`",
+                                                      ctx->store.shell_qml, ctx->store.shell_qml);
+                                }
+                                doctor_check(1, 0, "expected configuration running", b2.s);
+                                shj_sbuf_free(&b2);
+                                failures++;
+                        }
+                }
 
-		/* 5. IPC accessibility */
-		if (pl.sel.status == SHOJI_SELECT_OK && pl.sel.selected &&
-		    !pl.sel.selected->dead) {
-			if (shoji_ipc_probe(ctx, pl.sel.selected) == 0)
-				doctor_check(0, 0, "IPC accessibility", pl.sel.selected->id);
-			else {
-				doctor_check(1, 0, "IPC accessibility",
-				             "`qs ipc show` failed for the selected instance; check "
-				             "WAYLAND_DISPLAY (systemd/keybind contexts) and restart "
-				             "the shell if it just crashed");
-				failures++;
-			}
-		}
-	}
+                /* 5. IPC accessibility */
+                if (pl.sel.status == SHOJI_SELECT_OK && pl.sel.selected &&
+                    !pl.sel.selected->dead) {
+                        if (shoji_ipc_probe(ctx, pl.sel.selected) == 0)
+                                doctor_check(0, 0, "IPC accessibility", pl.sel.selected->id);
+                        else {
+                                doctor_check(1, 0, "IPC accessibility",
+                                             "`qs ipc show` failed for the selected instance; check "
+                                             "WAYLAND_DISPLAY (systemd/keybind contexts) and restart "
+                                             "the shell if it just crashed");
+                                failures++;
+                        }
+                }
+        }
 
-	shoji_pipeline_release(&pl);
-	return failures ? SHOJI_EXIT_FAILED : SHOJI_EXIT_OK;
+        shoji_pipeline_release(&pl);
+        return failures ? SHOJI_EXIT_FAILED : SHOJI_EXIT_OK;
+}
+
+/* ------------------------------------------------------------------ */
+/* kill                                                                */
+/* ------------------------------------------------------------------ */
+
+static int kill_no_target(struct shoji_context *ctx, const struct shoji_pipeline *pl)
+{
+        shj_msg("no running quickshell instance of the expected configuration to kill");
+        shj_msg("expected configuration: %s", ctx->store.shell_qml);
+        if (pl->sel.dead_match_count > 0)
+                shj_msg("%d dead instance%s of this configuration exist (the shell "
+                        "may have crashed or been replaced)",
+                        pl->sel.dead_match_count,
+                        pl->sel.dead_match_count == 1 ? "" : "s");
+        if (pl->sel.uncertain_matches > 0)
+                shj_msg("%d running instance%s of this configuration cannot be "
+                        "selected: the launch-time configuration target cannot be "
+                        "established",
+                        pl->sel.uncertain_matches,
+                        pl->sel.uncertain_matches == 1 ? "" : "s");
+        if (pl->sel.invalid_id_matches > 0)
+                shj_msg("%d running instance%s of this configuration ha%s no valid "
+                        "instance id",
+                        pl->sel.invalid_id_matches,
+                        pl->sel.invalid_id_matches == 1 ? "" : "s",
+                        pl->sel.invalid_id_matches == 1 ? "s" : "ve");
+        if (shoji_live_count(pl->list) > 0) {
+                shj_msg("other running quickshell instances:");
+                for (int i = 0; i < pl->list->count; i++) {
+                        struct shoji_instance *inst = &pl->list->items[i];
+
+                        if (!inst->dead)
+                                shoji_print_instance_line(inst, NULL);
+                }
+                shj_hint("kill one explicitly with --instance-id <id prefix>");
+        } else {
+                shj_hint("start Shoji, e.g. `shoji run --daemonize --no-duplicate`");
+        }
+        return SHOJI_EXIT_NOINSTANCE;
+}
+
+int shoji_cmd_kill(struct shoji_context *ctx, const struct shoji_options *opts)
+{
+        struct shoji_pipeline pl;
+        int code = SHOJI_EXIT_OK;
+
+        shoji_context_resolve_store(ctx, opts);
+        if (!ctx->have_store) {
+                shj_msg("could not resolve the expected Shoji store path; "
+                        "shoji kill refuses to act without it");
+                shj_hint("resolve the store path with --store /path/to/shoji (a "
+                         "directory or shell.qml), set SHOJI_STORE_PATH, or install "
+                         "shoji-cli through the packaging derivation so "
+                         "SHOJI_DEFAULT_STORE is baked in");
+                return SHOJI_EXIT_NOSTORE;
+        }
+
+        shoji_pipeline_run(ctx, opts, opts->instance_id ? 1 : 0, &pl);
+        if (!pl.list) {
+                code = pl.exit_code ? pl.exit_code : SHOJI_EXIT_FAILED;
+                shoji_pipeline_release(&pl);
+                return code;
+        }
+
+        if (opts->kill_all) {
+                if (pl.sel.match_count == 0) {
+                        code = kill_no_target(ctx, &pl);
+                } else {
+                        int failures = 0;
+
+                        for (int i = 0; i < pl.sel.match_count; i++) {
+                                if (shoji_dispatch_kill_instance(ctx,
+                                                                 pl.sel.matches[i]) !=
+                                    SHOJI_EXIT_OK)
+                                        failures++;
+                        }
+                        code = failures ? SHOJI_EXIT_FAILED : SHOJI_EXIT_OK;
+                }
+        } else if (opts->instance_id) {
+                if (pl.exit_code != SHOJI_EXIT_OK) {
+                        code = pl.exit_code;
+                } else {
+                        int m = shoji_instance_matches_config(pl.sel.selected,
+                                                              ctx->store.shell_qml);
+
+                        if (m == 0) {
+                                shj_msg("instance '%s' runs %s, which is not the "
+                                        "expected configuration %s",
+                                        pl.sel.selected->id,
+                                        pl.sel.selected->config_path
+                                            ? pl.sel.selected->config_path
+                                            : "?",
+                                        ctx->store.shell_qml);
+                                shj_msg("shoji kill refuses to kill instances of other "
+                                        "configurations");
+                                shj_hint("kill it directly with `qs kill -i <id prefix>` "
+                                         "if this is what you want");
+                                code = SHOJI_EXIT_NOINSTANCE;
+                        } else if (m < 0) {
+                                shj_msg("instance '%s' has a recorded configuration path "
+                                        "whose launch-time target cannot be established; "
+                                        "its loaded generation is uncertain",
+                                        pl.sel.selected->id);
+                                shj_msg("shoji kill refuses to kill an instance whose "
+                                        "generation is uncertain");
+                                shj_hint("use `qs kill -i <id prefix>` if you are certain "
+                                         "this instance runs Shoji");
+                                code = SHOJI_EXIT_NOINSTANCE;
+                        } else {
+                                code = shoji_dispatch_kill(ctx, &pl);
+                        }
+                }
+        } else {
+                switch (pl.sel.status) {
+                case SHOJI_SELECT_OK:
+                        if (pl.sel.selected && !pl.sel.selected->dead)
+                                code = shoji_dispatch_kill(ctx, &pl);
+                        else
+                                code = SHOJI_EXIT_NOINSTANCE;
+                        break;
+                case SHOJI_SELECT_AMBIGUOUS: {
+                        struct shoji_instance *newest = NULL;
+
+                        for (int i = 0; i < pl.sel.match_count; i++) {
+                                struct shoji_instance *cand = pl.sel.matches[i];
+
+                                if (!newest || cand->pid > newest->pid)
+                                        newest = cand;
+                        }
+                        code = newest ? shoji_dispatch_kill_instance(ctx, newest)
+                                      : SHOJI_EXIT_NOINSTANCE;
+                        break;
+                }
+                case SHOJI_SELECT_NONE:
+                        code = kill_no_target(ctx, &pl);
+                        break;
+                default:
+                        code = pl.exit_code ? pl.exit_code : SHOJI_EXIT_FAILED;
+                        break;
+                }
+        }
+
+        shoji_pipeline_release(&pl);
+        return code;
 }
 
 /* ------------------------------------------------------------------ */
@@ -361,133 +506,133 @@ int shoji_cmd_doctor(struct shoji_context *ctx, const struct shoji_options *opts
 
 int shoji_cmd_instance_list(struct shoji_context *ctx, const struct shoji_options *opts)
 {
-	struct shoji_pipeline pl;
+        struct shoji_pipeline pl;
 
-	shoji_pipeline_run(ctx, opts, 0, &pl);
-	if (!pl.list) {
-		shoji_pipeline_release(&pl);
-		return pl.exit_code ? pl.exit_code : SHOJI_EXIT_FAILED;
-	}
+        shoji_pipeline_run(ctx, opts, 0, &pl);
+        if (!pl.list) {
+                shoji_pipeline_release(&pl);
+                return pl.exit_code ? pl.exit_code : SHOJI_EXIT_FAILED;
+        }
 
-	if (opts->json) {
-		struct shj_sbuf b;
+        if (opts->json) {
+                struct shj_sbuf b;
 
-		shj_sbuf_init(&b);
-		shj_sbuf_addch(&b, '[');
-		for (int i = 0; i < pl.list->count; i++) {
-			struct shoji_instance *inst = &pl.list->items[i];
+                shj_sbuf_init(&b);
+                shj_sbuf_addch(&b, '[');
+                for (int i = 0; i < pl.list->count; i++) {
+                        struct shoji_instance *inst = &pl.list->items[i];
 
-			if (i)
-				shj_sbuf_addch(&b, ',');
-			json_instance(&b, inst, instance_matches(ctx, inst), pl.have_store, -1);
-		}
-		shj_sbuf_addch(&b, ']');
-		shj_sbuf_addch(&b, '\n');
-		fputs(b.s, stdout);
-		shj_sbuf_free(&b);
-	} else {
-		printf("%-22s %-8s %-6s %-8s %s\n", "ID", "PID", "STATE", "MATCH", "CONFIG PATH");
-		for (int i = 0; i < pl.list->count; i++) {
-			struct shoji_instance *inst = &pl.list->items[i];
-			int match = instance_matches(ctx, inst);
+                        if (i)
+                                shj_sbuf_addch(&b, ',');
+                        json_instance(&b, inst, instance_matches(ctx, inst), pl.have_store, -1);
+                }
+                shj_sbuf_addch(&b, ']');
+                shj_sbuf_addch(&b, '\n');
+                fputs(b.s, stdout);
+                shj_sbuf_free(&b);
+        } else {
+                printf("%-22s %-8s %-6s %-8s %s\n", "ID", "PID", "STATE", "MATCH", "CONFIG PATH");
+                for (int i = 0; i < pl.list->count; i++) {
+                        struct shoji_instance *inst = &pl.list->items[i];
+                        int match = instance_matches(ctx, inst);
 
-			if (inst->dead)
-				printf("%-22s %-8s %-6s %-8s %s\n",
-				       inst->id, "-", "dead",
-				       pl.have_store ? (match ? "yes" : "no") : "unknown",
-				       inst->config_path ? inst->config_path : "?");
-			else
-				printf("%-22s %-8ld %-6s %-8s %s\n",
-				       inst->id, inst->pid, "live",
-				       pl.have_store ? (match ? "yes" : "no") : "unknown",
-				       inst->config_path ? inst->config_path : "?");
-		}
-	}
+                        if (inst->dead)
+                                printf("%-22s %-8s %-6s %-8s %s\n",
+                                       inst->id, "-", "dead",
+                                       pl.have_store ? (match ? "yes" : "no") : "unknown",
+                                       inst->config_path ? inst->config_path : "?");
+                        else
+                                printf("%-22s %-8ld %-6s %-8s %s\n",
+                                       inst->id, inst->pid, "live",
+                                       pl.have_store ? (match ? "yes" : "no") : "unknown",
+                                       inst->config_path ? inst->config_path : "?");
+                }
+        }
 
-	shoji_pipeline_release(&pl);
-	return SHOJI_EXIT_OK;
+        shoji_pipeline_release(&pl);
+        return SHOJI_EXIT_OK;
 }
 
 int shoji_cmd_instance_current(struct shoji_context *ctx, const struct shoji_options *opts)
 {
-	struct shoji_pipeline pl;
-	int code = SHOJI_EXIT_OK;
-	const struct shoji_instance *inst;
+        struct shoji_pipeline pl;
+        int code = SHOJI_EXIT_OK;
+        const struct shoji_instance *inst;
 
-	shoji_pipeline_run(ctx, opts, 1, &pl);
-	if (pl.exit_code != SHOJI_EXIT_OK) {
-		code = pl.exit_code;
-		goto out;
-	}
+        shoji_pipeline_run(ctx, opts, 1, &pl);
+        if (pl.exit_code != SHOJI_EXIT_OK) {
+                code = pl.exit_code;
+                goto out;
+        }
 
-	inst = pl.sel.selected;
-	if (opts->json) {
-		struct shj_sbuf b;
+        inst = pl.sel.selected;
+        if (opts->json) {
+                struct shj_sbuf b;
 
-		shj_sbuf_init(&b);
-		json_instance(&b, inst, instance_matches(ctx, inst), pl.have_store, -1);
-		shj_sbuf_addch(&b, '\n');
-		fputs(b.s, stdout);
-		shj_sbuf_free(&b);
-	} else {
-		printf("instance: %s\n", inst->id);
-		printf("pid: %ld\n", inst->pid);
-		printf("config path: %s\n", inst->config_path ? inst->config_path : "?");
-		printf("matches expected configuration: %s\n",
-		       pl.have_store ? (instance_matches(ctx, inst) ? "yes" : "no") : "unknown");
-	}
+                shj_sbuf_init(&b);
+                json_instance(&b, inst, instance_matches(ctx, inst), pl.have_store, -1);
+                shj_sbuf_addch(&b, '\n');
+                fputs(b.s, stdout);
+                shj_sbuf_free(&b);
+        } else {
+                printf("instance: %s\n", inst->id);
+                printf("pid: %ld\n", inst->pid);
+                printf("config path: %s\n", inst->config_path ? inst->config_path : "?");
+                printf("matches expected configuration: %s\n",
+                       pl.have_store ? (instance_matches(ctx, inst) ? "yes" : "no") : "unknown");
+        }
 
 out:
-	shoji_pipeline_release(&pl);
-	return code;
+        shoji_pipeline_release(&pl);
+        return code;
 }
 
 int shoji_cmd_instance_inspect(struct shoji_context *ctx, const struct shoji_options *opts)
 {
-	struct shoji_pipeline pl;
-	int code = SHOJI_EXIT_OK;
-	const struct shoji_instance *inst;
+        struct shoji_pipeline pl;
+        int code = SHOJI_EXIT_OK;
+        const struct shoji_instance *inst;
 
-	shoji_pipeline_run(ctx, opts, 1, &pl);
-	if (pl.exit_code != SHOJI_EXIT_OK) {
-		code = pl.exit_code;
-		goto out;
-	}
+        shoji_pipeline_run(ctx, opts, 1, &pl);
+        if (pl.exit_code != SHOJI_EXIT_OK) {
+                code = pl.exit_code;
+                goto out;
+        }
 
-	inst = pl.sel.selected;
-	if (opts->json) {
-		struct shj_sbuf b;
-		int probe = shoji_ipc_probe(ctx, inst);
+        inst = pl.sel.selected;
+        if (opts->json) {
+                struct shj_sbuf b;
+                int probe = shoji_ipc_probe(ctx, inst);
 
-		shj_sbuf_init(&b);
-		json_instance(&b, inst, instance_matches(ctx, inst), pl.have_store,
-		              probe == 0);
-		shj_sbuf_addch(&b, '\n');
-		fputs(b.s, stdout);
-		shj_sbuf_free(&b);
-	} else {
-		int probe = shoji_ipc_probe(ctx, inst);
+                shj_sbuf_init(&b);
+                json_instance(&b, inst, instance_matches(ctx, inst), pl.have_store,
+                              probe == 0);
+                shj_sbuf_addch(&b, '\n');
+                fputs(b.s, stdout);
+                shj_sbuf_free(&b);
+        } else {
+                int probe = shoji_ipc_probe(ctx, inst);
 
-		printf("instance id:    %s\n", inst->id);
-		printf("pid:            %ld (%s)\n", inst->pid, inst->dead ? "dead" : "alive");
-		printf("shell id:       %s\n", inst->shell_id ? inst->shell_id : "?");
-		printf("config path:    %s\n", inst->config_path ? inst->config_path : "?");
-		printf("launched:       %s\n", inst->launch_time ? inst->launch_time : "?");
-		if (pl.have_store) {
-			int match = instance_matches(ctx, inst);
+                printf("instance id:    %s\n", inst->id);
+                printf("pid:            %ld (%s)\n", inst->pid, inst->dead ? "dead" : "alive");
+                printf("shell id:       %s\n", inst->shell_id ? inst->shell_id : "?");
+                printf("config path:    %s\n", inst->config_path ? inst->config_path : "?");
+                printf("launched:       %s\n", inst->launch_time ? inst->launch_time : "?");
+                if (pl.have_store) {
+                        int match = instance_matches(ctx, inst);
 
-			printf("expected config:%s %s\n", match ? "" : " ",
-			       ctx->store.shell_qml);
-			printf("actual config:  %s%s\n", inst->config_path ? " " : "",
-			       inst->config_path ? inst->config_path : "?");
-			printf("match:          %s\n", match ? "yes" : "NO");
-		} else {
-			printf("expected config: unresolved store path; match unknown\n");
-		}
-		printf("ipc accessible: %s\n", probe == 0 ? "yes" : "no");
-	}
+                        printf("expected config:%s %s\n", match ? "" : " ",
+                               ctx->store.shell_qml);
+                        printf("actual config:  %s%s\n", inst->config_path ? " " : "",
+                               inst->config_path ? inst->config_path : "?");
+                        printf("match:          %s\n", match ? "yes" : "NO");
+                } else {
+                        printf("expected config: unresolved store path; match unknown\n");
+                }
+                printf("ipc accessible: %s\n", probe == 0 ? "yes" : "no");
+        }
 
 out:
-	shoji_pipeline_release(&pl);
-	return code;
+        shoji_pipeline_release(&pl);
+        return code;
 }

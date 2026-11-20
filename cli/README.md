@@ -91,6 +91,14 @@ ASan+UBSan: unit 455 passed; e2e 80 passed; check-qml 1 passed
 The sanitizer build used `-fsanitize=address,undefined`. Runtime integration
 against a real `qs` has NOT been tested in this phase — see "Assumptions".
 
+Baseline after the `shoji kill` command and the `--any-display` dispatch
+correction (quickshell rejects `--any-display` together with `-i`):
+
+```
+GCC:       unit 501 passed; e2e 107 passed; check-qml 1 passed
+ASan+UBSan: unit 501 passed; e2e 107 passed; check-qml 1 passed
+```
+
 ## Command reference
 
 ```
@@ -163,6 +171,49 @@ shoji instance inspect       # details + IPC accessibility probe
 Exposed per instance: instance id, pid (or `(dead)`), `shell_id`, config path,
 launch time, and whether it matches the currently expected Shoji
 configuration.
+
+### Kill
+
+```sh
+shoji kill                       # stop the newest instance of the expected configuration
+shoji kill --instance-id <prefix>  # stop exactly that instance
+shoji kill --all                 # stop every instance of the expected configuration
+```
+
+`kill` stops a running Shoji instance by dispatching `qs kill -i <full-id>`
+through the same spawn interface as every other command. Shoji itself never
+sends signals; quickshell remains the authority for instance termination.
+
+The target set is the live instances with a valid instance id whose
+configuration identity is *established* against the expected store path
+(`shoji_instance_matches_config` == 1). Dead rows have no IPC endpoint to
+connect to, uncertain-generation rows and rows without a valid id are never
+touched.
+
+- Bare `shoji kill`: exactly one target is killed; with several targets the
+  most recently launched one is killed (highest pid — `launch_time` has no
+  timezone and is not used for ordering); with none, exit 67 plus the usual
+  diagnostics (dead / uncertain / invalid-id counts and the other running
+  instances).
+- `--instance-id <prefix>` resolves by unique prefix, the same rule `qs -i`
+  applies; an ambiguous prefix exits 68. The selected instance must provably
+  run the expected configuration: a foreign configuration and an
+  unestablishable alias identity both exit 67. Kill is destructive, so —
+  unlike IPC dispatch, which warns and proceeds on explicit foreign
+  selection — `kill` refuses. `qs kill -i <prefix>` remains the manual escape
+  hatch for foreign instances.
+- `--all` kills every target, one `qs kill -i <full-id>` each; the exit code
+  is 0 only when every kill succeeded. Combined with `--instance-id` it is a
+  usage error (64).
+- The store path must resolve: without it, `kill` exits 66 even with an
+  explicit `--instance-id`, because there is no expected configuration to
+  verify identity against.
+- quickshell's stdout/stderr (`Killed <id>`) are relayed verbatim; its exit
+  status drives the exit code (69 spawn failure, 1 timeout or failure, 70
+  internal).
+
+A generation switch is `shoji kill` followed by
+`shoji run --daemonize --no-duplicate`.
 
 ### IPC inspection
 
@@ -333,14 +384,16 @@ generation is never silently dispatched to by the NEW CLI — it either does
 not match, or is reported as uncertain and requires an explicit
 `--instance-id <id prefix>`.
 
-Dispatch runs `qs ipc -i <full-id> --any-display call <target> <function>
+Dispatch runs `qs ipc -i <full-id> call <target> <function>
 [arguments…]` — an argument vector via fork+execvp, never a shell. The full
-id makes the call unambiguous; `--any-display` makes it robust in contexts
-without `WAYLAND_DISPLAY` (systemd units, ssh sessions) and is safe because
-the full id already pins the instance. When an explicit `--instance-id`
-points at a foreign configuration, shoji warns loudly on stderr and still
-dispatches (the user asked for that instance), but it never looks like a
-match in any output.
+id makes the call unambiguous. No `--any-display`: quickshell's config
+selection group (`-n/--newest`, `--any-display`) excludes the instance
+selection group (`-i`, `--pid`) in `src/launch/parsecommand.cpp`, so the
+combination is rejected by real `qs`. `qs list -a -j` is display-agnostic
+(`-a` lists all instances), so discovery and dispatch stay consistent. When
+an explicit `--instance-id` points at a foreign configuration, shoji warns
+loudly on stderr and still dispatches (the user asked for that instance),
+but it never looks like a match in any output.
 
 Subprocess results are preserved: quickshell's stdout/stderr are relayed
 verbatim, its exit status drives the exit code, and stderr is additionally
@@ -399,7 +452,7 @@ cli/
   `src/core/paths.cpp`, `src/core/instanceinfo.cpp`) and `qs(1)`, not on
   running Shoji. The e2e suite validates behavior against a mock that
   mirrors the observed CLI contract (`list -a -j [--show-dead]`,
-  `ipc -i <id> --any-display call/show`, exit codes 0/255).
+  `ipc -i <id> call/show`, `kill -i <id>`, exit codes 0/255).
 - **Launch-time identity is intentionally conservative**: the lock file
   stores the launch-time `InstanceInfo` (`config_path` = the path as given,
   absolute but not symlink-resolved; `launch_time` = local-time ISO string

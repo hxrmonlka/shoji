@@ -272,4 +272,55 @@ void test_parser(void)
                              "unknown flag rejected");
                 ARGV_END();
         }
+
+        test_section("kill parsing");
+        {
+                ARGV("kill");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_OK,
+                             "kill parses");
+                CHECK_INT_EQ(_opts.kind, SHOJI_CMD_KILL, "kill command kind");
+                CHECK_INT_EQ(_opts.kill_all, 0, "bare kill_all off");
+                ARGV_END();
+        }
+        {
+                ARGV("kill", "--all");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_OK,
+                             "kill --all parses");
+                CHECK_INT_EQ(_opts.kind, SHOJI_CMD_KILL, "kill --all command kind");
+                CHECK_INT_EQ(_opts.kill_all, 1, "kill --all sets kill_all");
+                ARGV_END();
+        }
+        {
+                ARGV("kill", "extra");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_USAGE,
+                             "kill rejects extra arguments");
+                ARGV_END();
+        }
+        {
+                ARGV("kill", "--restart");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_USAGE,
+                             "kill rejects unknown flags");
+                ARGV_END();
+        }
+        {
+                ARGV("--instance-id", "abc", "kill", "--all");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_USAGE,
+                             "kill --all rejects a pending instance override");
+                ARGV_END();
+        }
+        {
+                ARGV("kill", "--all", "--instance-id", "abc");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_USAGE,
+                             "kill --all rejects a trailing instance override");
+                ARGV_END();
+        }
+        {
+                ARGV("--instance-id", "abc", "kill");
+                CHECK_INT_EQ(shoji_parse(_n, _argv, &_opts), SHOJI_EXIT_OK,
+                             "instance override kill parses");
+                CHECK_INT_EQ(_opts.kind, SHOJI_CMD_KILL, "override kill command kind");
+                CHECK_INT_EQ(_opts.kill_all, 0, "override kill_all off");
+                CHECK_STR_EQ(_opts.instance_id, "abc", "override kill keeps instance id");
+                ARGV_END();
+        }
 }
