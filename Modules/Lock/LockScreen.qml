@@ -108,9 +108,10 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: Qt.formatDateTime(ShellState.clock.date, "HH:mm")
             color: Theme.m3OnSurface
-            font.family: Theme.fontUi
+            font.family: Theme.fontClock
             font.pixelSize: 144
-            font.weight: Font.Light
+            font.weight: Font.Black
+            font.variableAxes: ({ "wght": 900, "ROND": 100 })
         }
 
         Text {

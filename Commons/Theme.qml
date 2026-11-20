@@ -8,6 +8,7 @@ QtObject {
     id: root
 
     readonly property string fontUi: "Roboto Flex"
+    readonly property string fontClock: "Google Sans Flex"
     readonly property string fontIcon: "JetBrainsMono Nerd Font"
 
     readonly property real glassAlpha: Settings.surfaceOpacity / 100
