@@ -63,7 +63,10 @@ make test        # unit tests + end-to-end tests + shell.qml mapping check
   discovery failure classes and invocation counts, dead-instance
   classification (stale positive pids), invalid instance-id refusal, the
   mutable-alias identity uncertainty, live-snapshot reconciliation (rows
-  that exit between listings, refreshed liveness state), JSON parsing,
+  that exit between listings, refreshed liveness state), the fast dispatch
+  pipeline (exact spawn count and order: one listing then one IPC;
+  fallback enrichment reusing the snapshot; terminal discovery failures),
+  JSON parsing,
   embedded NUL rejection in captured output, SIGCHLD re-establishment
   under an ignoring parent, timeout boundary conditions, and
   complete-output JSON validation of every `--json` command. The resolver
@@ -332,7 +335,7 @@ Properties:
 
 ## Instance selection
 
-Discovery always runs Quickshell's own CLI, in two steps:
+Discovery always runs Quickshell's own CLI, through two variants:
 
 1. `qs list -a -j` is the **authoritative live listing**. Upstream outputs
    only instances that currently hold their fcntl instance lock
@@ -348,7 +351,30 @@ Discovery always runs Quickshell's own CLI, in two steps:
    are dead, regardless of their JSON pid, and are never IPC candidates.
    When this probe fails — most commonly because the running quickshell
    build does not support `--show-dead` — discovery continues without dead
-   diagnostics; the failure can never mask or alter the live result.
+   diagnostics; the failure can never mask or alter the live result. When
+   the probe succeeds, a fresh live listing always reclassifies and
+   confirms its rows.
+
+**Fast dispatch path.** Ordinary IPC commands (`shoji island toggle`,
+`shoji wallpaper next`, other facade commands, `shoji ipc call`,
+`shoji ipc show`) run the authoritative live listing **exactly once** and
+dispatch from that snapshot: a successful IPC needs one listing subprocess
+plus one IPC subprocess, nothing else. The dead-instance probe and the
+refresh never enter this hot path. When selection cannot establish a
+dispatchable target on the snapshot (no match, ambiguity, uncertain
+generation, invalid ids), the same snapshot is completed **in place** with
+the dead-instance diagnostics and the recheck described above, and
+selection runs again — identical to the full procedure's final listing, so
+failure reporting (dead instances, uncertain aliases, ambiguous matches)
+does not change. The fallback only ever enriches an already-successful
+listing; it can never turn a failed live listing into a discovery success.
+
+**Full diagnostic path.** `status`, `doctor`, `instance list` and
+`instance inspect` always run the complete procedure (live listing, dead
+probe, recheck) because dead-instance diagnostics are part of their
+output. `kill` and `instance current` keep it too: kill is destructive and
+not latency-critical, and its refusal reporting relies on the dead
+diagnostics.
 
 Dead-instance semantics: upstream serializes the launch-time
 `InstanceInfo` into the listing JSON, so a dead instance's `pid` field can
@@ -468,8 +494,9 @@ cli/
     cli.c/.h      argument parsing, help text
     ipctable.c/.h static facade table (target/function/argspec per command)
     resolver.c/.h generation-aware store resolution
-    instances.c/.h discovery (`qs list -a -j`), matching, selection policy
-    dispatch.c/.h pipeline + `qs ipc` subprocess dispatch
+    instances.c/.h discovery (`qs list -a -j` fast path + diagnostic
+                   probes), matching, selection policy
+    dispatch.c/.h pipeline (fast + diagnostic) + `qs ipc` subprocess dispatch
     proc.c/.h     fork/execvp capture, timeout, injectable spawn interface
     json.c/.h     minimal JSON parser for `qs list -j`
     util.c/.h     alloc, string buffers, paths, diagnostics

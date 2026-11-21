@@ -249,29 +249,34 @@ static void reconcile_live_snapshot(struct shoji_instance_list *list,
         }
 }
 
-struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *user,
-                                                     const char *qs_bin,
-                                                     enum shoji_discover_err *err)
+/* The authoritative live listing, executed and parsed exactly once. This is
+ * the whole fast discovery path: upstream outputs only instances that
+ * currently hold their fcntl instance lock (src/launch/command.cpp
+ * listInstances; the classification happens in src/core/paths.cpp
+ * collectInstances via QsPaths::checkLock), so this listing alone decides
+ * what shoji may dispatch to.
+ *
+ * A failure of THIS command is a real discovery failure and is never retried
+ * or masked: a timeout stays a timeout, a failed exec stays a missing
+ * executable, an internal subprocess failure stays internal. None of these
+ * is a compatibility problem, so no fallback applies.
+ *
+ * Returns a non-NULL list on success (possibly empty: upstream prints the
+ * bare log line "No running instances." instead of a JSON array when no
+ * instance exists), or NULL with *err set. */
+static struct shoji_instance_list *discover_live_snapshot(shj_spawn_fn spawn, void *user,
+                                                          const char *qs_bin,
+                                                          enum shoji_discover_err *err)
 {
         const char *argv_live[] = { qs_bin, "list", "-a", "-j", NULL };
-        const char *argv_dead[] = { qs_bin, "list", "-a", "-j", "--show-dead", NULL };
         struct shj_proc_result *r;
         struct shoji_instance_list *list;
-        int live_count, pr;
         size_t errpos = 0;
+        int pr;
 
         if (err)
                 *err = SHOJI_DISCOVER_OK;
 
-        /* Authoritative live listing. Upstream `qs list` without
-         * --show-dead outputs only instances that currently hold their
-         * fcntl instance lock (src/launch/command.cpp listInstances; the
-         * classification happens in src/core/paths.cpp collectInstances
-         * via QsPaths::checkLock). A failure of THIS command is a real
-         * discovery failure and is never retried or masked: a timeout
-         * stays a timeout, a failed exec stays a missing executable, an
-         * internal subprocess failure stays internal. None of these is a
-         * compatibility problem, so no fallback applies. */
         r = spawn(argv_live, user);
         if (!r) {
                 if (err)
@@ -338,11 +343,9 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
         list->items = shj_alloc(sizeof(struct shoji_instance));
         pr = parse_listing(r->out, list, 0, &errpos);
         shj_proc_result_free(r);
-        if (pr == 1) {
-                /* The live listing is empty, but the dead-instance probe
-                 * still runs: dead diagnostics are its whole purpose. */
-                live_count = 0;
-        } else if (pr != 0) {
+        if (pr == 1)
+                return list; /* empty listing, complete */
+        if (pr != 0) {
                 if (pr == -1) {
                         if (errpos)
                                 shj_msg("could not parse `qs list -j` output at byte %zu",
@@ -356,32 +359,43 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
                         *err = SHOJI_DISCOVER_BADJSON;
                 shoji_instance_list_free(list);
                 return NULL;
-        } else {
-                /* Rows reported by the live listing; the dead probe may only
-                 * add rows that are NOT already here. */
-                live_count = list->count;
         }
+        return list;
+}
 
-        /* Dead-instance diagnostics (compatibility probe). The JSON of a
-         * dead row carries the launch-time InstanceInfo::pid, which can stay
-         * positive after a crash (src/core/paths.cpp checkLock reads the lock
-         * holder separately; listInstances prints instance.instance.pid).
-         *
-         * The combined listing is newer than the first live snapshot but is
-         * not itself proof of liveness, so after it succeeds the live
-         * snapshot is ALWAYS refreshed: the fresh listing reclassifies rows
-         * that exited after the first snapshot (they appear as dead rows of
-         * the combined listing while still marked live here) and confirms
-         * rows reported only by the dead-instance probe. On a refresh
-         * failure the original authoritative live snapshot is retained and
-         * unverified diagnostic rows are dropped.
-         *
-         * When this probe fails -- most commonly because the running
-         * quickshell build does not support --show-dead -- discovery
-         * continues without dead diagnostics. The probe is strictly
-         * additive: its failure can never mask or alter the live result
-         * above, and a generic quickshell failure here does not change the
-         * exit-code classification of discovery. */
+/* Dead-instance diagnostics on top of an existing authoritative live
+ * snapshot (compatibility probe). The JSON of a dead row carries the
+ * launch-time InstanceInfo::pid, which can stay positive after a crash
+ * (src/core/paths.cpp checkLock reads the lock holder separately;
+ * listInstances prints instance.instance.pid).
+ *
+ * The combined listing is newer than the snapshot `list` was built from but
+ * is not itself proof of liveness, so after it succeeds the live snapshot is
+ * ALWAYS refreshed: the fresh listing reclassifies rows that exited after
+ * the snapshot (they appear as dead rows of the combined listing while still
+ * marked live there) and confirms rows reported only by the dead-instance
+ * probe. On a refresh failure the original authoritative live snapshot is
+ * retained and unverified diagnostic rows are dropped.
+ *
+ * When this probe fails -- most commonly because the running quickshell
+ * build does not support --show-dead -- discovery continues without dead
+ * diagnostics. The probe is strictly additive: its failure can never mask or
+ * alter the live result already in `list`, and a generic quickshell failure
+ * here does not change the exit-code classification of discovery. */
+static void discover_dead_diagnostics(shj_spawn_fn spawn, void *user, const char *qs_bin,
+                                      struct shoji_instance_list *list)
+{
+        const char *argv_dead[] = { qs_bin, "list", "-a", "-j", "--show-dead", NULL };
+        const char *argv_live[] = { qs_bin, "list", "-a", "-j", NULL };
+        /* Rows reported by the live snapshot; the dead probe may only add
+         * rows that are NOT already here. An empty snapshot (bare
+         * "No running instances." notice) contributes nothing, so every
+         * dead-probe row is new and the recheck decides its liveness. */
+        const int live_count = list->count;
+        struct shj_proc_result *r;
+        size_t errpos = 0;
+        int pr;
+
         r = spawn(argv_dead, user);
         if (!r || r->exit != 0) {
                 if (r && r->exit < 0)
@@ -395,13 +409,13 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
                  * any other rejection loses only the optional dead-instance
                  * diagnostics. */
                 shj_proc_result_free(r);
-                return list;
+                return;
         }
 
         if (r->truncated & SHOJI_TRUNC_OUT) {
                 shj_msg("dead-instance listing was truncated; diagnostics skipped");
                 shj_proc_result_free(r);
-                return list;
+                return;
         }
         pr = parse_listing(r->out, list, 1, &errpos);
         shj_proc_result_free(r);
@@ -423,7 +437,7 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
                                 "unconfirmed dead-instance diagnostics skipped");
                         shj_proc_result_free(check);
                         remove_rows_from(list, live_count);
-                        return list;
+                        return;
                 }
 
                 memset(&fresh, 0, sizeof(fresh));
@@ -439,7 +453,7 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
                         }
                         free(fresh.items);
                         remove_rows_from(list, live_count);
-                        return list;
+                        return;
                 }
                 /* pr == 1 is a valid, complete empty live snapshot. */
                 reconcile_live_snapshot(list, &fresh);
@@ -449,6 +463,40 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
                 }
                 free(fresh.items);
         }
+}
+
+/* Fast discovery path for ordinary IPC dispatch: exactly one authoritative
+ * live listing, no dead-instance probe, no refresh. A successful dispatch
+ * therefore needs one listing subprocess plus one IPC subprocess. */
+struct shoji_instance_list *shoji_discover_instances_fast(shj_spawn_fn spawn, void *user,
+                                                          const char *qs_bin,
+                                                          enum shoji_discover_err *err)
+{
+        return discover_live_snapshot(spawn, user, qs_bin, err);
+}
+
+/* Complete a fast snapshot into the full diagnostic listing in place: run
+ * the additive dead-instance probe and, when it parses, the fresh live
+ * recheck that reclassifies and confirms rows. Used by the dispatch
+ * fallback when the fast snapshot cannot establish a target; the snapshot
+ * stays authoritative and a failed probe loses only the diagnostics. */
+void shoji_discover_instances_enrich(struct shoji_instance_list *list,
+                                     shj_spawn_fn spawn, void *user, const char *qs_bin)
+{
+        if (!list)
+                return;
+        discover_dead_diagnostics(spawn, user, qs_bin, list);
+}
+
+struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *user,
+                                                     const char *qs_bin,
+                                                     enum shoji_discover_err *err)
+{
+        struct shoji_instance_list *list = discover_live_snapshot(spawn, user, qs_bin, err);
+
+        if (!list)
+                return NULL;
+        discover_dead_diagnostics(spawn, user, qs_bin, list);
         return list;
 }
 

@@ -153,6 +153,12 @@ grep -qF -- "call island toggle" "$MOCK_QS_LOG" \
 expect_exit 0 "island toggle dispatches" "$CLI" island toggle
 grep -qF -- "--pid 4242 call island toggle" "$MOCK_QS_LOG" \
   && ok "dispatch argv vector exact" || bad "dispatch argv vector exact" "$(cat "$MOCK_QS_LOG")"
+list_calls=$(grep -c '^list ' "$MOCK_QS_LOG")
+ipc_calls=$(grep -c '^ARGV 3:ipc' "$MOCK_QS_LOG")
+[ "$list_calls" = "1" ] && ok "facade dispatch runs exactly one listing" \
+  || bad "facade dispatch runs exactly one listing" "$list_calls list invocations"
+[ "$ipc_calls" = "1" ] && ok "facade dispatch runs exactly one IPC subprocess" \
+  || bad "facade dispatch runs exactly one IPC subprocess" "$ipc_calls ipc invocations"
 
 # upstream evidence (quickshell 0.3.0): --pid selection has no display filter,
 # so dispatch reaches instances on other Wayland displays; a qs child with a
@@ -231,9 +237,22 @@ expect_out "ipc accessible: yes" "instance inspect probes ipc" "$CLI" instance i
 expect_exit 0 "ipc show exits 0" "$CLI" ipc show
 expect_out "target island" "ipc show relays targets" "$CLI" ipc show
 : > "$MOCK_QS_LOG"
+"$CLI" ipc show >/dev/null 2>&1
+list_calls=$(grep -c '^list ' "$MOCK_QS_LOG")
+ipc_calls=$(grep -c '^ARGV 3:ipc' "$MOCK_QS_LOG")
+[ "$list_calls" = "1" ] && [ "$ipc_calls" = "1" ] \
+  && ok "ipc show runs one listing plus one show" \
+  || bad "ipc show runs one listing plus one show" "$(cat "$MOCK_QS_LOG")"
+: > "$MOCK_QS_LOG"
 expect_exit 0 "ipc call passthrough works" "$CLI" ipc call wallpaper next
 grep -qF -- "call wallpaper next" "$MOCK_QS_LOG" \
   && ok "ipc call passthrough argv" || bad "ipc call passthrough argv" "$(cat "$MOCK_QS_LOG")"
+list_calls=$(grep -c '^list ' "$MOCK_QS_LOG")
+ipc_calls=$(grep -c '^ARGV 3:ipc' "$MOCK_QS_LOG")
+[ "$list_calls" = "1" ] && ok "raw ipc call runs exactly one listing" \
+  || bad "raw ipc call runs exactly one listing" "$list_calls list invocations"
+[ "$ipc_calls" = "1" ] && ok "raw ipc call runs exactly one IPC subprocess" \
+  || bad "raw ipc call runs exactly one IPC subprocess" "$ipc_calls ipc invocations"
 
 env MOCK_QS_SUCCESS_ERR="expected child warning" \
   "$CLI" island toggle > "$WORK/success.stdout" 2> "$WORK/success.stderr" \
@@ -406,12 +425,25 @@ list_calls=$(grep -c '^list ' "$MOCK_QS_LOG")
 [ "$list_calls" = "1" ] && ok "generic list failure is not retried" \
   || bad "generic list failure is not retried" "$list_calls list invocations"
 
+# Fast dispatch path: a successful IPC command never consults --show-dead
+# (the rejection is irrelevant to it); the diagnostic commands still run the
+# full probe for dead-instance reporting.
 : > "$MOCK_QS_LOG"
-expect_exit 0 "unsupported --show-dead falls back" \
+expect_exit 0 "unsupported --show-dead keeps fast dispatch working" \
   env MOCK_DEAD_FAIL=1 "$CLI" island toggle
 list_calls=$(grep -c '^list ' "$MOCK_QS_LOG")
-[ "$list_calls" = "2" ] && ok "compatibility probe ran after rejection" \
-  || bad "compatibility probe ran after rejection" "$list_calls list invocations"
+ipc_calls=$(grep -c '^ARGV 3:ipc' "$MOCK_QS_LOG")
+[ "$list_calls" = "1" ] && ok "fast dispatch ignores the dead-instance probe" \
+  || bad "fast dispatch ignores the dead-instance probe" "$list_calls list invocations"
+[ "$ipc_calls" = "1" ] && ok "fast dispatch still dispatches without --show-dead" \
+  || bad "fast dispatch still dispatches without --show-dead" "$ipc_calls ipc invocations"
+
+: > "$MOCK_QS_LOG"
+expect_exit 0 "status retains the full diagnostic discovery" \
+  env MOCK_DEAD_FAIL=1 "$CLI" status >/dev/null
+list_calls=$(grep -c '^list ' "$MOCK_QS_LOG")
+[ "$list_calls" = "2" ] && ok "diagnostic path still probes --show-dead" \
+  || bad "diagnostic path still probes --show-dead" "$list_calls list invocations"
 
 # the exit code of `instance list` survives the pipeline release path
 expect_exit 1 "instance list preserves the discovery failure exit code" \

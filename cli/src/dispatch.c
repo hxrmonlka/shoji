@@ -75,8 +75,32 @@ void shoji_print_instance_line(const struct shoji_instance *inst, const char *ma
                inst->config_path ? inst->config_path : "?");
 }
 
-void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *opts,
-                        int require_instance, struct shoji_pipeline *pl)
+static int selection_is_dispatchable(const struct shoji_pipeline *pl)
+{
+        return pl->sel.status == SHOJI_SELECT_OK && pl->sel.selected &&
+               !pl->sel.selected->dead;
+}
+
+/* Shared pipeline body. `diagnostic` selects the discovery variant:
+ *
+ *   diagnostic = 1  full discovery (live listing, additive --show-dead
+ *                   probe, fresh live recheck). Used by status, doctor,
+ *                   instance list and instance inspect.
+ *   diagnostic = 0  fast path: exactly one authoritative live listing, then
+ *                   selection. When a target is required and selection still
+ *                   cannot establish a dispatchable instance, the SAME
+ *                   snapshot is completed in place with the dead-instance
+ *                   diagnostics (shoji_discover_instances_enrich) and
+ *                   selection runs again on the enriched list -- identical
+ *                   to the full path's final state, without ever re-running
+ *                   a failed live listing.
+ *
+ * A failed authoritative live listing is terminal in both modes: the
+ * failure classes map straight onto the exit-code contract and no
+ * diagnostic retry may mask them. */
+static void pipeline_run_mode(struct shoji_context *ctx, const struct shoji_options *opts,
+                              int require_instance, struct shoji_pipeline *pl,
+                              int diagnostic)
 {
         enum shoji_discover_err derr = SHOJI_DISCOVER_OK;
 
@@ -98,7 +122,9 @@ void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *o
         }
 
         pl->have_store = ctx->have_store;
-        pl->list = shoji_discover_instances(ctx->spawn, ctx->spawn_user, ctx->qs_bin, &derr);
+        pl->list = diagnostic
+                       ? shoji_discover_instances(ctx->spawn, ctx->spawn_user, ctx->qs_bin, &derr)
+                       : shoji_discover_instances_fast(ctx->spawn, ctx->spawn_user, ctx->qs_bin, &derr);
         if (!pl->list) {
                 /* Explicit discovery failure classes -> the documented
                  * exit-code contract: timeout is a plain failure (1), a
@@ -125,6 +151,22 @@ void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *o
         shoji_select_instance(pl->list,
                               ctx->have_store ? ctx->store.shell_qml : NULL,
                               opts->instance_id, &pl->sel);
+
+        /* Fast-path fallback: selection could not establish a dispatchable
+         * target on the authoritative live snapshot. Enrich that snapshot
+         * with the dead-instance diagnostics (and, when the dead listing
+         * parses, the fresh live recheck the full path would run) and
+         * re-select. This costs extra subprocesses only on the failure
+         * path, keeps the final listing identical to the full procedure's,
+         * and never re-runs the already-successful live listing. */
+        if (!diagnostic && require_instance && !selection_is_dispatchable(pl)) {
+                shoji_selection_clear(&pl->sel);
+                shoji_discover_instances_enrich(pl->list, ctx->spawn, ctx->spawn_user,
+                                                ctx->qs_bin);
+                shoji_select_instance(pl->list,
+                                      ctx->have_store ? ctx->store.shell_qml : NULL,
+                                      opts->instance_id, &pl->sel);
+        }
 
         if (pl->sel.status == SHOJI_SELECT_OK) {
                 /* Explicit override pointing at a foreign shell: not an error,
@@ -214,6 +256,22 @@ void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *o
         }
 
         pl->exit_code = SHOJI_EXIT_FAILED;
+}
+
+void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *opts,
+                        int require_instance, struct shoji_pipeline *pl)
+{
+        pipeline_run_mode(ctx, opts, require_instance, pl, 1);
+}
+
+/* Pipeline for ordinary IPC dispatch (facade commands, `ipc call`,
+ * `ipc show`): one authoritative live listing before a successful dispatch;
+ * the dead-instance diagnostics run only when the fast snapshot cannot
+ * establish a target. */
+void shoji_pipeline_run_fast(struct shoji_context *ctx, const struct shoji_options *opts,
+                             int require_instance, struct shoji_pipeline *pl)
+{
+        pipeline_run_mode(ctx, opts, require_instance, pl, 0);
 }
 
 void shoji_pipeline_release(struct shoji_pipeline *pl)

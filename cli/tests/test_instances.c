@@ -77,6 +77,18 @@ static const char *g_call_out = "";
 static int g_list_script[8];
 static int g_list_script_len;
 static int g_list_calls;
+/* Interleaved spawn order: one char per fake_spawn invocation, in call
+ * order. L = qs list, I = qs ipc, K = qs kill, V = qs --version,
+ * ? = anything else. Fast-path tests assert the exact sequence (a
+ * successful dispatch must be exactly "LI"). */
+static char g_spawn_seq[64];
+static int g_spawn_seq_len;
+
+static void reset_spawn_log(void)
+{
+        g_spawn_seq_len = 0;
+        g_spawn_seq[0] = '\0';
+}
 
 static void set_list(const char *fmt, ...)
 {
@@ -149,6 +161,21 @@ static struct shj_proc_result *fake_spawn(const char *const argv[], void *user)
         }
         snprintf(g_recorded, sizeof(g_recorded), "%s", b.s);
         shj_sbuf_free(&b);
+
+        if (g_spawn_seq_len < (int)sizeof(g_spawn_seq) - 1) {
+                char kind = '?';
+
+                if (argv[1] && strcmp(argv[1], "list") == 0)
+                        kind = 'L';
+                else if (argv[1] && strcmp(argv[1], "ipc") == 0)
+                        kind = 'I';
+                else if (argv[1] && strcmp(argv[1], "kill") == 0)
+                        kind = 'K';
+                else if (argv[1] && strcmp(argv[1], "--version") == 0)
+                        kind = 'V';
+                g_spawn_seq[g_spawn_seq_len++] = kind;
+        }
+        g_spawn_seq[g_spawn_seq_len] = '\0';
 
         r->spawn_errno = 0;
         if (argv[1] && strcmp(argv[1], "list") == 0) {
@@ -280,6 +307,21 @@ static struct shoji_instance_list *discover_err(enum shoji_discover_err *err)
 {
         g_list_calls = 0;
         return shoji_discover_instances(fake_spawn, NULL, "mockqs", err);
+}
+
+static struct shoji_instance_list *discover_fast_err(enum shoji_discover_err *err)
+{
+        g_list_calls = 0;
+        return shoji_discover_instances_fast(fake_spawn, NULL, "mockqs", err);
+}
+
+static struct shoji_instance_list *discover_fast(void)
+{
+        enum shoji_discover_err err = SHOJI_DISCOVER_OK;
+        struct shoji_instance_list *l = discover_fast_err(&err);
+
+        CHECK_INT_EQ(err, SHOJI_DISCOVER_OK, "fast discovery reports no error");
+        return l;
 }
 
 static struct shoji_instance_list *discover(void)
@@ -1327,6 +1369,379 @@ void test_instances(void)
          * resolver-owned here; free them through the owner */
         shoji_store_free(&ctx.store);
         memset(&ctx, 0, sizeof(ctx));
+
+        remove_fixture();
+}
+
+/* ------------------------------------------------------------------ */
+/* fast dispatch pipeline: ordinary IPC commands must succeed with      */
+/* exactly one authoritative live listing plus one IPC subprocess, and  */
+/* fall back to the full diagnostic procedure only when selection       */
+/* cannot establish a target.                                           */
+/* ------------------------------------------------------------------ */
+
+void test_instances_fast(void)
+{
+        struct shoji_context ctx;
+        struct shoji_options opts;
+        struct shoji_pipeline pl;
+        struct shoji_instance_list *list;
+        enum shoji_discover_err err;
+        const int probe_ok[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+        const int probe_dead_reject[8] = { 0, 1 };
+        const int probe_timeout[8] = { SHJ_PROC_EXIT_TIMEOUT };
+        const int probe_internal[8] = { SHJ_PROC_EXIT_INTERNAL };
+        const int probe_spawn[8] = { SHJ_PROC_EXIT_SPAWN };
+        const int probe_generic[8] = { 2 };
+
+        test_section("fast dispatch pipeline (one listing before dispatch)");
+        g_list_arg_errors = 0;
+        if (make_fixture() != 0) {
+                test_fail("fixture setup failed; skipping fast pipeline tests");
+                return;
+        }
+
+        /* Fast discovery: exactly one subprocess, no dead probe, no
+         * recheck -- whatever the listing shape. */
+        set_list("[{\"id\":\"aaa111xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                 "\"config_path\":\"%s\",\"launch_time\":\"2026-11-17T08:00:00\"}]",
+                 g_expected);
+        clear_dead_list();
+        clear_recheck_list();
+        set_script(probe_ok, 1);
+        list = discover_fast();
+        CHECK_INT_EQ(g_list_calls, 1, "fast discovery spawns exactly one listing");
+        CHECK_INT_EQ(list->count, 1, "fast discovery parses the live rows");
+        CHECK_INT_EQ(shoji_live_count(list), 1, "fast discovery keeps liveness");
+        shoji_instance_list_free(list);
+
+        set_list("No running instances.");
+        list = discover_fast();
+        CHECK_INT_EQ(g_list_calls, 1, "empty notice: still exactly one listing");
+        CHECK_INT_EQ(list->count, 0, "empty notice accepted on the fast path");
+        shoji_instance_list_free(list);
+
+        set_script(probe_timeout, 1);
+        list = discover_fast_err(&err);
+        CHECK(!list && err == SHOJI_DISCOVER_TIMEOUT,
+              "fast discovery timeout keeps its class");
+        CHECK_INT_EQ(g_list_calls, 1, "fast discovery failure is never retried");
+        set_script(probe_generic, 1);
+        list = discover_fast_err(&err);
+        CHECK(!list && err == SHOJI_DISCOVER_FAILED,
+              "fast discovery generic failure keeps its class");
+        set_script(probe_internal, 1);
+        list = discover_fast_err(&err);
+        CHECK(!list && err == SHOJI_DISCOVER_INTERNAL,
+              "fast discovery internal failure keeps its class");
+        set_script(probe_spawn, 1);
+        list = discover_fast_err(&err);
+        CHECK(!list && err == SHOJI_DISCOVER_NOEXEC,
+              "fast discovery missing executable keeps its class");
+
+        /* Enrichment completes a fast snapshot into the diagnostic listing
+         * in place, reusing the snapshot: the dead probe adds rows and the
+         * recheck reclassifies them, with no extra live listing up front. */
+        set_list("[{\"id\":\"aaa111xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                 "\"config_path\":\"%s\",\"launch_time\":\"2026-11-17T08:00:00\"}]",
+                 g_expected);
+        set_dead_list("["
+                      "{\"id\":\"aaa111xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                      "\"config_path\":\"%s\",\"launch_time\":\"2026-11-17T08:00:00\"},"
+                      "{\"id\":\"stale999zz\",\"pid\":4711,\"shell_id\":\"s9\","
+                      "\"config_path\":\"%s\",\"launch_time\":\"2026-11-17T06:00:00\"}"
+                      "]", g_expected, g_expected);
+        set_script(probe_ok, 2);
+        list = discover_fast();
+        CHECK_INT_EQ(g_list_calls, 1, "enrich: fast snapshot taken");
+        shoji_discover_instances_enrich(list, fake_spawn, NULL, "mockqs");
+        CHECK_INT_EQ(g_list_calls, 3, "enrich: dead probe plus fresh recheck");
+        CHECK_INT_EQ(list->count, 2, "enrich: dead diagnostic row added");
+        CHECK_INT_EQ(list->items[0].dead, 0, "enrich: live row still live");
+        CHECK_INT_EQ(list->items[1].dead, 1, "enrich: unconfirmed row stays dead");
+        shoji_instance_list_free(list);
+
+        /* A rejected dead probe loses only the diagnostics; the snapshot
+         * and its liveness classification survive untouched. */
+        set_script(probe_dead_reject, 2);
+        list = discover_fast();
+        shoji_discover_instances_enrich(list, fake_spawn, NULL, "mockqs");
+        CHECK_INT_EQ(g_list_calls, 2, "enrich: rejected probe costs one spawn");
+        CHECK_INT_EQ(list->count, 1, "enrich: snapshot survives rejection");
+        CHECK_INT_EQ(list->items[0].dead, 0, "enrich: rejection cannot reclassify");
+        shoji_instance_list_free(list);
+        clear_dead_list();
+
+        /* ---------------- pipeline scenarios ---------------- */
+
+        /* exactly one matching live instance -> fast discovery and
+         * dispatch: one list, one ipc, in that order, nothing else */
+        setup_bare_ctx(&ctx, &opts);
+        ctx.have_store = 1;
+        ctx.store.shell_qml = g_expected;
+        set_list("[{\"id\":\"aaa111xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                 "\"config_path\":\"%s\",\"launch_time\":\"2026-11-17T08:00:00\"}]",
+                 g_expected);
+        set_script(probe_ok, 1);
+        g_call_exit = 0;
+        g_call_out = "";
+        g_call_err = "";
+        g_ipc_calls = 0;
+        reset_spawn_log();
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_OK, "fast: single match dispatches");
+        CHECK_INT_EQ(shoji_dispatch_call(&ctx, &pl, "island", "toggle", NULL, 0),
+                     SHOJI_EXIT_OK, "fast: dispatch call succeeds");
+        CHECK_INT_EQ(g_list_calls, 1, "fast: exactly one listing before dispatch");
+        CHECK_INT_EQ(g_ipc_calls, 1, "fast: exactly one IPC subprocess");
+        CHECK_STR_EQ(g_spawn_seq, "LI", "fast: spawn order is list then ipc");
+        CHECK_STR_EQ(g_ipc_argv[3], "4242", "fast: pid selector preserved");
+        CHECK_STR_EQ(g_ipc_argv[4], "call", "fast: ipc call shape preserved");
+        CHECK_INT_EQ(g_list_arg_errors, 0,
+                     "fast: every listing used the authoritative live argv");
+        shoji_pipeline_release(&pl);
+
+        /* ipc show on the fast path dispatches exactly one show */
+        reset_spawn_log();
+        g_ipc_calls = 0;
+        set_script(probe_ok, 1);
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(shoji_dispatch_show(&ctx, &pl), SHOJI_EXIT_OK,
+                     "fast: ipc show dispatches");
+        CHECK_STR_EQ(g_spawn_seq, "LI", "fast: ipc show spawn order is list then ipc");
+        CHECK_STR_EQ(g_ipc_argv[4], "show", "fast: ipc show subcommand preserved");
+        shoji_pipeline_release(&pl);
+
+        /* no matching live instance -> full diagnostic fallback: the same
+         * snapshot gains the dead probe and recheck, no IPC ever runs */
+        set_list("[{\"id\":\"bbb222yyy\",\"pid\":7,\"shell_id\":\"s2\","
+                 "\"config_path\":\"/some/other/shell.qml\","
+                 "\"launch_time\":\"2026-11-17T09:00:00\"}]");
+        set_script(probe_ok, 3);
+        g_ipc_calls = 0;
+        reset_spawn_log();
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_NOINSTANCE,
+                     "fast: no match refuses with exit 67");
+        CHECK_STR_EQ(g_spawn_seq, "LLL",
+                     "fallback: dead probe and recheck reuse the snapshot");
+        CHECK_INT_EQ(g_ipc_calls, 0, "fallback: no dispatch without a target");
+        CHECK_INT_EQ(pl.sel.dead_match_count, 0, "fallback: no dead rows invented");
+        shoji_pipeline_release(&pl);
+
+        /* dead instance exists -> the fallback restores the existing
+         * dead-instance diagnostics */
+        set_list("[{\"id\":\"bbb222yyy\",\"pid\":7,\"shell_id\":\"s2\","
+                 "\"config_path\":\"/some/other/shell.qml\","
+                 "\"launch_time\":\"2026-11-17T09:00:00\"}]");
+        set_dead_list("[{\"id\":\"dead444ww\",\"pid\":4711,\"shell_id\":\"s4\","
+                      "\"config_path\":\"%s\","
+                      "\"launch_time\":\"2026-11-17T06:00:00\"}]", g_expected);
+        set_recheck_list("[{\"id\":\"bbb222yyy\",\"pid\":7,\"shell_id\":\"s2\","
+                         "\"config_path\":\"/some/other/shell.qml\","
+                         "\"launch_time\":\"2026-11-17T09:00:00\"}]");
+        set_script(probe_ok, 3);
+        reset_spawn_log();
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_NOINSTANCE,
+                     "dead diagnostics: refusal preserved");
+        CHECK_INT_EQ(pl.sel.dead_match_count, 1,
+                     "dead diagnostics: dead match reported");
+        CHECK_STR_EQ(g_spawn_seq, "LLL", "dead diagnostics: snapshot reused");
+        CHECK_INT_EQ(g_ipc_calls, 0, "dead diagnostics: nothing dispatched");
+        shoji_pipeline_release(&pl);
+        clear_dead_list();
+        clear_recheck_list();
+
+        /* multiple matching instances -> refuse ambiguous selection */
+        set_list("["
+                 "{\"id\":\"abcd111\",\"pid\":11,\"shell_id\":\"s1\","
+                 "\"config_path\":\"%s\",\"launch_time\":\"t\"},"
+                 "{\"id\":\"abcd222\",\"pid\":12,\"shell_id\":\"s2\","
+                 "\"config_path\":\"%s\",\"launch_time\":\"t2\"}"
+                 "]", g_expected, g_expected);
+        set_script(probe_ok, 3);
+        g_ipc_calls = 0;
+        reset_spawn_log();
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_AMBIGUOUS,
+                     "fast: ambiguous selection refused");
+        CHECK_INT_EQ(g_ipc_calls, 0, "ambiguous: nothing dispatched");
+        CHECK_INT_EQ(pl.sel.match_count, 2, "ambiguous: both matches published");
+        shoji_pipeline_release(&pl);
+
+        /* foreign generation -> never silently dispatched: the expected
+         * config is absent and the foreign row is only reported */
+        set_list("[{\"id\":\"bbb222yyy\",\"pid\":7,\"shell_id\":\"s2\","
+                 "\"config_path\":\"/some/other/shell.qml\","
+                 "\"launch_time\":\"2026-11-17T09:00:00\"}]");
+        set_script(probe_ok, 1);
+        reset_spawn_log();
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_NOINSTANCE,
+                     "foreign generation: refused");
+        shoji_pipeline_release(&pl);
+
+        /* uncertain symlink alias -> never auto-selected, even on the
+         * fast path */
+        {
+                const char *alias_qml = cat2(g_tmp, "/alias/shell.qml");
+
+                set_list("[{\"id\":\"unc77xx\",\"pid\":900,\"shell_id\":\"g\","
+                         "\"config_path\":\"%s\",\"launch_time\":\"t\"}]",
+                         alias_qml);
+                set_script(probe_ok, 3);
+                g_ipc_calls = 0;
+                reset_spawn_log();
+                shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+                CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_NOINSTANCE,
+                             "uncertain alias: refused");
+                CHECK_INT_EQ(pl.sel.uncertain_matches, 1,
+                             "uncertain alias: uncertainty preserved");
+                CHECK_INT_EQ(g_ipc_calls, 0, "uncertain alias: nothing dispatched");
+                shoji_pipeline_release(&pl);
+        }
+
+        /* explicit instance id: override semantics unchanged */
+        set_list("[{\"id\":\"aaa111xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                 "\"config_path\":\"%s\",\"launch_time\":\"t\"}]", g_expected);
+        set_script(probe_ok, 1);
+        g_ipc_calls = 0;
+        reset_spawn_log();
+        opts.instance_id = shj_strdup("aaa111");
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_OK, "override: explicit id dispatches");
+        CHECK_INT_EQ(shoji_dispatch_call(&ctx, &pl, "island", "toggle", NULL, 0),
+                     SHOJI_EXIT_OK, "override: dispatch succeeds");
+        CHECK_STR_EQ(g_spawn_seq, "LI", "override: still the fast spawn sequence");
+        CHECK_INT_EQ(g_list_calls, 1, "override: one listing");
+        shoji_pipeline_release(&pl);
+
+        /* explicit foreign override dispatches, with the warning */
+        set_list("[{\"id\":\"bbb222yyy\",\"pid\":7,\"shell_id\":\"s2\","
+                 "\"config_path\":\"/some/other/shell.qml\","
+                 "\"launch_time\":\"2026-11-17T09:00:00\"}]");
+        set_script(probe_ok, 1);
+        free(opts.instance_id);
+        opts.instance_id = shj_strdup("bbb222");
+        g_ipc_calls = 0;
+        reset_spawn_log();
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_OK,
+                     "foreign override: dispatches with warning");
+        CHECK_INT_EQ(shoji_dispatch_call(&ctx, &pl, "island", "toggle", NULL, 0),
+                     SHOJI_EXIT_OK, "foreign override: dispatch succeeds");
+        CHECK_STR_EQ(g_spawn_seq, "LI", "foreign override: fast spawn sequence");
+        CHECK_INT_EQ(g_ipc_calls, 1, "foreign override: dispatched once");
+        shoji_pipeline_release(&pl);
+
+        /* unknown explicit prefix -> fallback diagnostics, then refuse */
+        set_script(probe_ok, 3);
+        free(opts.instance_id);
+        opts.instance_id = shj_strdup("zzz");
+        g_ipc_calls = 0;
+        reset_spawn_log();
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_NOINSTANCE,
+                     "unknown prefix: refused");
+        CHECK_INT_EQ(g_ipc_calls, 0, "unknown prefix: nothing dispatched");
+        shoji_pipeline_release(&pl);
+        free(opts.instance_id);
+        opts.instance_id = NULL;
+
+        /* missing instance id: the row is never a candidate */
+        set_list("[{\"pid\":4242,\"shell_id\":\"s1\","
+                 "\"config_path\":\"%s\",\"launch_time\":\"t\"}]", g_expected);
+        set_script(probe_ok, 3);
+        g_ipc_calls = 0;
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_NOINSTANCE,
+                     "invalid id: refused");
+        CHECK_INT_EQ(pl.sel.invalid_id_matches, 1, "invalid id: reported");
+        CHECK_INT_EQ(g_ipc_calls, 0, "invalid id: nothing dispatched");
+        shoji_pipeline_release(&pl);
+
+        /* quickshell listing failure: authoritative, terminal, no
+         * fallback, no retry */
+        set_script(probe_timeout, 1);
+        g_ipc_calls = 0;
+        reset_spawn_log();
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_FAILED,
+                     "listing timeout maps to exit 1");
+        CHECK_STR_EQ(g_spawn_seq, "L", "listing timeout: no fallback spawns");
+        CHECK_INT_EQ(g_ipc_calls, 0, "listing timeout: nothing dispatched");
+        shoji_pipeline_release(&pl);
+
+        set_script(probe_generic, 1);
+        reset_spawn_log();
+        g_ipc_calls = 0;
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_FAILED,
+                     "listing failure maps to exit 1");
+        CHECK_STR_EQ(g_spawn_seq, "L", "listing failure: no fallback spawns");
+        shoji_pipeline_release(&pl);
+
+        set_script(probe_internal, 1);
+        reset_spawn_log();
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_INTERNAL,
+                     "listing internal failure maps to exit 70");
+        shoji_pipeline_release(&pl);
+
+        set_script(probe_spawn, 1);
+        reset_spawn_log();
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_NOQS,
+                     "missing executable maps to exit 69");
+        shoji_pipeline_release(&pl);
+
+        /* IPC timeout handling is unchanged on the fast path */
+        set_list("[{\"id\":\"aaa111xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                 "\"config_path\":\"%s\",\"launch_time\":\"t\"}]", g_expected);
+        set_script(probe_ok, 1);
+        g_call_exit = SHJ_PROC_EXIT_TIMEOUT;
+        reset_spawn_log();
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_OK, "ipc timeout: selection succeeded");
+        CHECK_INT_EQ(shoji_dispatch_call(&ctx, &pl, "island", "toggle", NULL, 0),
+                     SHOJI_EXIT_FAILED, "ipc timeout maps to exit 1");
+        CHECK_STR_EQ(g_spawn_seq, "LI", "ipc timeout: spawn order unchanged");
+        shoji_pipeline_release(&pl);
+        g_call_exit = 0;
+
+        /* the fallback can establish a target the fast snapshot lacked:
+         * the recheck reconciles a newly started instance exactly as the
+         * full path always did */
+        set_list("[{\"id\":\"bbb222yyy\",\"pid\":7,\"shell_id\":\"s2\","
+                 "\"config_path\":\"/some/other/shell.qml\","
+                 "\"launch_time\":\"2026-11-17T09:00:00\"}]");
+        set_dead_list("[{\"id\":\"bbb222yyy\",\"pid\":7,\"shell_id\":\"s2\","
+                      "\"config_path\":\"/some/other/shell.qml\","
+                      "\"launch_time\":\"2026-11-17T09:00:00\"}]");
+        set_recheck_list("[{\"id\":\"aaa111xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                         "\"config_path\":\"%s\",\"launch_time\":\"t\"}]", g_expected);
+        set_script(probe_ok, 3);
+        g_ipc_calls = 0;
+        g_call_exit = 0;
+        g_call_out = "";
+        g_call_err = "";
+        reset_spawn_log();
+        shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
+        CHECK_INT_EQ(pl.exit_code, SHOJI_EXIT_OK,
+                     "fallback: recheck-established target dispatches");
+        CHECK_INT_EQ(shoji_dispatch_call(&ctx, &pl, "island", "toggle", NULL, 0),
+                     SHOJI_EXIT_OK, "fallback: dispatch succeeds");
+        CHECK_STR_EQ(g_spawn_seq, "LLLI",
+                     "fallback: dispatch after dead probe and recheck");
+        CHECK_INT_EQ(g_ipc_calls, 1, "fallback: exactly one IPC dispatch");
+        CHECK_STR_EQ(g_ipc_argv[3], "4242", "fallback: dispatches the fresh pid");
+        shoji_pipeline_release(&pl);
+        clear_dead_list();
+        clear_recheck_list();
+
+        CHECK_INT_EQ(g_list_arg_errors, 0,
+                     "fast pipeline: every listing used the exact argv vectors");
 
         remove_fixture();
 }

@@ -34,6 +34,7 @@ void test_parser(void);
 void test_commands(void);
 void test_resolver(void);
 void test_instances(void);
+void test_instances_fast(void);
 void test_exitcodes(void);
 void test_proc(void);
 
@@ -45,6 +46,7 @@ int main(void)
         test_commands();
         test_resolver();
         test_instances();
+        test_instances_fast();
         test_proc();
         return test_summary();
 }

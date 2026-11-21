@@ -1,7 +1,15 @@
 /*
  * shoji-cli -- quickshell instance discovery and selection.
  *
- * Discovery always goes through quickshell's own CLI. `qs list -a -j` is
+ * Discovery always goes through quickshell's own CLI, in two variants:
+ *
+ * Fast dispatch path (shoji_discover_instances_fast): ordinary IPC
+ * operations run `qs list -a -j` exactly once and dispatch from that
+ * authoritative snapshot, so a successful IPC needs one listing subprocess
+ * plus one IPC subprocess. Diagnostics commands and the dispatch fallback
+ * use the full procedure below.
+ *
+ * Full diagnostic path (shoji_discover_instances): `qs list -a -j` is
  * the authoritative live listing: upstream outputs only instances that
  * currently hold their fcntl instance lock unless --show-dead is given,
  * and `-a` lists every display. When the --show-dead probe also succeeds,
@@ -90,13 +98,35 @@ struct shoji_selection {
         int invalid_id_matches;
 };
 
-/* Run `qs list -a -j` (the authoritative live listing) plus the additive
- * `qs list -a -j --show-dead` diagnostics probe, then a fresh live listing
- * whenever the combined listing parsed, via the injected spawn function.
- * On failure returns NULL with *err set. */
+/* Full diagnostic discovery: run `qs list -a -j` (the authoritative live
+ * listing) plus the additive `qs list -a -j --show-dead` diagnostics probe,
+ * then a fresh live listing whenever the combined listing parsed, via the
+ * injected spawn function. On failure returns NULL with *err set.
+ *
+ * Retained for diagnostics (status, doctor, instance list, instance
+ * inspect) and as the dispatch fallback below. */
 struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *user,
                                                      const char *qs_bin,
                                                      enum shoji_discover_err *err);
+
+/* Fast discovery path for ordinary IPC dispatch: exactly ONE authoritative
+ * live listing, no --show-dead probe and no refresh. On failure returns
+ * NULL with *err set, with the same failure classes as the full path and
+ * without any retry. */
+struct shoji_instance_list *shoji_discover_instances_fast(shj_spawn_fn spawn, void *user,
+                                                          const char *qs_bin,
+                                                          enum shoji_discover_err *err);
+
+/* Complete a fast snapshot into the full diagnostic listing IN PLACE: run
+ * the additive dead-instance probe and, whenever it succeeds and parses,
+ * the fresh live recheck that reclassifies and confirms rows. The snapshot
+ * handed in stays the authoritative live result throughout: a failed or
+ * unparseable dead probe loses only the diagnostics, and a failed recheck
+ * drops the unverified diagnostic rows while keeping the snapshot. Never
+ * changes a failed discovery into a success; `list` may be NULL (no-op). */
+void shoji_discover_instances_enrich(struct shoji_instance_list *list,
+                                     shj_spawn_fn spawn, void *user,
+                                     const char *qs_bin);
 
 void shoji_instance_list_free(struct shoji_instance_list *list);
 

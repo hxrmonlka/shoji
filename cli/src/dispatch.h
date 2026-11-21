@@ -41,6 +41,16 @@ void shoji_context_resolve_store(struct shoji_context *ctx,
 void shoji_pipeline_run(struct shoji_context *ctx, const struct shoji_options *opts,
                         int require_instance, struct shoji_pipeline *pl);
 
+/* Fast pipeline for ordinary IPC dispatch: exactly one authoritative live
+ * listing before a successful dispatch (no --show-dead probe, no refresh).
+ * When `require_instance` is set and selection cannot establish a target on
+ * that snapshot, the same snapshot is completed in place with the
+ * dead-instance diagnostics and selection re-runs -- the failure reporting
+ * is identical to the full pipeline's, and a failed live listing is never
+ * retried. */
+void shoji_pipeline_run_fast(struct shoji_context *ctx, const struct shoji_options *opts,
+                             int require_instance, struct shoji_pipeline *pl);
+
 /* Select only (no dispatch); useful for instance/status commands. */
 void shoji_pipeline_release(struct shoji_pipeline *pl);
 

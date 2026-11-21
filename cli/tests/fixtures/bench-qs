@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Benchmark mock quickshell: like mock-qs but each invocation sleeps
+# QS_BENCH_DELAY_MS milliseconds first, emulating the Qt startup cost of a
+# real quickshell CLI process. Appends every invocation to MOCK_QS_LOG.
+set -u
+LOG="${MOCK_QS_LOG:-/dev/null}"
+DELAY="${QS_BENCH_DELAY_MS:-100}"
+
+if [ "$DELAY" -gt 0 ]; then
+  sleep "0.$(printf '%03d' "$DELAY")" 2>/dev/null || sleep 0.1
+fi
+
+printf 'ARGV' >> "$LOG"
+for arg in "$@"; do
+  printf ' %d:%s' "${#arg}" "$arg" >> "$LOG"
+done
+printf '\n' >> "$LOG"
+
+case "${1:-}" in
+  --version)
+    echo "Quickshell 9.9.9-bench"
+    exit 0
+    ;;
+  list)
+    cat "${MOCK_LIST_FILE:?}"
+    exit 0
+    ;;
+  kill)
+    echo "Killed ok"
+    exit 0
+    ;;
+  ipc)
+    shift
+    while [ "${#}" -ge 2 ] && { [ "$1" = "-i" ] || [ "$1" = "--pid" ]; }; do
+      shift 2
+    done
+    case "${1:-}" in
+      show)
+        echo "target island"
+        exit 0
+        ;;
+      call)
+        echo "ok"
+        exit 0
+        ;;
+      *)
+        echo "Target not found." >&2
+        exit 255
+        ;;
+    esac
+    ;;
+  *)
+    echo "bench qs: unexpected invocation: $*" >&2
+    exit 255
+    ;;
+esac

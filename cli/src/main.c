@@ -20,6 +20,10 @@
 #include <string.h>
 #include <unistd.h>
 
+/* Ordinary IPC dispatch commands run the fast pipeline: one authoritative
+ * live listing before a successful dispatch; diagnostics only on the
+ * failure path. run_facade covers every friendly facade command
+ * (island/wallpaper/media/...). */
 static int run_facade(struct shoji_context *ctx, const struct shoji_options *opts,
                       const struct shoji_cmd *cmd)
 {
@@ -27,7 +31,7 @@ static int run_facade(struct shoji_context *ctx, const struct shoji_options *opt
         char *args[2];
         int code;
 
-        shoji_pipeline_run(ctx, opts, 1, &pl);
+        shoji_pipeline_run_fast(ctx, opts, 1, &pl);
         if (pl.exit_code != SHOJI_EXIT_OK) {
                 code = pl.exit_code;
                 shoji_pipeline_release(&pl);
@@ -185,7 +189,7 @@ int main(int argc, char **argv)
         case SHOJI_CMD_IPC_SHOW: {
                 struct shoji_pipeline pl;
 
-                shoji_pipeline_run(&ctx, &opts, 1, &pl);
+                shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
                 code = pl.exit_code != SHOJI_EXIT_OK
                            ? pl.exit_code
                            : shoji_dispatch_show(&ctx, &pl);
@@ -196,7 +200,7 @@ int main(int argc, char **argv)
         case SHOJI_CMD_IPC_CALL: {
                 struct shoji_pipeline pl;
 
-                shoji_pipeline_run(&ctx, &opts, 1, &pl);
+                shoji_pipeline_run_fast(&ctx, &opts, 1, &pl);
                 code = pl.exit_code != SHOJI_EXIT_OK
                            ? pl.exit_code
                            : shoji_dispatch_call(&ctx, &pl, opts.ipc_target,
