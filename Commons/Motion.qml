@@ -8,6 +8,7 @@ QtObject {
     readonly property var spatialSlow: ({ stiffness: 200, damping: 0.8 })
     readonly property var settle: ({ stiffness: 420, damping: 0.7 })
     readonly property var lag: ({ stiffness: 300, damping: 0.75 })
+    readonly property var impact: ({ stiffness: 1400, damping: 0.55 })
     readonly property var effectsFast: ({ stiffness: 3800, damping: 1 })
     readonly property var effectsDefault: ({ stiffness: 1600, damping: 1 })
     readonly property var effectsSlow: ({ stiffness: 800, damping: 1 })

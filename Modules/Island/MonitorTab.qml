@@ -254,8 +254,25 @@ Item {
         property bool lead: false
         property bool tail: false
         readonly property bool active: root.sortKey === head.key
+        readonly property real pad: head.lead ? 10 : 12
 
         implicitHeight: 30
+
+        onActiveChanged: {
+            if (!active)
+                return;
+            punch.value = 1;
+            punch.velocity = 0;
+            punch.kick();
+        }
+
+        Spring {
+            id: punch
+
+            target: 0
+            token: Motion.impact
+            epsilon: 0.002
+        }
 
         Spring {
             id: sel
@@ -273,20 +290,35 @@ Item {
             epsilon: 0.05
         }
 
-        Rectangle {
-            anchors.centerIn: parent
+        Item {
+            id: pill
+
+            x: head.lead ? -head.pad : (head.width - width) / 2
+            y: (head.height - height) / 2
             visible: sel.value > 0.001
             opacity: Motion.clamp01(sel.value)
             scale: Motion.lerp(0.8, 1, sel.value)
-            width: headRow.implicitWidth + 24
+            transformOrigin: head.lead ? Item.Left : Item.Center
+            width: headRow.implicitWidth + head.pad * 2
             height: 26
-            radius: 13
-            color: Theme.m3PrimaryContainer
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 13
+                color: Theme.m3PrimaryContainer
+                transform: Scale {
+                    origin.x: head.lead ? 0 : pill.width / 2
+                    origin.y: pill.height / 2
+                    xScale: 1 + 0.12 * punch.value
+                    yScale: 1 - 0.12 * punch.value
+                }
+            }
 
             Row {
                 id: headRow
 
-                anchors.centerIn: parent
+                x: head.pad
+                anchors.verticalCenter: parent.verticalCenter
                 spacing: 6
 
                 Text {
