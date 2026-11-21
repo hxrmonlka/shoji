@@ -11,8 +11,10 @@
  *   -2  configured timeout expired during any stage of the lifecycle
  *       (spawn_errno = ETIMEDOUT; partial out/err are preserved)
  *   -3  internal failure while running the child: unexpected poll/read
- *       error or waitpid failure (spawn_errno = errno; partial out/err
- *       are preserved). Callers must treat captured output as incomplete. */
+ *       error, waitpid failure, or captured output that is not valid text
+ *       (an embedded NUL byte; spawn_errno = EILSEQ there; partial
+ *       out/err are discarded). Callers must treat captured output as
+ *       incomplete. */
 struct shj_proc_result {
         int exit;
         int spawn_errno;
@@ -33,6 +35,14 @@ struct shj_proc_result {
 #define SHOJI_TRUNC_ERR 0x2u
 
 typedef struct shj_proc_result *(*shj_spawn_fn)(const char *const argv[], void *user);
+
+/* Establish the SIGCHLD disposition this module relies on (SIG_DFL). A
+ * parent that exec'd shoji with SIGCHLD ignored passes SIG_IGN down:
+ * children would be auto-reaped and every waitpid() would fail with
+ * ECHILD, never as success. main() calls this before any spawn path,
+ * including the bare execv() of `shoji run`; shj_proc_run re-establishes
+ * it per spawn. */
+void shj_proc_init(void);
 
 /* The real implementation: fork + execve(argv[0], argv), stdout/stderr both
  * captured. Bare program names are resolved through PATH without execvp's

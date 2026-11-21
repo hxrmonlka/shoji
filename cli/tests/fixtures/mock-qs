@@ -75,13 +75,14 @@ case "${1:-}" in
     printf '\n' >> "$LOG"
     shift
     mock_id=""
-    while [ "${#}" -ge 2 ] && [ "$1" = "-i" ]; do
+    while [ "${#}" -ge 2 ] && { [ "$1" = "-i" ] || [ "$1" = "--pid" ]; }; do
       mock_id="$2"
       shift 2
     done
     if [ -n "${MOCK_KILL_FAIL:-}" ]; then
       exit "$MOCK_KILL_FAIL"
     fi
+    # real qs prints the resolved instance id; the mock echoes its selector
     echo "Killed $mock_id"
     exit 0
     ;;
@@ -94,9 +95,10 @@ case "${1:-}" in
     shift
     printf '%s\n' "$*" >> "$LOG"
     # consume instance-selection options the way real qs does
-    while [ "${1:-}" = "-i" ] || [ "${1:-}" = "--any-display" ]; do
-      if [ "$1" = "-i" ]; then shift 2; else shift; fi
+    while [ "${#}" -ge 2 ] && { [ "$1" = "-i" ] || [ "$1" = "--pid" ]; }; do
+      shift 2
     done
+    if [ "${1:-}" = "--any-display" ]; then shift; fi
     if [ -n "${MOCK_QS_SLEEP:-}" ]; then sleep "$MOCK_QS_SLEEP"; fi
     case "${1:-}" in
       show)

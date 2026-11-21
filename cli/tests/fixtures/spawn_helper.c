@@ -14,6 +14,10 @@
  *   slow-exit <ms>   sleep <ms>, exit 0 (timeout-disabled mode)
  *   fork-marker <p> <pid-file> leave a child that writes marker <p> after 500 ms
  *   close-pipes-sleep <ms> close stdout/stderr, sleep, then exit 0
+ *   emit-text <text> write <text> verbatim to stdout, exit 0
+ *   emit-nul write "[]" + NUL + trailing text to stdout, exit 0
+ *   emit-nul-err write text + NUL + trailing text to stderr, exit 0
+ *   exec-ignchld <cmd> [arg ...] ignore SIGCHLD, then exec <cmd>
  */
 #define _POSIX_C_SOURCE 200809L
 
@@ -136,6 +140,30 @@ int main(int argc, char **argv)
                 close(STDERR_FILENO);
                 nanosleep(&ts, NULL);
                 return 0;
+        }
+        if (strcmp(argv[1], "emit-text") == 0 && argc >= 3) {
+                fputs(argv[2], stdout);
+                return 0;
+        }
+        if (strcmp(argv[1], "emit-nul") == 0) {
+                fwrite("[]\0trailing-garbage\n", 1, sizeof("[]\0trailing-garbage\n") - 1,
+                       stdout);
+                return 0;
+        }
+        if (strcmp(argv[1], "emit-nul-err") == 0) {
+                fwrite("text\0more-text\n", 1, sizeof("text\0more-text\n") - 1, stderr);
+                return 0;
+        }
+        if (strcmp(argv[1], "exec-ignchld") == 0 && argc >= 3) {
+                struct sigaction sa;
+
+                memset(&sa, 0, sizeof(sa));
+                sa.sa_handler = SIG_IGN;
+                sigemptyset(&sa.sa_mask);
+                if (sigaction(SIGCHLD, &sa, NULL) != 0)
+                        return 3;
+                execvp(argv[2], &argv[2]);
+                return 3;
         }
         return 2;
 }

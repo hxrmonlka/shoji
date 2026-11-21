@@ -62,18 +62,29 @@ make test        # unit tests + end-to-end tests + shell.qml mapping check
   tokenization: one, several, empty entries, the directory cap), instance
   discovery failure classes and invocation counts, dead-instance
   classification (stale positive pids), invalid instance-id refusal, the
-  mutable-alias identity uncertainty, JSON parsing, and complete-output
-  JSON validation of every `--json` command. The resolver runs on injected
-  roots and temp dirs; the subprocess interface is injectable, so no NixOS
-  system and no Quickshell session are required.
+  mutable-alias identity uncertainty, live-snapshot reconciliation (rows
+  that exit between listings, refreshed liveness state), JSON parsing,
+  embedded NUL rejection in captured output, SIGCHLD re-establishment
+  under an ignoring parent, timeout boundary conditions, and
+  complete-output JSON validation of every `--json` command. The resolver
+  runs on injected roots and temp dirs; the subprocess interface is
+  injectable, so no NixOS system and no Quickshell session are required.
 - `make e2e` — end-to-end tests against `tests/fixtures/mock-qs`, a mock
   Quick executable (the CLI itself never spawns a shell). Verifies the
   exact argv vectors passed to `qs`, exit-code propagation, discovery
   failure classes (generic failures are not retried; the `--show-dead`
   compatibility probe is contained), dead-instance reporting with positive
-  pids, status/doctor output, deterministic store-resolution failures via a
+  pids, malformed (NUL-containing) listing rejection, dispatch with a
+  mismatched display scope, the SIGCHLD-ignored-parent leg (via
+  `fixtures/spawn_helper.c exec-ignchld`, built by the target),
+  status/doctor output, deterministic store-resolution failures via a
   nonexistent `--store`, ambiguity refusal, timeouts (including descendants that remain in the dedicated process
   group), and the doctor flow.
+- `make integration` — real-Quickshell tests (`tests/run_integration.sh`);
+  needs a running Wayland session and `qs` (or `$SHOJI_INTEGRATION_QS`),
+  otherwise it skips. Launches a real instance, dispatches IPC through
+  shoji from a mismatched `WAYLAND_DISPLAY` scope, proves raw `qs ipc -i`
+  is display-bound as the negative control, and kills the instance.
 - `make check-qml` — builds `obj/shoji` when needed, then re-extracts every
   `IpcHandler` target/function from `shell.qml` (`tests/qml_ipc.awk`) and diffs
   it against the compiled IPC table (`shoji debug map`). Fails when either
@@ -88,16 +99,17 @@ Clang:     unit 455 passed; e2e 80 passed; check-qml 1 passed
 ASan+UBSan: unit 455 passed; e2e 80 passed; check-qml 1 passed
 ```
 
-The sanitizer build used `-fsanitize=address,undefined`. Runtime integration
-against a real `qs` has NOT been tested in this phase — see "Assumptions".
+The sanitizer build used `-fsanitize=address,undefined`.
 
-Baseline after the `shoji kill` command and the `--any-display` dispatch
-correction (quickshell rejects `--any-display` together with `-i`):
+Baseline after the CodeRabbit review round (live-snapshot reconciliation,
+NUL rejection, SIGCHLD disposition, timeout budget, pid dispatch):
 
 ```
-GCC:       unit 501 passed; e2e 107 passed; check-qml 1 passed
-ASan+UBSan: unit 501 passed; e2e 107 passed; check-qml 1 passed
+GCC:       unit 531 passed; e2e 116 passed; check-qml 1 passed
+ASan+UBSan: unit 531 passed; e2e 116 passed; check-qml 1 passed
 ```
+
+The sanitizer build used `-fsanitize=address,undefined`.
 
 ## Command reference
 
@@ -180,7 +192,7 @@ shoji kill --instance-id <prefix>  # stop exactly that instance
 shoji kill --all                 # stop every instance of the expected configuration
 ```
 
-`kill` stops a running Shoji instance by dispatching `qs kill -i <full-id>`
+`kill` stops a running Shoji instance by dispatching `qs kill --pid <pid>`
 through the same spawn interface as every other command. Shoji itself never
 sends signals; quickshell remains the authority for instance termination.
 
@@ -202,7 +214,7 @@ touched.
   unlike IPC dispatch, which warns and proceeds on explicit foreign
   selection — `kill` refuses. `qs kill -i <prefix>` remains the manual escape
   hatch for foreign instances.
-- `--all` kills every target, one `qs kill -i <full-id>` each; the exit code
+- `--all` kills every target, one `qs kill --pid <pid>` each; the exit code
   is 0 only when every kill succeeded. Combined with `--instance-id` it is a
   usage error (64).
 - The store path must resolve: without it, `kill` exits 66 even with an
@@ -370,7 +382,7 @@ Selection policy (`shoji_select_instance`):
      (`selectInstance`), so rows with absent, empty or otherwise invalid ids
      (non-empty, no whitespace/control characters) are never selected and
      never dispatched; shoji reports them for diagnostics instead.
-2. Exactly one candidate → selected; dispatch uses the **full instance id**.
+2. Exactly one candidate → selected; dispatch uses the **instance pid**.
 3. None → refuse (exit 67). Diagnostics distinguish "no instances at all",
    "dead instances of this config exist", "live rows of uncertain
    generation" and "rows without a valid id" — with their paths listed.
@@ -384,16 +396,33 @@ generation is never silently dispatched to by the NEW CLI — it either does
 not match, or is reported as uncertain and requires an explicit
 `--instance-id <id prefix>`.
 
-Dispatch runs `qs ipc -i <full-id> call <target> <function>
-[arguments…]` — an argument vector via fork+execvp, never a shell. The full
-id makes the call unambiguous. No `--any-display`: quickshell's config
-selection group (`-n/--newest`, `--any-display`) excludes the instance
-selection group (`-i`, `--pid`) in `src/launch/parsecommand.cpp`, so the
-combination is rejected by real `qs`. `qs list -a -j` is display-agnostic
-(`-a` lists all instances), so discovery and dispatch stay consistent. When
-an explicit `--instance-id` points at a foreign configuration, shoji warns
-loudly on stderr and still dispatches (the user asked for that instance),
-but it never looks like a match in any output.
+Dispatch runs `qs ipc --pid <pid> call <target> <function>
+[arguments…]` — an argument vector via fork+execve, never a shell. The pid
+selects the exact instance shoji validated, and it keeps discovery and
+dispatch in compatible display scopes:
+
+- Discovery (`qs list -a -j`) is cross-display: upstream collects instances
+  for every Wayland display when `-a` is given.
+- Upstream 0.3.0 filters by display ONLY in the id- and config-based
+  selection paths of `selectInstance` (`src/launch/command.cpp`): an
+  instance on another display lands in the mismatched set and `qs ipc -i
+  <id>` fails with "No running instances on the current display". The pid
+  branch opens `by-pid/<pid>` directly with no display filter, and the IPC
+  socket itself (`QsPaths::ipcPath`) is derived from the instance id
+  recorded in that lock, so `--pid` reaches the instance on any display.
+- `--any-display` is NOT a dispatch option: the config-selection group it
+  belongs to excludes the instance-selection group (`-i`, `--pid`) in
+  `src/launch/parsecommand.cpp`, so real `qs` rejects the combination.
+- Identity stays shoji-side: selection, generation matching, dead refusal
+  and ambiguity handling run against the listing before any pid is handed
+  to quickshell, and qs re-checks the lock (dead pid → clean failure).
+
+`tests/run_integration.sh` exercises dispatch from a mismatched
+`WAYLAND_DISPLAY` against a real instance and asserts raw `qs ipc -i` fails
+in the same setup (negative control). When an explicit `--instance-id`
+points at a foreign configuration, shoji warns loudly on stderr and still
+dispatches (the user asked for that instance), but it never looks like a
+match in any output.
 
 Subprocess results are preserved: quickshell's stdout/stderr are relayed
 verbatim, its exit status drives the exit code, and stderr is additionally
@@ -403,6 +432,15 @@ errors → exit 65). A configurable timeout (`SHOJI_QS_TIMEOUT_MS`, default
 failure instead of blocking a keybind. Descendants that deliberately leave
 that process group (for example, by starting a new session) are not covered.
 forever.
+
+`SHOJI_QS_TIMEOUT_MS` is validated only by commands that can spawn
+quickshell; `--help`, `--version` and `debug map` stay usable with an
+invalid value, every other command (including `run`) exits 64. The timeout
+covers the whole subprocess lifecycle (handshake, drain, reap): waits are
+bounded by the remaining budget, an exit inside the deadline is a success
+even when the polling wake-up lands past the boundary, and an exit past it
+stays a timeout. The CLI also re-establishes SIGCHLD to SIG_DFL before
+spawning, so a parent that ignored SIGCHLD cannot break reaping.
 
 ## Exit codes
 
@@ -440,19 +478,23 @@ cli/
   tests/
     test_*.c      unit suites (no external framework)
     run_e2e.sh    end-to-end suite vs mock quickshell
+    run_integration.sh  real-quickshell suite (skips without a session)
     qml_ipc.awk   shell.qml handler extractor for the drift check
-    fixtures/     mock-qs
+    fixtures/     mock-qs, spawn-helper
 ```
 
 ## Assumptions and unresolved issues
 
-- **Runtime integration is untested.** Every claim above about real `qs`
-  behavior is based on reading the Quickshell source (master, 0.3.x line:
-  `src/launch/command.cpp`, `src/launch/launch.cpp`, `src/launch/parsecommand.cpp`,
-  `src/core/paths.cpp`, `src/core/instanceinfo.cpp`) and `qs(1)`, not on
-  running Shoji. The e2e suite validates behavior against a mock that
-  mirrors the observed CLI contract (`list -a -j [--show-dead]`,
-  `ipc -i <id> call/show`, `kill -i <id>`, exit codes 0/255).
+- **Runtime integration is partially scripted.** Every claim above about
+  real `qs` behavior is based on reading the Quickshell source (v0.3.0,
+  checked against 0.3.2: `src/launch/command.cpp`, `src/launch/launch.cpp`,
+  `src/launch/parsecommand.cpp`, `src/core/paths.cpp`,
+  `src/core/instanceinfo.cpp`) and `qs(1)`. The e2e suite validates
+  behavior against a mock that mirrors the observed CLI contract (`list -a
+  -j [--show-dead]`, `ipc --pid <pid> call/show`, `kill --pid <pid>`, exit
+  codes 0/255); `make integration` runs the same flow against a real qs
+  when a Wayland session is available and was not executed as part of the
+  last automated pass.
 - **Launch-time identity is intentionally conservative**: the lock file
   stores the launch-time `InstanceInfo` (`config_path` = the path as given,
   absolute but not symlink-resolved; `launch_time` = local-time ISO string

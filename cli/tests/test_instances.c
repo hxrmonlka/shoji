@@ -744,7 +744,76 @@ void test_instances(void)
         clear_dead_list();
         clear_recheck_list();
 
-        /* ------------------------------------------------------------------ */
+        /* An instance that exits between the initial live listing and the
+         * combined dead-instance listing still appears in that listing, so
+         * no new row is introduced -- and the stale live row must still be
+         * reclassified by the unconditional refresh. */
+        set_list("[{\"id\":\"exit1xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                 "\"config_path\":\"%s\","
+                 "\"launch_time\":\"2026-11-17T08:00:00\"}]", g_expected);
+        set_dead_list("[{\"id\":\"exit1xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                      "\"config_path\":\"%s\","
+                      "\"launch_time\":\"2026-11-17T08:00:00\"}]", g_expected);
+        set_recheck_list("No running instances.");
+        set_script(probe_ok, 3);
+        list = discover();
+        CHECK_INT_EQ(g_list_calls, 3, "exited instance: live snapshot refreshed unconditionally");
+        CHECK_INT_EQ(list->count, 1, "exited instance: row retained exactly once");
+        CHECK_INT_EQ(list->items[0].dead, 1,
+                     "instance that exited between listings is dead");
+        CHECK_INT_EQ(list->items[0].pid, 4242, "dead diagnostic keeps its last recorded pid");
+        CHECK_INT_EQ(shoji_select_instance(list, g_expected, NULL, &sel),
+                     SHOJI_SELECT_NONE,
+                     "instance that exited between listings is not selectable");
+        CHECK_INT_EQ(sel.dead_match_count, 1,
+                     "exited instance is reported as a dead match");
+        CHECK_INT_EQ(sel.match_count, 0, "exited instance is not a live candidate");
+        shoji_selection_clear(&sel);
+        shoji_instance_list_free(list);
+        clear_dead_list();
+        clear_recheck_list();
+
+        /* The refreshed live listing is authoritative for liveness: a row
+         * whose pid became unusable there must not be resurrected when it
+         * matches an earlier live row. */
+        set_list("[{\"id\":\"aaa111xxx\",\"pid\":4242,\"shell_id\":\"s1\","
+                 "\"config_path\":\"%s\","
+                 "\"launch_time\":\"2026-11-17T08:00:00\"}]", g_expected);
+        set_dead_list("[{\"id\":\"foreignY\",\"pid\":22,\"shell_id\":\"sY\","
+                      "\"config_path\":\"/other/shell.qml\","
+                      "\"launch_time\":\"tY\"}]");
+        set_recheck_list("[{\"id\":\"aaa111xxx\",\"pid\":0,\"shell_id\":\"s1\","
+                         "\"config_path\":\"%s\","
+                         "\"launch_time\":\"2026-11-17T08:00:00\"}]", g_expected);
+        set_script(probe_ok, 3);
+        list = discover();
+        CHECK_INT_EQ(list->count, 2, "unusable refreshed pid: both rows retained");
+        CHECK_INT_EQ(list->items[0].dead, 1,
+                     "matched row keeps the fresh listing's validated liveness");
+        CHECK_INT_EQ(list->items[0].pid, -1, "unusable pid stays rejected");
+        CHECK_INT_EQ(list->items[1].dead, 1, "unverified diagnostic row stays dead");
+        shoji_instance_list_free(list);
+        clear_dead_list();
+        clear_recheck_list();
+
+        /* Appended fresh rows keep their validated liveness too: a new row
+         * with an unusable pid is never appended as a live candidate. */
+        set_list("No running instances.");
+        set_dead_list("[]");
+        set_recheck_list("[{\"id\":\"freshzero\",\"pid\":0,\"shell_id\":\"s0\","
+                         "\"config_path\":\"%s\","
+                         "\"launch_time\":\"t0\"}]", g_expected);
+        set_script(probe_ok, 3);
+        list = discover();
+        CHECK_INT_EQ(list->count, 1, "appended row retained");
+        CHECK_INT_EQ(list->items[0].dead, 1,
+                     "appended row keeps the fresh listing's validated liveness");
+        CHECK_INT_EQ(list->items[0].pid, -1, "appended row pid stays rejected");
+        shoji_instance_list_free(list);
+        clear_dead_list();
+        clear_recheck_list();
+
+        /* ---------------------------------------------------------------- */
         /* dead-instance classification: the dead probe's rows carry stale     */
         /* launch-time pids that can be positive; only their absence from the  */
         /* live listing marks them dead.                                       */
@@ -932,14 +1001,14 @@ void test_instances(void)
                              SHOJI_EXIT_OK, "dispatch succeeds on qs exit 0");
         }
         CHECK_STR_EQ(g_recorded,
-                     "mockqs ipc -i aaa111xxx call island tab calendar item",
+                     "mockqs ipc --pid 4242 call island tab calendar item",
                      "dispatch diagnostic rendering retains the argv content");
         CHECK_INT_EQ(g_ipc_calls, 1, "dispatch invokes IPC exactly once");
         CHECK_INT_EQ(g_ipc_argc, 8, "dispatch passes the expected argument count");
         CHECK_STR_EQ(g_ipc_argv[0], "mockqs", "IPC argv[0] is quickshell");
         CHECK_STR_EQ(g_ipc_argv[1], "ipc", "IPC argv[1] is command");
-        CHECK_STR_EQ(g_ipc_argv[2], "-i", "IPC argv[2] is selector flag");
-        CHECK_STR_EQ(g_ipc_argv[3], "aaa111xxx", "IPC selector is one argument");
+        CHECK_STR_EQ(g_ipc_argv[2], "--pid", "IPC argv[2] is selector flag");
+        CHECK_STR_EQ(g_ipc_argv[3], "4242", "IPC selector is the validated pid");
         CHECK_STR_EQ(g_ipc_argv[4], "call", "IPC argv[4] is call subcommand");
         CHECK_STR_EQ(g_ipc_argv[5], "island", "IPC target remains one argument");
         CHECK_STR_EQ(g_ipc_argv[6], "tab", "IPC function remains one argument");
@@ -1000,7 +1069,7 @@ void test_instances(void)
         g_call_err = "";
         CHECK_INT_EQ(shoji_cmd_kill(&ctx, &opts), SHOJI_EXIT_OK,
                      "kill succeeds on qs exit 0");
-        CHECK_STR_EQ(g_recorded, "mockqs kill -i aaa111xxx",
+        CHECK_STR_EQ(g_recorded, "mockqs kill --pid 4242",
                      "kill argv vector exact");
         CHECK_INT_EQ(g_ipc_calls, 1, "kill dispatches exactly once");
         shoji_store_free(&ctx.store);
@@ -1017,7 +1086,7 @@ void test_instances(void)
         g_call_out = "";
         CHECK_INT_EQ(shoji_cmd_kill(&ctx, &opts), SHOJI_EXIT_OK,
                      "bare kill with several matches kills the newest");
-        CHECK_STR_EQ(g_recorded, "mockqs kill -i zzz999xxx",
+        CHECK_STR_EQ(g_recorded, "mockqs kill --pid 6001",
                      "bare kill selects the highest pid");
         CHECK_INT_EQ(g_ipc_calls, 1, "bare kill dispatches once");
         shoji_store_free(&ctx.store);
@@ -1028,7 +1097,7 @@ void test_instances(void)
         CHECK_INT_EQ(shoji_cmd_kill(&ctx, &opts), SHOJI_EXIT_OK,
                      "kill --all succeeds when every kill succeeds");
         CHECK_INT_EQ(g_ipc_calls, 2, "kill --all dispatches once per match");
-        CHECK_STR_EQ(g_recorded, "mockqs kill -i zzz999xxx",
+        CHECK_STR_EQ(g_recorded, "mockqs kill --pid 6001",
                      "kill --all covers the full target set");
         shoji_store_free(&ctx.store);
 

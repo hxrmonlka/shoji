@@ -3,12 +3,18 @@
  *
  * Discovery always goes through quickshell's own CLI. `qs list -a -j` is
  * the authoritative live listing: upstream outputs only instances that
- * currently hold their fcntl instance lock unless --show-dead is given.
- * `qs list -a -j --show-dead` is a strictly additive compatibility probe
- * used for dead-instance diagnostics only. The CLI never dispatches based
- * on a bare `qs -p PATH` invocation, because quickshell silently picks the
- * oldest instance of a config when several match -- shoji instead selects
- * an instance itself and dispatches with the full, unique instance id.
+ * currently hold their fcntl instance lock unless --show-dead is given,
+ * and `-a` lists every display. When the --show-dead probe also succeeds,
+ * a fresh live listing always follows it: the combined listing is newer
+ * than the first snapshot but proves neither liveness nor death. The CLI
+ * never dispatches based on a bare `qs -p PATH` invocation, because
+ * quickshell silently picks the oldest instance of a config when several
+ * match -- shoji instead selects an instance itself and dispatches with
+ * the instance's pid (`qs ipc --pid` / `qs kill --pid`). Upstream 0.3.0
+ * resolves that selector from the lock directory alone, with no display
+ * filtering, so dispatch reaches instances on any Wayland display; the
+ * id-based selection (`-i`) is display-scoped and `--any-display` cannot
+ * be combined with it (CLI11 group excludes in src/launch/parsecommand.cpp).
  *
  * Selection policy (shoji_select_instance):
  *   - candidates are live instances whose configuration identity is
@@ -85,8 +91,9 @@ struct shoji_selection {
 };
 
 /* Run `qs list -a -j` (the authoritative live listing) plus the additive
- * `qs list -a -j --show-dead` diagnostics probe via the injected spawn
- * function. On failure returns NULL with *err set. */
+ * `qs list -a -j --show-dead` diagnostics probe, then a fresh live listing
+ * whenever the combined listing parsed, via the injected spawn function.
+ * On failure returns NULL with *err set. */
 struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *user,
                                                      const char *qs_bin,
                                                      enum shoji_discover_err *err);

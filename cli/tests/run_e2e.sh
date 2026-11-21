@@ -151,8 +151,27 @@ grep -qF -- "call island toggle" "$MOCK_QS_LOG" \
 # dispatch ------------------------------------------------------------------
 : > "$MOCK_QS_LOG"
 expect_exit 0 "island toggle dispatches" "$CLI" island toggle
-grep -qF -- "-i inst1abcdefgh call island toggle" "$MOCK_QS_LOG" \
+grep -qF -- "--pid 4242 call island toggle" "$MOCK_QS_LOG" \
   && ok "dispatch argv vector exact" || bad "dispatch argv vector exact" "$(cat "$MOCK_QS_LOG")"
+
+# upstream evidence (quickshell 0.3.0): --pid selection has no display filter,
+# so dispatch reaches instances on other Wayland displays; a qs child with a
+# mismatched WAYLAND_DISPLAY must still work through shoji
+: > "$MOCK_QS_LOG"
+expect_exit 0 "dispatch ignores the CLI display scope" \
+  env WAYLAND_DISPLAY=shoji-e2e-other-display "$CLI" island toggle
+grep -qF -- "--pid 4242 call island toggle" "$MOCK_QS_LOG" \
+  && ok "cross-display dispatch keeps the pid selector" \
+  || bad "cross-display dispatch keeps the pid selector" "$(cat "$MOCK_QS_LOG")"
+
+# a parent that ignores SIGCHLD passes SIG_IGN down; the CLI must establish
+# its own disposition before spawning quickshell
+if [ -n "${SHOJI_SPAWN_HELPER:-}" ] && [ -x "$SHOJI_SPAWN_HELPER" ]; then
+  expect_exit 0 "shoji works when the parent ignores SIGCHLD" \
+    "$SHOJI_SPAWN_HELPER" exec-ignchld "$CLI" status
+else
+  ok "SIGCHLD leg skipped (spawn helper not built)"
+fi
 
 : > "$MOCK_QS_LOG"
 expect_exit 0 "island tab calendar dispatches" "$CLI" island tab calendar
@@ -224,7 +243,7 @@ got=$?
 if [ "$got" = 0 ]; then ok "override dispatches with warning"; else bad "override dispatches with warning" "exit $got"; fi
 grep -q "not the expected configuration" "$WORK/warn.txt" \
   && ok "foreign-config override warns" || bad "foreign-config override warns" "$(cat "$WORK/warn.txt")"
-grep -qF -- "-i inst2abcdefgh call island toggle" "$MOCK_QS_LOG" \
+grep -qF -- "--pid 5001 call island toggle" "$MOCK_QS_LOG" \
   && ok "override still dispatches" || bad "override still dispatches" "$(cat "$MOCK_QS_LOG")"
 
 expect_exit 67 "unknown instance id exits 67" "$CLI" --instance-id zzz island toggle
@@ -232,9 +251,9 @@ expect_exit 67 "unknown instance id exits 67" "$CLI" --instance-id zzz island to
 # kill -----------------------------------------------------------------------
 : > "$MOCK_QS_LOG"
 expect_exit 0 "kill dispatches to the selected instance" "$CLI" kill
-grep -qF -- " 4:kill 2:-i 13:inst1abcdefgh" "$MOCK_QS_LOG" \
+grep -qF -- " 4:kill 5:--pid 4:4242" "$MOCK_QS_LOG" \
   && ok "kill argv vector exact" || bad "kill argv vector exact" "$(cat "$MOCK_QS_LOG")"
-expect_out "Killed inst1abcdefgh" "kill relays upstream output" "$CLI" kill
+expect_out "Killed 4242" "kill relays upstream output" "$CLI" kill
 
 expect_exit 67 "kill refuses foreign explicit selection" "$CLI" --instance-id inst2 kill
 "$CLI" --instance-id inst2 kill 2>"$WORK/kill-foreign.txt" || true
@@ -261,6 +280,16 @@ expect_exit 64 "--store without value exits 64" "$CLI" --store
 expect_exit 64 "malformed timeout environment exits 64" \
   env SHOJI_QS_TIMEOUT_MS=abc "$CLI" status
 
+# local commands never spawn quickshell and must not consult the timeout
+expect_exit 0 "invalid timeout env still runs --help" \
+  env SHOJI_QS_TIMEOUT_MS=abc "$CLI" --help
+expect_exit 0 "invalid timeout env still runs --version" \
+  env SHOJI_QS_TIMEOUT_MS=abc "$CLI" --version
+expect_exit 0 "invalid timeout env still runs debug map" \
+  env SHOJI_QS_TIMEOUT_MS=abc "$CLI" debug map
+expect_exit 64 "invalid timeout env rejects run" \
+  env SHOJI_QS_TIMEOUT_MS=abc "$CLI" --store "$STORE" run
+
 # quickshell unavailable ------------------------------------------------------
 expect_exit 69 "missing quickshell exits 69" \
   env SHOJI_QS_BIN="$WORK/definitely-not-qs" "$CLI" island toggle
@@ -284,14 +313,14 @@ grep -q "^2$" "$WORK/ambig.txt" && ok "ambiguous prefix lists both matches" \
 
 : > "$MOCK_QS_LOG"
 expect_exit 0 "bare kill picks the newest matching instance" "$CLI" kill
-grep -qF -- " 4:kill 2:-i 13:inst9abcdefgh" "$MOCK_QS_LOG" \
+grep -qF -- " 4:kill 5:--pid 4:6001" "$MOCK_QS_LOG" \
   && ok "bare kill selects the highest pid" || bad "bare kill selects the highest pid" "$(cat "$MOCK_QS_LOG")"
 
 : > "$MOCK_QS_LOG"
 expect_exit 0 "kill --all kills every matching instance" "$CLI" kill --all
-[ "$(grep -c ' 4:kill 2:-i ' "$MOCK_QS_LOG")" = "2" ] \
+[ "$(grep -c ' 4:kill 5:--pid ' "$MOCK_QS_LOG")" = "2" ] \
   && ok "kill --all dispatches once per instance" || bad "kill --all dispatches once per instance" "$(cat "$MOCK_QS_LOG")"
-grep -qF -- "-i 13:inst1abcdefgh" "$MOCK_QS_LOG" && grep -qF -- "-i 13:inst9abcdefgh" "$MOCK_QS_LOG" \
+grep -qF -- "5:--pid 4:4242" "$MOCK_QS_LOG" && grep -qF -- "5:--pid 4:6001" "$MOCK_QS_LOG" \
   && ok "kill --all covers both instances" || bad "kill --all covers both instances" "$(cat "$MOCK_QS_LOG")"
 
 expect_exit 68 "ambiguous id prefix kill exits 68" "$CLI" --instance-id inst kill
@@ -378,6 +407,23 @@ expect_exit 0 "unsupported --show-dead falls back" \
 list_calls=$(grep -c '^list ' "$MOCK_QS_LOG")
 [ "$list_calls" = "2" ] && ok "compatibility probe ran after rejection" \
   || bad "compatibility probe ran after rejection" "$list_calls list invocations"
+
+# the exit code of `instance list` survives the pipeline release path
+expect_exit 1 "instance list preserves the discovery failure exit code" \
+  env MOCK_LIST_FAIL=1 "$CLI" instance list
+
+# a NUL byte inside the listing must not truncate it into valid JSON:
+# "[]" followed by garbage is malformed text, not an empty list
+: > "$MOCK_QS_LOG"
+printf '[]\0trailing-garbage\n' > "$WORK/instances-nul.json"
+expect_exit 70 "embedded NUL in the listing is rejected" \
+  env MOCK_LIST_FILE="$WORK/instances-nul.json" "$CLI" instance list
+cat > "$WORK/instances.json" <<EOF
+[
+  {"id": "inst1abcdefgh", "pid": 4242, "shell_id": "p1",
+   "config_path": "$STORE/shell.qml", "launch_time": "2026-11-17T08:00:00"}
+]
+EOF
 
 expect_exit 69 "missing quickshell exits 69" \
   env SHOJI_QS_BIN="$WORK/definitely-not-qs" "$CLI" island toggle

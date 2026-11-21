@@ -42,7 +42,7 @@ UNIT_OBJS := $(BUILD)/testmain.o $(BUILD)/test_parser.o $(BUILD)/test_commands.o
 CLI_BIN := $(BUILD)/shoji
 TEST_BIN := $(BUILD)/shoji-tests
 
-.PHONY: all build test unit e2e clean install check-qml
+.PHONY: all build test unit e2e clean install check-qml integration
 all: build
 
 build: $(CLI_BIN)
@@ -68,8 +68,11 @@ $(BUILD)/spawn-helper: $(TEST_DIR)/fixtures/spawn_helper.c | $(BUILD)
 unit: $(TEST_BIN) $(BUILD)/spawn-helper
 	SHOJI_SPAWN_HELPER=$(BUILD)/spawn-helper $(TEST_BIN)
 
-e2e: $(CLI_BIN)
-	$(TEST_DIR)/run_e2e.sh $(CLI_BIN)
+e2e: $(CLI_BIN) $(BUILD)/spawn-helper
+	SHOJI_SPAWN_HELPER=$(BUILD)/spawn-helper $(TEST_DIR)/run_e2e.sh $(CLI_BIN)
+
+integration: $(CLI_BIN)
+	$(TEST_DIR)/run_integration.sh $(CLI_BIN)
 
 check-qml: $(CLI_BIN)
 	$(TEST_DIR)/run_e2e.sh --qml-only $(CLI_BIN)

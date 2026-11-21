@@ -20,6 +20,23 @@ extern char **environ;
 
 #define SHOJI_PROC_MAX_OUTPUT (4u * 1024u * 1024u) /* 4 MiB per stream */
 
+/* SIGCHLD may arrive here ignored: a parent that exec'd shoji with
+ * SIGCHLD set to SIG_IGN passes that disposition down, children are
+ * auto-reaped by the kernel and every waitpid() fails with ECHILD.
+ * Establish SIG_DFL before any child is spawned. */
+void shj_proc_init(void)
+{
+        struct sigaction sa;
+
+        memset(&sa, 0, sizeof(sa));
+        sa.sa_handler = SIG_DFL;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0;
+        if (sigaction(SIGCHLD, &sa, NULL) != 0)
+                shj_msg("could not establish the SIGCHLD disposition: %s",
+                        strerror(errno));
+}
+
 /* Result exit classes: see proc.h (SHJ_PROC_EXIT_*). */
 
 /* Pace of the WNOHANG reap loop: short enough not to delay normal runs
@@ -166,6 +183,37 @@ static unsigned trunc_bits(const struct pipebuf *ob, const struct pipebuf *eb)
                (eb->truncated ? SHOJI_TRUNC_ERR : 0);
 }
 
+/* The capture length is authoritative: a NUL inside the captured bytes is
+ * malformed text, not a terminator (b->data[b->len] is the one the capture
+ * added). */
+static int has_embedded_nul(const struct pipebuf *b)
+{
+        size_t i;
+
+        for (i = 0; i < b->len; i++)
+                if (b->data[i] == '\0')
+                        return 1;
+        return 0;
+}
+
+/* Sleep toward an absolute deadline without overshooting it: the wake-up
+ * lands at the deadline (or PROC_REAP_POLL_MS out when unbounded), never a
+ * fixed interval past a successful child exit. */
+static int reap_delay_ms(int64_t deadline_ms)
+{
+        int64_t now = mono_ms();
+        int64_t left;
+
+        if (deadline_ms <= 0)
+                return PROC_REAP_POLL_MS;
+        if (now < 0)
+                return 0;
+        left = deadline_ms - now;
+        if (left <= 0)
+                return 0;
+        return left > PROC_REAP_POLL_MS ? PROC_REAP_POLL_MS : (int)left;
+}
+
 /* Non-blocking bounded reap: 0 when the child was reaped, 1 when it did
  * not exit within the budget (it may still be alive), -1 when waitpid
  * failed unexpectedly (errno set). */
@@ -192,7 +240,7 @@ static int reap_bounded(pid_t pid, int *status, int64_t budget_ms)
                 }
                 if (mono_ms() >= end)
                         return 1;
-                poll(NULL, 0, PROC_REAP_POLL_MS);
+                poll(NULL, 0, reap_delay_ms(end));
         }
 }
 
@@ -263,22 +311,23 @@ static int cleanup_child(pid_t pid, int *status)
 
 /* Wait for a child that has already closed its capture pipes but may not
  * have exited yet. The same deadline budget applies: on expiry the child
- * is killed and reaped instead of blocking the caller indefinitely.
+ * and its process group are killed and reaped instead of blocking the
+ * caller indefinitely. A successful WNOHANG reap is always success, even
+ * when the polling wake-up lands past the deadline boundary: the exit
+ * happened before the kill decision could. The timeout classification is
+ * decided only while the child is verifiably still alive, and every
+ * timeout path goes through cleanup_child() so no group member survives
+ * the deadline; the group id is only ever signaled while the child is a
+ * live member of it.
  * Returns 0 when reaped, -1 when the deadline forced a kill+reap (status
  * reflects the kill), -2 when waitpid failed unexpectedly (errno set). */
 static int reap_within(pid_t pid, int *status, int64_t deadline_ms)
 {
         for (;;) {
-                pid_t w;
+                pid_t w = waitpid(pid, status, WNOHANG);
 
-                if (deadline_ms > 0 && mono_ms() >= deadline_ms) {
-                        if (cleanup_child(pid, status) == -1)
-                                return -2;
-                        return -1;
-                }
-                w = waitpid(pid, status, WNOHANG);
                 if (w == pid)
-                        return deadline_ms > 0 && mono_ms() >= deadline_ms ? -1 : 0;
+                        return 0;
                 if (w < 0) {
                         if (errno == EINTR)
                                 continue;
@@ -290,7 +339,7 @@ static int reap_within(pid_t pid, int *status, int64_t deadline_ms)
                                 return -2; /* waitpid failure: internal error */
                         return -1;
                 }
-                poll(NULL, 0, PROC_REAP_POLL_MS); /* bounded, interruptible sleep */
+                poll(NULL, 0, reap_delay_ms(deadline_ms));
         }
 }
 
@@ -549,6 +598,10 @@ static struct shj_proc_result *shj_proc_run_internal(const char *const argv[], v
 
         (void)user;
 
+        /* An inherited SIG_IGN would auto-reap every child and turn each
+         * waitpid() into ECHILD; re-establish SIG_DFL per spawn. */
+        shj_proc_init();
+
         if (make_deadline(g_timeout_ms, &deadline_ms) != 0)
                 return proc_error_result(SHJ_PROC_EXIT_INTERNAL, errno);
 
@@ -731,6 +784,20 @@ static struct shj_proc_result *shj_proc_run_internal(const char *const argv[], v
                         res->err = eb.data;
                         return res;
                 }
+        }
+
+        /* Captured streams are consumed as C text downstream (JSON parsing,
+         * relaying, strlen()); an embedded NUL would silently truncate at
+         * the byte where strlen() stops, so a listing suffix after it could
+         * never be seen. Reject the output instead. */
+        if (has_embedded_nul(&ob) || has_embedded_nul(&eb)) {
+                shj_msg("captured output contains an embedded NUL byte in the %s stream; "
+                        "refusing malformed text",
+                        has_embedded_nul(&ob) ? "stdout" : "stderr");
+                res = proc_error_result(SHJ_PROC_EXIT_INTERNAL, EILSEQ);
+                free(ob.data);
+                free(eb.data);
+                return res;
         }
 
         res = shj_alloc(sizeof(*res));

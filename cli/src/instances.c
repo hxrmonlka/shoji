@@ -172,20 +172,6 @@ static void free_instance(struct shoji_instance *inst)
         memset(inst, 0, sizeof(*inst));
 }
 
-static struct shoji_instance *find_instance_id(struct shoji_instance_list *list,
-                                                 const char *id)
-{
-        int i;
-
-        if (!id || !*id)
-                return NULL;
-        for (i = 0; i < list->count; i++) {
-                if (list->items[i].id && strcmp(list->items[i].id, id) == 0)
-                        return &list->items[i];
-        }
-        return NULL;
-}
-
 static void copy_instance(struct shoji_instance *dst,
                           const struct shoji_instance *src)
 {
@@ -197,6 +183,24 @@ static void copy_instance(struct shoji_instance *dst,
         dst->launch_time = shj_strdup(src->launch_time ? src->launch_time : "");
 }
 
+/* Identity of one instance across two listings. A usable id is exact:
+ * quickshell derives it from pid and launch time, so equal ids are the
+ * same instance and different ids are not, even when a dead diagnostic
+ * row's stale pid collides with a reused live pid. Only when the id is
+ * unusable on either side does the lock-holder pid decide (two live rows
+ * cannot share a pid: the instance directories are keyed by it). */
+static int same_instance(const struct shoji_instance *a, const struct shoji_instance *b)
+{
+        int id_both = a->id && *a->id && b->id && *b->id;
+        int pid_both = a->pid > 0 && b->pid > 0;
+
+        if (id_both)
+                return strcmp(a->id, b->id) == 0;
+        if (pid_both)
+                return a->pid == b->pid;
+        return 0;
+}
+
 static void remove_rows_from(struct shoji_instance_list *list, int first)
 {
         while (list->count > first) {
@@ -205,8 +209,10 @@ static void remove_rows_from(struct shoji_instance_list *list, int first)
         }
 }
 
-/* A successful fresh live listing is authoritative for selection. Preserve
- * rows that disappeared only as dead diagnostics, and add newly live rows. */
+/* A successful fresh live listing is authoritative for selection,
+ * including the liveness state it validated (a live-listing row whose pid
+ * is unusable arrives marked dead and must stay dead). Preserve rows that
+ * disappeared only as dead diagnostics, and add newly live rows. */
 static void reconcile_live_snapshot(struct shoji_instance_list *list,
                                     const struct shoji_instance_list *fresh)
 {
@@ -217,26 +223,27 @@ static void reconcile_live_snapshot(struct shoji_instance_list *list,
                 const struct shoji_instance *current = NULL;
 
                 for (int j = 0; j < fresh->count; j++) {
-                        if (old->id && fresh->items[j].id &&
-                            strcmp(old->id, fresh->items[j].id) == 0) {
+                        if (same_instance(old, &fresh->items[j])) {
                                 current = &fresh->items[j];
                                 break;
                         }
                 }
                 if (current) {
                         copy_instance(old, current);
-                        old->dead = 0;
                 } else {
                         old->dead = 1;
                 }
         }
         for (i = 0; i < fresh->count; i++) {
-                if (!find_instance_id(list, fresh->items[i].id)) {
+                int known = 0;
+
+                for (int j = 0; j < list->count && !known; j++)
+                        known = same_instance(&list->items[j], &fresh->items[i]);
+                if (!known) {
                         list->items = shj_realloc(list->items,
                                 sizeof(*list->items) * (size_t)(list->count + 1));
                         memset(&list->items[list->count], 0, sizeof(*list->items));
                         copy_instance(&list->items[list->count], &fresh->items[i]);
-                        list->items[list->count].dead = 0;
                         list->count++;
                 }
         }
@@ -359,9 +366,15 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
          * dead row carries the launch-time InstanceInfo::pid, which can stay
          * positive after a crash (src/core/paths.cpp checkLock reads the lock
          * holder separately; listInstances prints instance.instance.pid).
-         * Rows absent from the first live snapshot are rechecked against a
-         * fresh live listing before they are classified as dead, because a
-         * new instance may have started between the two probes.
+         *
+         * The combined listing is newer than the first live snapshot but is
+         * not itself proof of liveness, so after it succeeds the live
+         * snapshot is ALWAYS refreshed: the fresh listing reclassifies rows
+         * that exited after the first snapshot (they appear as dead rows of
+         * the combined listing while still marked live here) and confirms
+         * rows reported only by the dead-instance probe. On a refresh
+         * failure the original authoritative live snapshot is retained and
+         * unverified diagnostic rows are dropped.
          *
          * When this probe fails -- most commonly because the running
          * quickshell build does not support --show-dead -- discovery
@@ -401,17 +414,12 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
         else if (pr == 0) {
                 struct shoji_instance_list fresh;
                 struct shj_proc_result *check;
-                int have_new_rows;
 
                 dedupe_dead_rows(list, live_count);
-                have_new_rows = list->count > live_count;
-                if (!have_new_rows)
-                        return list;
-
                 check = spawn(argv_live, user);
                 if (!check || check->exit != 0 ||
                     (check->truncated & SHOJI_TRUNC_OUT)) {
-                        shj_msg("new instance rows could not be verified; "
+                        shj_msg("the live listing could not be refreshed; "
                                 "unconfirmed dead-instance diagnostics skipped");
                         shj_proc_result_free(check);
                         remove_rows_from(list, live_count);
@@ -423,7 +431,7 @@ struct shoji_instance_list *shoji_discover_instances(shj_spawn_fn spawn, void *u
                 pr = parse_listing(check->out, &fresh, 0, &errpos);
                 shj_proc_result_free(check);
                 if (pr < 0) {
-                        shj_msg("could not verify newly discovered instance rows; "
+                        shj_msg("could not verify the refreshed live listing; "
                                 "unconfirmed diagnostics skipped");
                         while (fresh.count > 0) {
                                 fresh.count--;

@@ -18,8 +18,8 @@
  *                               scripts. Symlinks resolve to the store path.
  *   5. Profile scan             active system / Home Manager profiles:
  *                                 $HOME/.nix-profile
- *                                 /etc/profiles/per-user/$USER
  *                                 $HOME/.local/state/nix/profiles/profile
+ *                                 /etc/profiles/per-user/$USER
  *                                 /nix/var/nix/profiles/per-user/$USER/profile
  *                                 /run/current-system          (last resort)
  *                               Candidate layouts inside each root:

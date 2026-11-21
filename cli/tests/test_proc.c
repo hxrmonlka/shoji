@@ -556,7 +556,94 @@ static void test_timeout_lifecycle(void)
                              "late exit after pipe EOF remains a timeout");
                 shj_proc_result_free(r);
         }
+
+        /* Boundary condition: the child exits just INSIDE the deadline. A
+         * polling wake-up that lands past the deadline must not turn the
+         * completed exit into a timeout; the wait is bounded by the
+         * remaining budget so the deadline itself is never overshot before
+         * the reap is attempted. */
+        shj_proc_set_timeout_ms(1000);
+        r = run_helper("close-pipes-sleep", "900");
+        if (r) {
+                CHECK_INT_EQ(r->exit, 0,
+                             "exit inside the deadline stays a success");
+                shj_proc_result_free(r);
+        }
+        CHECK_INT_EQ(count_zombie_children(), 0, "boundary: no zombie left");
         shj_proc_set_timeout_ms(5000);
+}
+
+static void test_embedded_nul(void)
+{
+        struct shj_proc_result *r;
+
+        test_section("proc: embedded NUL bytes in captured text");
+
+        shj_proc_set_timeout_ms(5000);
+
+        /* Valid JSON with no embedded NUL keeps working. */
+        r = run_helper("emit-text", "[]");
+        if (r) {
+                CHECK_INT_EQ(r->exit, 0, "emit-text: [] passes through");
+                CHECK_STR_EQ(r->out, "[]", "emit-text: captured verbatim");
+                shj_proc_result_free(r);
+        }
+
+        /* A listing prefix followed by a NUL and more data must be rejected
+         * instead of silently truncating to the prefix. */
+        r = run_helper("emit-nul", NULL);
+        if (r) {
+                CHECK_INT_EQ(r->exit, SHJ_PROC_EXIT_INTERNAL,
+                             "stdout NUL: malformed output is rejected");
+                CHECK_INT_EQ(r->spawn_errno, EILSEQ, "stdout NUL: spawn_errno is EILSEQ");
+                CHECK_STR_EQ(r->out, "", "stdout NUL: no partial output is surfaced");
+                shj_proc_result_free(r);
+        }
+
+        r = run_helper("emit-nul-err", NULL);
+        if (r) {
+                CHECK_INT_EQ(r->exit, SHJ_PROC_EXIT_INTERNAL,
+                             "stderr NUL: malformed output is rejected");
+                CHECK_INT_EQ(r->spawn_errno, EILSEQ, "stderr NUL: spawn_errno is EILSEQ");
+                shj_proc_result_free(r);
+        }
+        CHECK_INT_EQ(count_zombie_children(), 0, "NUL tests: no zombie left");
+}
+
+static void test_sigchld_disposition(void)
+{
+        struct sigaction saved, ign;
+        struct shj_proc_result *r;
+
+        test_section("proc: SIGCHLD disposition established before spawning");
+
+        if (sigaction(SIGCHLD, NULL, &saved) != 0) {
+                test_fail("sigchld: existing disposition could not be read");
+                return;
+        }
+        memset(&ign, 0, sizeof(ign));
+        ign.sa_handler = SIG_IGN;
+        sigemptyset(&ign.sa_mask);
+        if (sigaction(SIGCHLD, &ign, NULL) != 0) {
+                test_fail("sigchld: SIG_IGN could not be installed");
+                return;
+        }
+
+        /* With SIGCHLD ignored by the parent, children are auto-reaped and
+         * waitpid() fails with ECHILD; shoji must re-establish SIG_DFL so
+         * the spawn still completes normally instead of reporting an
+         * internal error. */
+        r = run_helper("echo", "reaped under ignored SIGCHLD");
+        if (r) {
+                CHECK_INT_EQ(r->exit, 0,
+                             "ignored SIGCHLD: child reaped, not an internal error");
+                CHECK_STR_EQ(r->out, "reaped under ignored SIGCHLD\n",
+                             "ignored SIGCHLD: output captured");
+                shj_proc_result_free(r);
+        }
+        CHECK_INT_EQ(count_zombie_children(), 0, "ignored SIGCHLD: no zombie left");
+
+        (void)sigaction(SIGCHLD, &saved, NULL);
 }
 
 static void test_truncation(void)
@@ -672,6 +759,8 @@ void test_proc(void)
         test_spawn_failure_enoexec();
         test_fd_hygiene();
         test_timeout_lifecycle();
+        test_embedded_nul();
+        test_sigchld_disposition();
         test_truncation();
         test_reap_hygiene();
         test_qs_environment();

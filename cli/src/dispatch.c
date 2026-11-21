@@ -9,6 +9,20 @@
 #include <string.h>
 #include <unistd.h>
 
+/* Dispatch selector: upstream quickshell 0.3.0 resolves `--pid` from the
+ * instance lock directory alone (selectInstance pid branch, no display
+ * filtering), so it reaches instances on any Wayland display. The id
+ * selector (`-i`) is display-scoped and `--any-display` cannot be combined
+ * with it (CLI11 group excludes in src/launch/parsecommand.cpp), so ids
+ * cannot be used for cross-display dispatch. The pid is the one shoji
+ * validated during discovery and selection; qs refuses dead locks itself.
+ * Returns the argv selector string in `buf`. */
+static const char *pid_selector(char *buf, size_t size, const struct shoji_instance *inst)
+{
+        snprintf(buf, size, "%ld", inst->pid);
+        return buf;
+}
+
 void shoji_context_init(struct shoji_context *ctx, const struct shoji_options *opts)
 {
         memset(ctx, 0, sizeof(*ctx));
@@ -235,6 +249,7 @@ int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *
         const struct shoji_instance *inst = pl->sel.selected;
         const char **argv;
         struct shj_proc_result *r;
+        char pidbuf[32];
         int code;
 
         if (!inst || inst->dead)
@@ -247,16 +262,20 @@ int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *
                 shj_msg("internal error: refusing to dispatch: instance has no valid id");
                 return SHOJI_EXIT_INTERNAL;
         }
+        if (inst->pid <= 0) {
+                shj_msg("internal error: refusing to dispatch: instance has no usable pid");
+                return SHOJI_EXIT_INTERNAL;
+        }
 
-        /* qs ipc -i <id> call <target> <function> [args...] */
+        /* qs ipc --pid <pid> call <target> <function> [args...] */
         argv = shj_alloc(sizeof(char *) * (size_t)(argc + 9));
         {
                 int i = 0;
 
                 argv[i++] = ctx->qs_bin;
                 argv[i++] = "ipc";
-                argv[i++] = "-i";
-                argv[i++] = inst->id;
+                argv[i++] = "--pid";
+                argv[i++] = pid_selector(pidbuf, sizeof(pidbuf), inst);
                 argv[i++] = "call";
                 argv[i++] = target;
                 argv[i++] = function;
@@ -317,8 +336,9 @@ int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *
 int shoji_dispatch_show(struct shoji_context *ctx, const struct shoji_pipeline *pl)
 {
         const struct shoji_instance *inst = pl->sel.selected;
-        const char *argv[] = { ctx->qs_bin, "ipc", "-i", NULL, "show", NULL };
+        const char *argv[] = { ctx->qs_bin, "ipc", "--pid", NULL, "show", NULL };
         struct shj_proc_result *r;
+        char pidbuf[32];
         int code;
 
         if (!inst || inst->dead)
@@ -327,8 +347,12 @@ int shoji_dispatch_show(struct shoji_context *ctx, const struct shoji_pipeline *
                 shj_msg("internal error: refusing to dispatch: instance has no valid id");
                 return SHOJI_EXIT_INTERNAL;
         }
+        if (inst->pid <= 0) {
+                shj_msg("internal error: refusing to dispatch: instance has no usable pid");
+                return SHOJI_EXIT_INTERNAL;
+        }
 
-        argv[3] = inst->id;
+        argv[3] = pid_selector(pidbuf, sizeof(pidbuf), inst);
         r = ctx->spawn(argv, ctx->spawn_user);
         if (!r)
                 return SHOJI_EXIT_INTERNAL;
@@ -367,8 +391,9 @@ int shoji_dispatch_show(struct shoji_context *ctx, const struct shoji_pipeline *
 int shoji_dispatch_kill_instance(struct shoji_context *ctx,
                                  const struct shoji_instance *inst)
 {
-        const char *argv[] = { ctx->qs_bin, "kill", "-i", NULL, NULL };
+        const char *argv[] = { ctx->qs_bin, "kill", "--pid", NULL, NULL };
         struct shj_proc_result *r;
+        char pidbuf[32];
         int code;
 
         if (!inst || inst->dead)
@@ -377,8 +402,12 @@ int shoji_dispatch_kill_instance(struct shoji_context *ctx,
                 shj_msg("internal error: refusing to dispatch: instance has no valid id");
                 return SHOJI_EXIT_INTERNAL;
         }
+        if (inst->pid <= 0) {
+                shj_msg("internal error: refusing to dispatch: instance has no usable pid");
+                return SHOJI_EXIT_INTERNAL;
+        }
 
-        argv[3] = inst->id;
+        argv[3] = pid_selector(pidbuf, sizeof(pidbuf), inst);
         r = ctx->spawn(argv, ctx->spawn_user);
         if (!r)
                 return SHOJI_EXIT_INTERNAL;
@@ -432,14 +461,15 @@ int shoji_dispatch_kill(struct shoji_context *ctx, const struct shoji_pipeline *
 
 int shoji_ipc_probe(struct shoji_context *ctx, const struct shoji_instance *inst)
 {
-        const char *argv[] = { ctx->qs_bin, "ipc", "-i", NULL, "show", NULL };
+        const char *argv[] = { ctx->qs_bin, "ipc", "--pid", NULL, "show", NULL };
         struct shj_proc_result *r;
+        char pidbuf[32];
         int ok;
 
-        if (!inst || inst->dead || !inst->id_valid)
+        if (!inst || inst->dead || !inst->id_valid || inst->pid <= 0)
                 return -1;
 
-        argv[3] = inst->id;
+        argv[3] = pid_selector(pidbuf, sizeof(pidbuf), inst);
         r = ctx->spawn(argv, ctx->spawn_user);
         if (!r)
                 return -1;

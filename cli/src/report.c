@@ -510,8 +510,10 @@ int shoji_cmd_instance_list(struct shoji_context *ctx, const struct shoji_option
 
         shoji_pipeline_run(ctx, opts, 0, &pl);
         if (!pl.list) {
+                int code = pl.exit_code ? pl.exit_code : SHOJI_EXIT_FAILED;
+
                 shoji_pipeline_release(&pl);
-                return pl.exit_code ? pl.exit_code : SHOJI_EXIT_FAILED;
+                return code;
         }
 
         if (opts->json) {
