@@ -250,11 +250,15 @@ PanelWindow {
         anchors.fill: parent
         focus: true
         Keys.onPressed: event => {
+            const mediaOpen = ShellState.media || (ShellState.expanded && ShellState.tab === "media");
             if (ShellState.power) {
                 powerMenu.handleKey(event);
-            } else if ((ShellState.media || (ShellState.expanded && ShellState.tab === "media")) && event.key === Qt.Key_Space && !event.isAutoRepeat) {
+            } else if (mediaOpen && event.key === Qt.Key_Space && !event.isAutoRepeat) {
                 if (Media.player)
                     Media.player.togglePlaying();
+                event.accepted = true;
+            } else if (mediaOpen && Media.multiple && (event.key === Qt.Key_Left || event.key === Qt.Key_Right) && !event.isAutoRepeat) {
+                Media.step(event.key === Qt.Key_Right ? 1 : -1);
                 event.accepted = true;
             }
         }

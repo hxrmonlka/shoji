@@ -35,6 +35,8 @@ const struct shoji_cmd shoji_ipc_table[] = {
         { "media", "play-pause", "media", "playPause", { { 0, NULL }, { 0, NULL } }, 0 },
         { "media", "next", "media", "next", { { 0, NULL }, { 0, NULL } }, 0 },
         { "media", "previous", "media", "previous", { { 0, NULL }, { 0, NULL } }, 0 },
+        { "media", "player-next", "media", "playerNext", { { 0, NULL }, { 0, NULL } }, 0 },
+        { "media", "player-previous", "media", "playerPrevious", { { 0, NULL }, { 0, NULL } }, 0 },
 
         /* control / power --------------------------------------------------- */
         { "control", "toggle", "control", "toggle", { { 0, NULL }, { 0, NULL } }, 0 },

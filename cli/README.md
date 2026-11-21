@@ -247,7 +247,7 @@ shoji island toggle | open | close | tab <name>     # tab: launcher|calendar|mon
                                                     # wallpapers|clipboard|color
                                                     # (+media|control when merged)
 shoji wallpaper toggle | open | close | set <path> | next | previous | random
-shoji media toggle | open | close | play-pause | next | previous
+shoji media toggle | open | close | play-pause | next | previous | player-next | player-previous
 shoji control toggle | open | close
 shoji power toggle | open | close
 shoji spotlight toggle | open | close

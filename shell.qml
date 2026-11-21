@@ -211,6 +211,14 @@ ShellRoot {
             if (Media.player)
                 Media.player.previous();
         }
+
+        function playerNext(): void {
+            Media.step(1);
+        }
+
+        function playerPrevious(): void {
+            Media.step(-1);
+        }
     }
 
     IpcHandler {

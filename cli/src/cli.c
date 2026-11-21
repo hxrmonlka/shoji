@@ -321,7 +321,7 @@ void shoji_print_help(void)
         printf("facade commands (mapped 1:1 onto shell.qml IpcHandlers):\n");
         printf("  island    toggle|open|close|tab <name>\n");
         printf("  wallpaper toggle|open|close|set <path>|next|previous|random\n");
-        printf("  media     toggle|open|close|play-pause|next|previous\n");
+        printf("  media     toggle|open|close|play-pause|next|previous|player-next|player-previous\n");
         printf("  control   toggle|open|close\n");
         printf("  power     toggle|open|close\n");
         printf("  spotlight toggle|open|close\n");

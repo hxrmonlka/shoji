@@ -10,8 +10,17 @@ QtObject {
 
     readonly property var players: Mpris.players.values
     readonly property var playingPlayer: players.find(p => p.isPlaying) ?? null
-    readonly property var player: playingPlayer ?? (lastPlayer && players.includes(lastPlayer) ? lastPlayer : (players.find(p => p.trackTitle) ?? players[0] ?? null))
+    readonly property var autoPlayer: playingPlayer ?? (lastPlayer && players.includes(lastPlayer) ? lastPlayer : (players.find(p => p.trackTitle) ?? players[0] ?? null))
+    readonly property var player: pinned && players.includes(pinned) ? pinned : autoPlayer
+    property var pinned: null
     property var lastPlayer: null
+
+    readonly property var deck: players.filter(p => p.isPlaying || p === player)
+    readonly property int deckIndex: deck.indexOf(player)
+    readonly property bool multiple: deck.length > 1
+
+    signal stepped(int dir)
+    signal bumped(int dir)
 
     onPlayingPlayerChanged: {
         if (playingPlayer)
@@ -34,6 +43,30 @@ QtObject {
     readonly property string volumeMode: matched.length > 0 ? "pipewire" : (available && player.volumeSupported ? "mpris" : "none")
     readonly property real volume: volumeMode === "pipewire" ? matched.reduce((s, n) => s + n.audio.volume, 0) / matched.length : volumeMode === "mpris" ? player.volume : 0
     readonly property bool muted: volumeMode === "pipewire" && matched.every(n => n.audio.muted)
+
+    function canStep(dir) {
+        const n = deckIndex + dir;
+        return n >= 0 && n < deck.length;
+    }
+
+    function select(i) {
+        const target = deck[i];
+        if (!target || target === player)
+            return;
+        const dir = i > deckIndex ? 1 : -1;
+        pinned = target;
+        lastPlayer = target;
+        stepped(dir);
+    }
+
+    function step(dir) {
+        if (!canStep(dir)) {
+            bumped(dir);
+            return false;
+        }
+        select(deckIndex + dir);
+        return true;
+    }
 
     function norm(s) {
         return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");

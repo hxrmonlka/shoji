@@ -28,6 +28,7 @@ static const struct frozen frozen_handlers[] = {
         { "wallpaper", "close" },
         { "media", "toggle" }, { "media", "open" }, { "media", "close" },
         { "media", "playPause" }, { "media", "next" }, { "media", "previous" },
+        { "media", "playerNext" }, { "media", "playerPrevious" },
         { "control", "toggle" }, { "control", "open" }, { "control", "close" },
         { "power", "toggle" }, { "power", "open" }, { "power", "close" },
         { "notifications", "toggleDnd" }, { "notifications", "dnd" },
@@ -82,6 +83,10 @@ void test_commands(void)
                 c = shoji_ipc_table_find("media", "play-pause");
                 CHECK(c && strcmp(c->target, "media") == 0 && strcmp(c->function, "playPause") == 0,
                       "shoji media play-pause -> media.playPause");
+
+                c = shoji_ipc_table_find("media", "player-next");
+                CHECK(c && strcmp(c->target, "media") == 0 && strcmp(c->function, "playerNext") == 0,
+                      "shoji media player-next -> media.playerNext");
 
                 c = shoji_ipc_table_find("wallpaper", "set");
                 CHECK(c && strcmp(c->target, "wallpaper") == 0 && strcmp(c->function, "set") == 0 &&

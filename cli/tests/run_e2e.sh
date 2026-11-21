@@ -189,6 +189,11 @@ grep -qF -- "call media playPause" "$MOCK_QS_LOG" \
   && ok "camelCase mapping applied" || bad "camelCase mapping applied" "$(cat "$MOCK_QS_LOG")"
 
 : > "$MOCK_QS_LOG"
+expect_exit 0 "media player-next maps to playerNext" "$CLI" media player-next
+grep -qF -- "call media playerNext" "$MOCK_QS_LOG" \
+  && ok "player switch mapping applied" || bad "player switch mapping applied" "$(cat "$MOCK_QS_LOG")"
+
+: > "$MOCK_QS_LOG"
 expect_exit 0 "notifications dnd off normalizes" "$CLI" notifications dnd off
 grep -qF -- "call notifications dnd false" "$MOCK_QS_LOG" \
   && ok "bool normalization applied" || bad "bool normalization applied" "$(cat "$MOCK_QS_LOG")"
