@@ -255,24 +255,10 @@ Item {
         property bool tail: false
         readonly property bool active: root.sortKey === head.key
         readonly property real pad: head.lead ? 10 : 12
+        readonly property real pillW: headRow.implicitWidth + head.pad * 2
+        readonly property real pillX: head.lead ? -head.pad : (head.width - pillW) / 2
 
         implicitHeight: 30
-
-        onActiveChanged: {
-            if (!active)
-                return;
-            punch.value = 1;
-            punch.velocity = 0;
-            punch.kick();
-        }
-
-        Spring {
-            id: punch
-
-            target: 0
-            token: Motion.impact
-            epsilon: 0.002
-        }
 
         Spring {
             id: sel
@@ -290,54 +276,31 @@ Item {
             epsilon: 0.05
         }
 
-        Item {
-            id: pill
+        Row {
+            id: headRow
 
-            x: head.lead ? -head.pad : (head.width - width) / 2
-            y: (head.height - height) / 2
-            visible: sel.value > 0.001
+            x: head.lead ? 0 : (head.width - implicitWidth) / 2
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 6
             opacity: Motion.clamp01(sel.value)
-            scale: Motion.lerp(0.8, 1, sel.value)
-            transformOrigin: head.lead ? Item.Left : Item.Center
-            width: headRow.implicitWidth + head.pad * 2
-            height: 26
+            visible: opacity > 0
 
-            Rectangle {
-                anchors.fill: parent
-                radius: 13
-                color: Theme.m3PrimaryContainer
-                transform: Scale {
-                    origin.x: head.lead ? 0 : pill.width / 2
-                    origin.y: pill.height / 2
-                    xScale: 1 + 0.12 * punch.value
-                    yScale: 1 - 0.12 * punch.value
-                }
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: head.label
+                color: Theme.m3OnPrimaryContainer
+                font.family: Theme.fontUi
+                font.pixelSize: 12
+                font.weight: Font.DemiBold
             }
 
-            Row {
-                id: headRow
-
-                x: head.pad
+            Text {
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 6
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: head.label
-                    color: Theme.m3OnPrimaryContainer
-                    font.family: Theme.fontUi
-                    font.pixelSize: 12
-                    font.weight: Font.DemiBold
-                }
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "\uf0d7"
-                    rotation: arrow.value
-                    color: Theme.m3OnPrimaryContainer
-                    font.family: Theme.fontIcon
-                    font.pixelSize: 10
-                }
+                text: "\uf0d7"
+                rotation: arrow.value
+                color: Theme.m3OnPrimaryContainer
+                font.family: Theme.fontIcon
+                font.pixelSize: 10
             }
         }
 
@@ -372,37 +335,133 @@ Item {
             Layout.fillHeight: true
             spacing: 6
 
-            RowLayout {
+            Item {
+                id: headBar
+
                 Layout.fillWidth: true
                 Layout.preferredHeight: 30
-                Layout.leftMargin: 10
-                Layout.rightMargin: 10
-                spacing: 8
 
-                Head {
-                    Layout.fillWidth: true
-                    key: "name"
-                    label: "Name"
-                    lead: true
+                readonly property var activeHead: root.sortKey === "name" ? nameHead : root.sortKey === "cpu" ? cpuHead : root.sortKey === "mem" ? memHead : pidHead
+                readonly property real stretch: Math.min(0.3, Math.abs(pillX.velocity) / 8000)
+
+                Item {
+                    id: pill
+
+                    property bool ready: false
+
+                    x: pillX.value
+                    y: (headBar.height - height) / 2
+                    width: Math.max(0, pillW.value)
+                    height: 26
+                    visible: ready
+
+                    Spring {
+                        id: pillX
+
+                        target: headsRow.x + headBar.activeHead.x + headBar.activeHead.pillX
+                        token: Motion.spatialDefault
+                        epsilon: 0.05
+                    }
+
+                    Spring {
+                        id: pillW
+
+                        target: headBar.activeHead.pillW
+                        token: Motion.spatialDefault
+                        epsilon: 0.05
+                    }
+
+                    Spring {
+                        id: punch
+
+                        target: 0
+                        token: Motion.impact
+                        epsilon: 0.002
+                    }
+
+                    Timer {
+                        id: arrival
+
+                        interval: 110
+                        onTriggered: {
+                            punch.value = 1;
+                            punch.velocity = 0;
+                            punch.kick();
+                        }
+                    }
+
+                    Connections {
+                        target: root
+
+                        function onSortKeyChanged() {
+                            arrival.restart();
+                        }
+                    }
+
+                    Component.onCompleted: Qt.callLater(() => {
+                        pillX.value = pillX.target;
+                        pillW.value = pillW.target;
+                        ready = true;
+                    })
+
+                    Rectangle {
+                        id: pillBg
+
+                        readonly property real sx: 1 + headBar.stretch + 0.14 * punch.value
+
+                        anchors.fill: parent
+                        radius: 13
+                        color: Theme.m3PrimaryContainer
+                        transform: Scale {
+                            origin.x: pillBg.width / 2
+                            origin.y: pillBg.height / 2
+                            xScale: pillBg.sx
+                            yScale: 1 / pillBg.sx
+                        }
+                    }
                 }
 
-                Head {
-                    Layout.preferredWidth: root.cpuW
-                    key: "cpu"
-                    label: "CPU"
-                }
+                RowLayout {
+                    id: headsRow
 
-                Head {
-                    Layout.preferredWidth: root.memW
-                    key: "mem"
-                    label: "Memory"
-                }
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 10
+                    spacing: 8
 
-                Head {
-                    Layout.preferredWidth: root.pidW
-                    key: "pid"
-                    label: "PID"
-                    tail: true
+                    Head {
+                        id: nameHead
+
+                        Layout.fillWidth: true
+                        key: "name"
+                        label: "Name"
+                        lead: true
+                    }
+
+                    Head {
+                        id: cpuHead
+
+                        Layout.preferredWidth: root.cpuW
+                        key: "cpu"
+                        label: "CPU"
+                    }
+
+                    Head {
+                        id: memHead
+
+                        Layout.preferredWidth: root.memW
+                        key: "mem"
+                        label: "Memory"
+                    }
+
+                    Head {
+                        id: pidHead
+
+                        Layout.preferredWidth: root.pidW
+                        key: "pid"
+                        label: "PID"
+                        tail: true
+                    }
                 }
             }
 
