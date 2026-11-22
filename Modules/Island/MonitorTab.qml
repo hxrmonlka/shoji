@@ -282,7 +282,7 @@ Item {
             x: head.lead ? 0 : (head.width - implicitWidth) / 2
             anchors.verticalCenter: parent.verticalCenter
             spacing: 6
-            opacity: Motion.clamp01(sel.value)
+            opacity: Motion.clamp01(sel.value * 2 - 1)
             visible: opacity > 0
 
             Text {
@@ -340,6 +340,7 @@ Item {
 
                 Layout.fillWidth: true
                 Layout.preferredHeight: 30
+                implicitWidth: headsRow.implicitWidth + 20
 
                 readonly property var activeHead: root.sortKey === "name" ? nameHead : root.sortKey === "cpu" ? cpuHead : root.sortKey === "mem" ? memHead : pidHead
                 readonly property real stretch: Math.min(0.3, Math.abs(pillX.velocity) / 8000)
