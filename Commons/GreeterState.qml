@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Greetd
+import "PasswordShapeSequence.js" as PasswordShapeSequence
 
 QtObject {
     id: root
@@ -34,13 +35,39 @@ QtObject {
     }
     readonly property string statePath: Quickshell.env("SHOJI_GREETER_STATE") || (Quickshell.env("HOME") + "/.local/state/shoji/greeter.json")
     readonly property ListModel shapes: ListModel {}
+    property var passwordShapeAssignments: []
 
     function syncShapes(): void {
         const n = secret ? password.length : 0;
+
+        if (n === 0) {
+            passwordShapeAssignments = [];
+            while (shapes.count > 0)
+                shapes.remove(shapes.count - 1);
+            return;
+        }
+
+        const pool = MaterialExpressiveShapes.catalog;
+        while (passwordShapeAssignments.length < n) {
+            const sequenceIndex = Math.floor(passwordShapeAssignments.length / pool.length);
+            const previousLast = passwordShapeAssignments.length > 0
+                ? passwordShapeAssignments[passwordShapeAssignments.length - 1]
+                : -1;
+            const sequence = PasswordShapeSequence.create(
+                pool,
+                sequenceIndex,
+                previousLast,
+                Settings.shufflePasswordShapes
+            );
+            passwordShapeAssignments = passwordShapeAssignments.concat(sequence);
+        }
+
         while (shapes.count > n)
             shapes.remove(shapes.count - 1);
-        while (shapes.count < n)
-            shapes.append({ shape: MaterialShapes.pickPassword() });
+        while (shapes.count < n) {
+            const index = shapes.count;
+            shapes.append({ shape: passwordShapeAssignments[index] });
+        }
     }
 
     function moveUser(step: int): void {
