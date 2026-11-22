@@ -116,6 +116,42 @@ case "${1:-}" in
         if [ -n "${MOCK_QS_SUCCESS_ERR:-}" ]; then
           printf '%s\n' "$MOCK_QS_SUCCESS_ERR" >&2
         fi
+        if [ "$target" = "settings" ]; then
+          case "$fn" in
+            list)
+              if [ -n "${MOCK_SETTINGS_LIST_FILE:-}" ] && [ -f "$MOCK_SETTINGS_LIST_FILE" ]; then
+                cat "$MOCK_SETTINGS_LIST_FILE"
+                exit 0
+              fi
+              ;;
+            dump)
+              if [ -n "${MOCK_SETTINGS_DUMP_FILE:-}" ] && [ -f "$MOCK_SETTINGS_DUMP_FILE" ]; then
+                cat "$MOCK_SETTINGS_DUMP_FILE"
+                exit 0
+              fi
+              ;;
+            exportOverrides)
+              if [ -n "${MOCK_SETTINGS_EXPORT_FILE:-}" ] && [ -f "$MOCK_SETTINGS_EXPORT_FILE" ]; then
+                cat "$MOCK_SETTINGS_EXPORT_FILE"
+                exit 0
+              fi
+              ;;
+            get)
+              mock_key="${1:-}"
+              shift || true
+              if [ -n "${MOCK_SETTINGS_GET_FILE:-}" ] && [ -f "$MOCK_SETTINGS_GET_FILE" ]; then
+                awk -F'\t' -v k="$mock_key" \
+                  '$1 == k && !done { printf "%s\n", $2; done = 1 } END { if (!done) printf "\n" }' \
+                  "$MOCK_SETTINGS_GET_FILE"
+                exit 0
+              fi
+              ;;
+            set)
+              printf '%s\n' "${MOCK_SETTINGS_SET_RESULT:-true}"
+              exit 0
+              ;;
+          esac
+        fi
         printf 'ok %s.%s %s\n' "$target" "$fn" "$*"
         exit 0
         ;;

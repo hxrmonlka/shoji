@@ -300,29 +300,33 @@ static int child_stderr_classifies(const char *err, int *code)
         return 0;
 }
 
-int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *pl,
-                        const char *target, const char *function,
-                        char *const args[], int argc)
+static struct shj_proc_result *spawn_ipc_call(struct shoji_context *ctx,
+                                              const struct shoji_pipeline *pl,
+                                              const char *target, const char *function,
+                                              char *const args[], int argc, int *code)
 {
         const struct shoji_instance *inst = pl->sel.selected;
         const char **argv;
         struct shj_proc_result *r;
         char pidbuf[32];
-        int code;
 
-        if (!inst || inst->dead)
-                return SHOJI_EXIT_NOINSTANCE;
+        *code = SHOJI_EXIT_INTERNAL;
+
+        if (!inst || inst->dead) {
+                *code = SHOJI_EXIT_NOINSTANCE;
+                return NULL;
+        }
         /* Defense in depth: selection refuses rows without a usable id, but
          * dispatch itself must guarantee that no IPC ever runs with an
          * empty instance id -- quickshell would skip the selector and fall
          * back to config-based selection. */
         if (!inst->id_valid) {
                 shj_msg("internal error: refusing to dispatch: instance has no valid id");
-                return SHOJI_EXIT_INTERNAL;
+                return NULL;
         }
         if (inst->pid <= 0) {
                 shj_msg("internal error: refusing to dispatch: instance has no usable pid");
-                return SHOJI_EXIT_INTERNAL;
+                return NULL;
         }
 
         /* qs ipc --pid <pid> call <target> <function> [args...] */
@@ -346,49 +350,97 @@ int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *
         free(argv);
 
         if (!r)
-                return SHOJI_EXIT_INTERNAL;
+                return NULL;
         if (r->exit == -1) {
                 shj_msg("cannot execute quickshell (%s): %s", ctx->qs_bin,
                         strerror(r->spawn_errno));
                 shj_hint("install quickshell or point --qs / SHOJI_QS_BIN at it");
                 shj_proc_result_free(r);
-                return SHOJI_EXIT_NOQS;
+                *code = SHOJI_EXIT_NOQS;
+                return NULL;
         }
         if (r->exit == -2) {
                 shj_msg("quickshell did not answer the IPC call in time");
                 warn_timeout();
                 shj_proc_result_free(r);
-                return SHOJI_EXIT_FAILED;
+                *code = SHOJI_EXIT_FAILED;
+                return NULL;
         }
         if (r->exit == -3) {
                 shj_msg("internal error reading quickshell output: %s",
                         strerror(r->spawn_errno));
                 shj_proc_result_free(r);
-                return SHOJI_EXIT_INTERNAL;
+                *code = SHOJI_EXIT_INTERNAL;
+                return NULL;
         }
+        *code = SHOJI_EXIT_OK;
+        return r;
+}
+
+static int finish_call(struct shoji_context *ctx, struct shj_proc_result *r,
+                       char **captured)
+{
+        int code;
+
+        if (captured)
+                *captured = NULL;
         if (r->truncated)
                 shj_msg("quickshell output hit the 4 MiB per-stream capture cap and was truncated");
 
-        if (r->out && *r->out)
-                fputs(r->out, stdout);
         code = r->exit;
+        if (r->out && *r->out) {
+                if (captured) {
+                        size_t n = strlen(r->out);
+
+                        *captured = shj_strdup(r->out);
+                        if (n && (*captured)[n - 1] == '\n')
+                                (*captured)[n - 1] = '\0';
+                } else {
+                        fputs(r->out, stdout);
+                }
+        }
         if (r->err && *r->err)
                 fputs(r->err, stderr);
         if (code != 0) {
-                {
-                        int classified = 0;
+                int classified = 0;
 
-                        if (child_stderr_classifies(r->err ? r->err : "", &classified)) {
-                                code = classified;
-                                shj_hint("run 'shoji ipc show' to list valid targets and functions");
-                        } else {
-                                code = SHOJI_EXIT_FAILED;
-                                shj_msg("quickshell exited with status %d", r->exit);
-                        }
+                if (child_stderr_classifies(r->err ? r->err : "", &classified)) {
+                        code = classified;
+                        shj_hint("run 'shoji ipc show' to list valid targets and functions");
+                } else {
+                        code = SHOJI_EXIT_FAILED;
+                        shj_msg("quickshell exited with status %d", r->exit);
                 }
         }
         shj_proc_result_free(r);
         return code;
+}
+
+int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *pl,
+                        const char *target, const char *function,
+                        char *const args[], int argc)
+{
+        struct shj_proc_result *r;
+        int code;
+
+        r = spawn_ipc_call(ctx, pl, target, function, args, argc, &code);
+        if (!r)
+                return code;
+        return finish_call(ctx, r, NULL);
+}
+
+int shoji_dispatch_call_capture(struct shoji_context *ctx, const struct shoji_pipeline *pl,
+                                const char *target, const char *function,
+                                char *const args[], int argc, char **out)
+{
+        struct shj_proc_result *r;
+        int code;
+
+        *out = NULL;
+        r = spawn_ipc_call(ctx, pl, target, function, args, argc, &code);
+        if (!r)
+                return code;
+        return finish_call(ctx, r, out);
 }
 
 int shoji_dispatch_show(struct shoji_context *ctx, const struct shoji_pipeline *pl)

@@ -60,6 +60,12 @@ int shoji_dispatch_call(struct shoji_context *ctx, const struct shoji_pipeline *
                         const char *target, const char *function,
                         char *const args[], int argc);
 
+/* Same dispatch, but *out captures quickshell's stdout (malloc'd, one
+ * trailing newline stripped) instead of relaying it. */
+int shoji_dispatch_call_capture(struct shoji_context *ctx, const struct shoji_pipeline *pl,
+                                const char *target, const char *function,
+                                char *const args[], int argc, char **out);
+
 /* Dispatch `qs ipc show` for the selected instance; returns exit code. */
 int shoji_dispatch_show(struct shoji_context *ctx, const struct shoji_pipeline *pl);
 

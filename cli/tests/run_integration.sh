@@ -13,7 +13,8 @@
 #      (the cross-display regression: upstream id-based selection would
 #      fail here; the --pid selector does not)
 #   3. the negative control proving raw `qs ipc -i` really is display-bound
-#   4. kill
+#   4. managed settings commands against the real return-value contract
+#   5. kill
 #
 # Everything runs in a temporary config directory; the instance is
 # terminated at the end.
@@ -81,6 +82,30 @@ ShellRoot {
             return "pong";
         }
     }
+
+    IpcHandler {
+        target: "settings"
+
+        function get(key: string): string {
+            return key == "alpha" ? "42" : "";
+        }
+
+        function list(): string {
+            return '{"categories":[{"id":"t","title":"T"}],"settings":[{"key":"alpha","category":"t","section":"s","label":"A","type":"int","default":42,"value":42,"min":1,"max":99,"step":1}]}';
+        }
+
+        function dump(): string {
+            return '{"alpha":42}';
+        }
+
+        function exportOverrides(): string {
+            return '{"alpha":42}';
+        }
+
+        function set(key: string, value: string): bool {
+            return key == "alpha" && value == "42";
+        }
+    }
 }
 EOF
 
@@ -146,6 +171,30 @@ if [ -n "$RAW_ID" ]; then
 else
   ok "negative control skipped (no instance id reported)"
 fi
+
+# 4. managed settings commands exercise the real return-value contract:
+#    non-void functions print the stringified value plus a newline and exit
+#    0; a false bool return must arrive as the text "false" for the CLI's
+#    rejection handling to work
+expect_out "1..99 step 1" "real settings list renders constraints" \
+  "$CLI" --qs "$QS" --store "$FIXTURE" settings list
+expect_out "alpha" "real settings list filters by category" \
+  "$CLI" --qs "$QS" --store "$FIXTURE" settings list T
+"$CLI" --qs "$QS" --store "$FIXTURE" settings dump > "$WORK/real-dump.out" 2>/dev/null
+printf '{\n  "alpha": 42\n}\n' > "$WORK/real-dump.want"
+diff "$WORK/real-dump.want" "$WORK/real-dump.out" > /dev/null \
+  && ok "real settings dump is canonical JSON" \
+  || bad "real settings dump is canonical JSON" "$(cat "$WORK/real-dump.out")"
+expect_out "42" "real settings get returns the value" \
+  "$CLI" --qs "$QS" --store "$FIXTURE" settings get alpha
+expect_exit 65 "real settings get rejects unknown keys" \
+  "$CLI" --qs "$QS" --store "$FIXTURE" settings get nope
+expect_exit 0 "real settings set accepts valid values" \
+  "$CLI" --qs "$QS" --store "$FIXTURE" settings set alpha 42
+expect_exit 65 "real settings set rejects values" \
+  "$CLI" --qs "$QS" --store "$FIXTURE" settings set alpha 43
+expect_exit 65 "real settings set rejects unknown keys" \
+  "$CLI" --qs "$QS" --store "$FIXTURE" settings set nope x
 
 # 5. kill
 expect_exit 0 "shoji kill stops the real instance" \

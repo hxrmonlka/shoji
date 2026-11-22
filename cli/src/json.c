@@ -444,3 +444,173 @@ const char *shj_json_str(const struct shj_json *v, const char *fallback)
                 return v->string;
         return fallback;
 }
+
+void shj_json_number_str(char *buf, size_t size, double d)
+{
+        if (d > -9007199254740991.0 && d < 9007199254740991.0) {
+                long long ll = (long long)d;
+
+                if ((double)ll == d) {
+                        snprintf(buf, size, "%lld", ll);
+                        return;
+                }
+        }
+        snprintf(buf, size, "%.15g", d);
+        if (strtod(buf, NULL) != d)
+                snprintf(buf, size, "%.17g", d);
+}
+
+static void emit_escaped(struct shj_sbuf *b, const char *s)
+{
+        shj_sbuf_addch(b, '"');
+        for (; *s; s++) {
+                switch (*s) {
+                case '"': shj_sbuf_add(b, "\\\""); break;
+                case '\\': shj_sbuf_add(b, "\\\\"); break;
+                case '\b': shj_sbuf_add(b, "\\b"); break;
+                case '\f': shj_sbuf_add(b, "\\f"); break;
+                case '\n': shj_sbuf_add(b, "\\n"); break;
+                case '\r': shj_sbuf_add(b, "\\r"); break;
+                case '\t': shj_sbuf_add(b, "\\t"); break;
+                default:
+                        if ((unsigned char)*s < 0x20)
+                                shj_sbuf_addf(b, "\\u%04x", (unsigned char)*s);
+                        else
+                                shj_sbuf_addch(b, *s);
+                }
+        }
+        shj_sbuf_addch(b, '"');
+}
+
+static int member_key_order(const void *a, const void *b)
+{
+        const struct shj_json *const *ma = a;
+        const struct shj_json *const *mb = b;
+
+        return strcmp((*ma)->key ? (*ma)->key : "", (*mb)->key ? (*mb)->key : "");
+}
+
+static void emit_indent(struct shj_sbuf *b, int pretty, int indent)
+{
+        int i;
+
+        if (!pretty)
+                return;
+        for (i = 0; i < indent * 2; i++)
+                shj_sbuf_addch(b, ' ');
+}
+
+static void emit_value(struct shj_sbuf *b, const struct shj_json *v,
+                       int pretty, int indent, int sort_keys)
+{
+        if (!v) {
+                shj_sbuf_add(b, "null");
+                return;
+        }
+
+        switch (v->type) {
+        case SHOJI_JSON_NULL:
+                shj_sbuf_add(b, "null");
+                break;
+        case SHOJI_JSON_BOOL:
+                shj_sbuf_add(b, v->boolean ? "true" : "false");
+                break;
+        case SHOJI_JSON_NUMBER: {
+                char tmp[40];
+
+                shj_json_number_str(tmp, sizeof(tmp), v->number);
+                shj_sbuf_add(b, tmp);
+                break;
+        }
+        case SHOJI_JSON_STRING:
+                emit_escaped(b, v->string ? v->string : "");
+                break;
+        case SHOJI_JSON_ARRAY: {
+                const struct shj_json *it;
+                int first = 1;
+
+                if (!v->items) {
+                        shj_sbuf_add(b, "[]");
+                        break;
+                }
+                shj_sbuf_addch(b, '[');
+                for (it = v->items; it; it = it->next) {
+                        if (!first)
+                                shj_sbuf_addch(b, ',');
+                        first = 0;
+                        if (pretty) {
+                                shj_sbuf_addch(b, '\n');
+                                emit_indent(b, pretty, indent + 1);
+                        }
+                        emit_value(b, it, pretty, indent + 1, sort_keys);
+                }
+                if (pretty) {
+                        shj_sbuf_addch(b, '\n');
+                        emit_indent(b, pretty, indent);
+                }
+                shj_sbuf_addch(b, ']');
+                break;
+        }
+        case SHOJI_JSON_OBJECT: {
+                const struct shj_json **members;
+                size_t n = 0;
+                const struct shj_json *it;
+                size_t i;
+                int first = 1;
+
+                if (!v->items) {
+                        shj_sbuf_add(b, "{}");
+                        break;
+                }
+                for (it = v->items; it; it = it->next)
+                        n++;
+                members = shj_alloc(sizeof(*members) * n);
+                i = 0;
+                for (it = v->items; it; it = it->next)
+                        members[i++] = it;
+                if (sort_keys)
+                        qsort(members, n, sizeof(*members), member_key_order);
+
+                shj_sbuf_addch(b, '{');
+                for (i = 0; i < n; i++) {
+                        if (!first)
+                                shj_sbuf_addch(b, ',');
+                        first = 0;
+                        if (pretty) {
+                                shj_sbuf_addch(b, '\n');
+                                emit_indent(b, pretty, indent + 1);
+                        }
+                        emit_escaped(b, members[i]->key ? members[i]->key : "");
+                        shj_sbuf_addch(b, ':');
+                        if (pretty)
+                                shj_sbuf_addch(b, ' ');
+                        emit_value(b, members[i], pretty, indent + 1, sort_keys);
+                }
+                if (pretty) {
+                        shj_sbuf_addch(b, '\n');
+                        emit_indent(b, pretty, indent);
+                }
+                shj_sbuf_addch(b, '}');
+                free(members);
+                break;
+        }
+        default:
+                shj_sbuf_add(b, "null");
+                break;
+        }
+}
+
+void shj_json_emit_value(struct shj_sbuf *b, const struct shj_json *v,
+                         int pretty, int indent, int sort_keys)
+{
+        emit_value(b, v, pretty, indent, sort_keys);
+}
+
+char *shj_json_emit(const struct shj_json *v, int pretty, int sort_keys)
+{
+        struct shj_sbuf b;
+
+        shj_sbuf_init(&b);
+        emit_value(&b, v, pretty, 0, sort_keys);
+        return shj_sbuf_detach(&b);
+}

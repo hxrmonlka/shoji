@@ -67,6 +67,14 @@ make test        # unit tests + end-to-end tests + shell.qml mapping check
   pipeline (exact spawn count and order: one listing then one IPC;
   fallback enrichment reusing the snapshot; terminal discovery failures),
   JSON parsing,
+  JSON serialization (canonical sorted-key emission, number rendering,
+  string escaping), settings payload helpers (category matching,
+  constraint rendering, display values), managed settings command parsing
+  (kinds and arity) and the managed settings command behavior end to end on
+  an injected spawn interface (list table and `--json` output, category
+  filtering, canonical dump/export bytes and determinism, get relay and
+  empty-value disambiguation, unknown-key rejection, set success,
+  set rejection diagnostics, subprocess counts per failure path),
   embedded NUL rejection in captured output, SIGCHLD re-establishment
   under an ignoring parent, timeout boundary conditions, and
   complete-output JSON validation of every `--json` command. The resolver
@@ -82,7 +90,10 @@ make test        # unit tests + end-to-end tests + shell.qml mapping check
   `fixtures/spawn_helper.c exec-ignchld`, built by the target),
   status/doctor output, deterministic store-resolution failures via a
   nonexistent `--store`, ambiguity refusal, timeouts (including descendants that remain in the dedicated process
-  group), and the doctor flow.
+  group), the doctor flow, and the settings management commands (list,
+  list filtering and `--json`, dump bytes and determinism, export bytes,
+  get, set with and without rejection, passthrough preservation, arity
+  errors, subprocess counts, and the no-runtime-support failure class).
 - `make integration` — real-Quickshell tests (`tests/run_integration.sh`);
   needs a running Wayland session and `qs` (or `$SHOJI_INTEGRATION_QS`),
   otherwise it skips. Launches a real instance, dispatches IPC through
@@ -114,6 +125,18 @@ ASan+UBSan: unit 531 passed; e2e 116 passed; check-qml 1 passed
 
 The sanitizer build used `-fsanitize=address,undefined`.
 
+After the Phase II settings management round (GCC 14.2 in CI; the ASan+UBSan
+build used `-fsanitize=address,undefined`):
+
+```
+GCC:        unit 755 passed; e2e 173 passed; check-qml 1 passed
+ASan+UBSan: unit 755 passed; e2e 173 passed; check-qml 1 passed
+```
+
+Clang was not exercised for this round (no clang in the test environment);
+the earlier rounds stayed warning-free under both compilers and no
+compiler-specific constructs were added.
+
 ## Command reference
 
 ```
@@ -127,7 +150,7 @@ Global options:
 | `--store PATH` | Resolve Shoji from an explicit path (directory or `shell.qml`); overrides every other source |
 | `--instance-id ID` | Operate on the given instance (unique prefix of the id, like `qs -i`) |
 | `--qs PATH` | Quickshell executable; default `qs` on `$PATH`, env `SHOJI_QS_BIN` |
-| `--json` | Machine-readable output for `status` and `instance list/current/inspect` |
+| `--json` | Machine-readable output for `status`, `instance list/current/inspect`, and `settings list` |
 | `-h/--help`, `-V/--version` | Help / version |
 
 Diagnostics go to **stderr**, command output to **stdout**, so scripting stays
@@ -240,6 +263,97 @@ shoji ipc call <target> <function> [arguments...]   # raw pass-through
 `ipc call` is the raw dispatcher escape hatch; targets and functions are
 validated by the running shell itself (unknown names produce exit code 65).
 
+### Settings management
+
+```sh
+shoji settings list [category]     # all settings with metadata; optional
+                                   # category filter (id or title, case-
+                                   # insensitive), --json supported
+shoji settings list --json
+shoji settings dump                # complete effective settings as JSON
+shoji settings export              # persisted user overrides as JSON
+shoji settings get <key>           # one effective value
+shoji settings set <key> <value>   # validated by the running shell
+shoji settings reset | reload | open | close | toggle   # pass-through
+```
+
+`list`, `dump`, `export`, `get` and `set` are managed commands: they call the
+matching `settings` IPC functions of the running shell, validate the JSON
+payload locally, and format it. The schema itself is never duplicated in C —
+`Commons/Settings.qml` remains the single source of truth, and the CLI always
+queries the running runtime (never `~/.local/state/shoji/settings.json`), so
+pending GUI changes made within the 250 ms save debounce are included.
+Nothing reads or writes configuration files, in the Nix store or elsewhere.
+
+`settings list` prints an aligned table with one row per setting:
+
+```
+KEY             CATEGORY  TYPE    DEFAULT  CURRENT  CONSTRAINTS        DESCRIPTION
+pillHeight      island    int     44       44       32..72 step 1
+mergeCircles    features  bool    false    true
+searchEngine    features  choice  kagi     kagi     kagi|google        Used by the >w prefix.
+```
+
+Columns: key, category id, type (`int`, `bool`, `string`, `scheme`,
+`choice`), default value, current effective value, constraints (numeric
+ranges with step, choice option values; `-` when unconstrained) and the
+description. `settings list <category>` filters rows by category id or
+title (case-insensitive); an unknown category exits 64 and lists the valid
+ones. `settings list --json` emits the runtime payload as one compact JSON
+object (`{"categories": [...], "settings": [...]}`) with the rows filtered
+by the category when one is given; the object shape is stable for
+scripting.
+
+`settings dump` prints every setting with its effective value (defaults
+applied) as pretty-printed JSON with keys sorted by strcmp, one trailing
+newline, no other bytes. Running it twice produces identical output. Piping
+it through `jq` or comparing generations with `diff` works.
+
+`settings export` prints only the persisted user override map — the same
+shape `Commons/Settings.qml` writes to `~/.local/state/shoji/settings.json`
+(`JSON.stringify(values, null, 2)` plus newline). The CLI re-serializes with
+sorted keys for determinism; the file content written by the shell uses
+insertion order, but both are plain JSON objects that `restore()` accepts
+unchanged, so export output can be redirected into a state file or synced
+by the Alice snapshot scripts. Effective settings (dump) and persisted
+overrides (export) stay distinct: keys absent from the export still appear
+in the dump with their defaults.
+
+`settings get <key>` relays the effective value (the same output as
+`qs ipc call settings get`). When the shell answers with an empty string
+the CLI asks the runtime whether the key exists: known keys with an empty
+string value (like `aliceDotfiles`) print an empty line and exit 0, unknown
+keys are rejected with exit 65.
+
+`settings set <key> <value>` dispatches `settings.set` and interprets the
+boolean result quickshell prints: `true` relays and exits 0, `false` is
+turned into a diagnostic and exit 65. Validation happens in the running
+shell — never in the CLI:
+
+- Unknown keys are rejected (`unknown setting '<key>'`).
+- Booleans accept `true/false/1/0/on/off/yes/no` in any casing.
+- Choice settings accept only declared option values
+  (`invalid value ... expected one of kagi|google`).
+- Numeric settings must be finite numbers within the declared `min`/`max`
+  (`expected a number in 32..72 step 1`); `Settings.set()` now enforces the
+  bounds at set time instead of silently clamping at read time, so invalid
+  values are never persisted. Values outside the range that are already in
+  an existing settings file keep working — `get()` still clamps them for
+  display and use.
+
+A rejected `set` (or an ambiguous empty `get`) costs one extra IPC call: the
+CLI reuses the discovery snapshot and calls `settings list` once to tell
+"unknown key" apart from "invalid value" without duplicating the schema. The
+success path never pays it.
+
+`reset`, `reload`, `open`, `close` and `toggle` remain raw pass-throughs and
+relay quickshell's output verbatim.
+
+These commands need the matching shell functions (`settings.list`,
+`settings.dump`, `settings.exportOverrides`); pointing a new CLI at an older
+Shoji generation fails with the standard "Function not found." classification
+(exit 65).
+
 ### Facade commands
 
 Friendly commands mapping 1:1 onto the existing `IpcHandler`s in `shell.qml`
@@ -267,6 +381,9 @@ shoji settings get <key> | set <key> <value> | reset | reload | open | close | t
 shoji theme scheme <name> | mode <name> | current | list | preview
 ```
 
+The settings subcommands `list`, `dump`, `export`, `get` and `set` are
+handled by the settings manager described above, not as raw pass-throughs.
+
 Examples:
 
 ```sh
@@ -276,6 +393,10 @@ shoji media play-pause
 shoji awake on 30
 shoji notifications dnd off
 shoji theme current
+shoji settings list features
+shoji settings set pillHeight 48
+shoji settings dump > effective.json
+shoji settings export > settings-overrides.json
 shoji --store /nix/store/…-shoji/share/quickshell/shoji status
 shoji --instance-id abc123 ipc show
 ```
@@ -497,8 +618,11 @@ cli/
     instances.c/.h discovery (`qs list -a -j` fast path + diagnostic
                    probes), matching, selection policy
     dispatch.c/.h pipeline (fast + diagnostic) + `qs ipc` subprocess dispatch
+    settings.c/.h settings management (list/dump/export/get/set over the
+                   settings IPC functions; JSON validation and formatting)
     proc.c/.h     fork/execvp capture, timeout, injectable spawn interface
-    json.c/.h     minimal JSON parser for `qs list -j`
+    json.c/.h     minimal JSON parser and writer for `qs list -j` and the
+                   settings payloads
     util.c/.h     alloc, string buffers, paths, diagnostics
     report.c/.h   status, doctor, instance commands
     exitcodes.h   exit-code table
@@ -537,6 +661,15 @@ cli/
   practice; instances whose recorded launch path uses that mutable link are
   conservatively treated as uncertain and require explicit `--instance-id`
   (see selection policy).
+- `qs ipc call` return values are relayed and (for the settings commands)
+  interpreted per the verified upstream contract: quickshell 0.3.0 and
+  0.3.2 print the stringified return value of non-void functions plus a
+  newline to stdout and exit 0 (`bool` -> `true`/`false`, `string` -> the
+  text), void functions print nothing, and failures exit 255 after writing
+  `Target not found.` / `Function not found.` / argument-parse errors to
+  stderr (`src/launch/command.cpp`, `src/io/ipccomm.cpp`,
+  `src/io/ipc.cpp`). `shoji settings set` treats a captured `false` as a
+  rejected value, and anything else as a broken runtime contract (exit 1).
 - `qs list -j` does not include the display connection, so shoji matches
   across displays and cannot name an instance's display in diagnostics.
   Multi-instance ambiguity is handled by refusal + `--instance-id`.
@@ -560,8 +693,9 @@ cli/
 ## Deliberately deferred to Phase II
 
 - Event monitoring / `qs ipc wait|listen` exposure.
-- Settings synchronization and a real settings manager (only the existing
-  `settings` IPC pass-through is exposed).
+- Settings synchronization into dotfiles (only inspection, export and the
+  existing `settings` pass-through are exposed; the Alice snapshot scripts
+  own the sync direction).
 - Theme generation / matugen integration (only the existing `theme` IPC
   pass-through is exposed).
 - Screenshot management (list/inspect captures; only the trigger commands

@@ -169,8 +169,15 @@ QtObject {
                     return false;
             }
         } else {
-            v = Number(raw);
+            const t = String(raw).trim();
+            if (t === "")
+                return false;
+            v = Number(t);
             if (!isFinite(v))
+                return false;
+            if (typeof d.min === "number" && v < d.min)
+                return false;
+            if (typeof d.max === "number" && v > d.max)
                 return false;
         }
         const next = Object.assign({}, values);
@@ -183,6 +190,47 @@ QtObject {
     function catTitle(id) {
         const c = categories.find(e => e.id === id);
         return c ? c.title : id;
+    }
+
+    function jsonList() {
+        const rows = [];
+        schema.forEach(d => {
+            const e = {
+                key: d.key,
+                category: d.cat,
+                section: d.section,
+                label: d.label,
+                type: d.type || "int",
+                default: d.def,
+                value: get(d.key)
+            };
+            if (d.desc !== undefined)
+                e.description = d.desc;
+            if (d.type === "choice") {
+                e.options = d.options.map(o => o.value);
+            } else if (!d.type) {
+                e.min = d.min;
+                e.max = d.max;
+                e.step = d.step;
+            }
+            rows.push(e);
+        });
+        return JSON.stringify({
+            categories: categories.map(c => ({ id: c.id, title: c.title })),
+            settings: rows
+        });
+    }
+
+    function jsonDump() {
+        const out = {};
+        schema.forEach(d => {
+            out[d.key] = get(d.key);
+        });
+        return JSON.stringify(out);
+    }
+
+    function jsonExport() {
+        return JSON.stringify(values);
     }
 
     function resetCategory(id) {

@@ -116,6 +116,31 @@ export SHOJI_STORE_PATH="$STORE"
 export MOCK_LIST_FILE="$WORK/instances.json"
 export MOCK_QS_LOG="$WORK/mock-qs.log"
 
+cat > "$WORK/settings-list.json" <<'EOF'
+{"categories":[{"id":"island","title":"Island"},{"id":"features","title":"Features"},{"id":"system","title":"System"}],
+ "settings":[
+ {"key":"pillHeight","category":"island","section":"Pill","label":"Pill height","type":"int","default":44,"value":44,"min":32,"max":72,"step":1},
+ {"key":"mergeCircles","category":"features","section":"Island","label":"Merge media and controls into the island","type":"bool","default":false,"value":true,"description":"Hide the two circles."},
+ {"key":"searchEngine","category":"features","section":"Spotlight","label":"Web search engine","type":"choice","default":"kagi","value":"google","options":["kagi","google"],"description":"Used by the >w prefix."},
+ {"key":"nightCommand","category":"system","section":"Night mode","label":"Night command","type":"string","default":"gammastep -m wayland -O {temp}","value":""}
+ ]}
+EOF
+
+cat > "$WORK/settings-dump.json" <<'EOF'
+{"searchEngine":"google","pillHeight":44,"mergeCircles":true,"nightCommand":""}
+EOF
+
+cat > "$WORK/settings-export.json" <<'EOF'
+{"nightCommand":"gammastep -m wayland -O {temp}","pillHeight":44}
+EOF
+
+printf 'pillHeight\t44\naliceDotfiles\t\n' > "$WORK/settings-get.tsv"
+
+export MOCK_SETTINGS_LIST_FILE="$WORK/settings-list.json"
+export MOCK_SETTINGS_DUMP_FILE="$WORK/settings-dump.json"
+export MOCK_SETTINGS_EXPORT_FILE="$WORK/settings-export.json"
+export MOCK_SETTINGS_GET_FILE="$WORK/settings-get.tsv"
+
 echo "== end-to-end (mock quickshell) =="
 
 # basic commands -----------------------------------------------------------
@@ -259,6 +284,114 @@ env MOCK_QS_SUCCESS_ERR="expected child warning" \
   && grep -qF "expected child warning" "$WORK/success.stderr" \
   && ok "successful IPC relays child stderr" \
   || bad "successful IPC relays child stderr" "$(cat "$WORK/success.stderr")"
+
+# settings management ---------------------------------------------------------
+expect_exit 0 "settings list exits 0" "$CLI" settings list
+expect_out "pillHeight" "settings list shows keys" "$CLI" settings list
+expect_out "32..72 step 1" "settings list shows numeric constraints" "$CLI" settings list
+expect_out "kagi|google" "settings list shows choice constraints" "$CLI" settings list
+expect_out "Hide the two circles." "settings list shows descriptions" "$CLI" settings list
+expect_out "CURRENT" "settings list shows current column" "$CLI" settings list
+expect_out "mergeCircles" "settings list features filters" "$CLI" settings list features
+"$CLI" settings list features 2>/dev/null | grep -qF "pillHeight" \
+  && bad "category filter drops other categories" "pillHeight leaked" \
+  || ok "category filter drops other categories"
+expect_exit 0 "settings list by title exits 0" "$CLI" settings list Features
+expect_exit 64 "settings list unknown category exits 64" "$CLI" settings list bogus
+"$CLI" settings list bogus 2>"$WORK/list-bogus.err"
+grep -qF "unknown setting category 'bogus'" "$WORK/list-bogus.err" \
+  && ok "unknown category diagnostic" || bad "unknown category diagnostic" "$(cat "$WORK/list-bogus.err")"
+grep -qF "valid categories: island, features, system" "$WORK/list-bogus.err" \
+  && ok "unknown category hint lists categories" \
+  || bad "unknown category hint lists categories" "$(cat "$WORK/list-bogus.err")"
+expect_exit 0 "settings list --json exits 0" "$CLI" settings list --json
+"$CLI" settings list --json > "$WORK/list-json.out" 2>/dev/null
+grep -qF '{"categories":' "$WORK/list-json.out" \
+  && grep -qF '"settings":[' "$WORK/list-json.out" \
+  && ok "settings list --json emits the payload object" \
+  || bad "settings list --json emits the payload object" "$(cat "$WORK/list-json.out")"
+"$CLI" settings list features --json 2>/dev/null | grep -qF '"pillHeight"' \
+  && bad "filtered json drops other categories" "pillHeight leaked" \
+  || ok "filtered json drops other categories"
+
+expect_exit 0 "settings dump exits 0" "$CLI" settings dump
+"$CLI" settings dump > "$WORK/dump.out" 2>/dev/null
+printf '{\n  "mergeCircles": true,\n  "nightCommand": "",\n  "pillHeight": 44,\n  "searchEngine": "google"\n}\n' \
+  > "$WORK/dump.want"
+diff "$WORK/dump.want" "$WORK/dump.out" > /dev/null \
+  && ok "settings dump is canonical sorted JSON" || bad "settings dump is canonical sorted JSON" "$(cat "$WORK/dump.out")"
+"$CLI" settings dump 2>/dev/null > "$WORK/dump2.out"
+diff "$WORK/dump.out" "$WORK/dump2.out" > /dev/null \
+  && ok "settings dump is deterministic" || bad "settings dump is deterministic" "outputs differ"
+"$CLI" settings dump 2>/dev/null | grep -qF '"nightCommand": ""' \
+  && ok "dump includes default-valued entries" || bad "dump includes default-valued entries"
+
+expect_exit 0 "settings export exits 0" "$CLI" settings export
+"$CLI" settings export > "$WORK/export.out" 2>/dev/null
+printf '{\n  "nightCommand": "gammastep -m wayland -O {temp}",\n  "pillHeight": 44\n}\n' \
+  > "$WORK/export.want"
+diff "$WORK/export.want" "$WORK/export.out" > /dev/null \
+  && ok "settings export is canonical sorted JSON" || bad "settings export is canonical sorted JSON" "$(cat "$WORK/export.out")"
+
+: > "$MOCK_QS_LOG"
+expect_exit 0 "settings get known key exits 0" "$CLI" settings get pillHeight
+expect_out "44" "settings get prints the value" "$CLI" settings get pillHeight
+got="$("$CLI" settings get aliceDotfiles 2>/dev/null)"
+[ -z "$got" ] && ok "settings get of empty value prints empty output" \
+  || bad "settings get of empty value prints empty output" "$got"
+expect_exit 65 "settings get unknown key exits 65" "$CLI" settings get boguskey
+"$CLI" settings get boguskey 2>"$WORK/get-bogus.err"
+grep -qF "unknown setting 'boguskey'" "$WORK/get-bogus.err" \
+  && ok "unknown key diagnostic on get" || bad "unknown key diagnostic on get" "$(cat "$WORK/get-bogus.err")"
+
+: > "$MOCK_QS_LOG"
+expect_exit 0 "settings set valid exits 0" "$CLI" settings set pillHeight 44
+expect_out "true" "settings set prints true" "$CLI" settings set pillHeight 44
+grep -qF -- "call settings set pillHeight 44" "$MOCK_QS_LOG" \
+  && ok "set argv vector exact" || bad "set argv vector exact" "$(cat "$MOCK_QS_LOG")"
+expect_exit 0 "settings set value with spaces passes through" \
+  "$CLI" settings set nightCommand "systemctl suspend"
+grep -qF -- "17:systemctl suspend" "$MOCK_QS_LOG" \
+  && ok "set value stays one argv" || bad "set value stays one argv" "$(cat "$MOCK_QS_LOG")"
+
+: > "$MOCK_QS_LOG"
+expect_exit 65 "rejected set with unknown key exits 65" \
+  env MOCK_SETTINGS_SET_RESULT=false "$CLI" settings set boguskey x
+list_calls=$(grep -c '^list ' "$MOCK_QS_LOG")
+ipc_calls=$(grep -c '^ARGV 3:ipc' "$MOCK_QS_LOG")
+[ "$list_calls" = "1" ] && [ "$ipc_calls" = "2" ] \
+  && ok "rejection check reuses the snapshot with one extra IPC call" \
+  || bad "rejection check reuses the snapshot with one extra IPC call" \
+     "$list_calls listings, $ipc_calls ipc calls"
+env MOCK_SETTINGS_SET_RESULT=false "$CLI" settings set boguskey x 2>"$WORK/set-bogus.err"
+grep -qF "unknown setting 'boguskey'" "$WORK/set-bogus.err" \
+  && ok "unknown key diagnostic on set" || bad "unknown key diagnostic on set" "$(cat "$WORK/set-bogus.err")"
+env MOCK_SETTINGS_SET_RESULT=false "$CLI" settings set pillHeight 999 2>"$WORK/set-bad.err"
+grep -qF "invalid value for 'pillHeight'" "$WORK/set-bad.err" \
+  && ok "invalid value diagnostic on set" || bad "invalid value diagnostic on set" "$(cat "$WORK/set-bad.err")"
+grep -qF "32..72" "$WORK/set-bad.err" \
+  && ok "invalid value diagnostic includes constraints" \
+  || bad "invalid value diagnostic includes constraints" "$(cat "$WORK/set-bad.err")"
+expect_exit 65 "rejected set with wrong type exits 65" \
+  env MOCK_SETTINGS_SET_RESULT=false "$CLI" settings set mergeCircles maybe
+
+# the passthrough settings subcommands keep their original behavior
+: > "$MOCK_QS_LOG"
+expect_exit 0 "settings reset stays a passthrough" "$CLI" settings reset
+grep -qF -- "call settings reset" "$MOCK_QS_LOG" \
+  && ok "reset argv vector exact" || bad "reset argv vector exact" "$(cat "$MOCK_QS_LOG")"
+expect_exit 0 "settings toggle stays a passthrough" "$CLI" settings toggle
+grep -qF -- "call settings toggle" "$MOCK_QS_LOG" \
+  && ok "toggle argv vector exact" || bad "toggle argv vector exact" "$(cat "$MOCK_QS_LOG")"
+expect_exit 64 "bare settings group is a usage error" "$CLI" settings
+expect_exit 64 "unknown settings subcommand is a usage error" "$CLI" settings explode
+expect_exit 64 "settings dump rejects arguments" "$CLI" settings dump extra
+expect_exit 64 "settings get requires a key" "$CLI" settings get
+expect_exit 64 "settings set requires two arguments" "$CLI" settings set onlykey
+
+# a runtime without the new settings functions fails cleanly
+expect_exit 70 "settings dump without runtime support exits 70" \
+  env MOCK_SETTINGS_DUMP_FILE="$WORK/missing-dump.json" "$CLI" settings dump
 
 # instance override ----------------------------------------------------------
 : > "$MOCK_QS_LOG"

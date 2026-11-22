@@ -19,6 +19,11 @@ enum shoji_cmd_kind {
         SHOJI_CMD_IPC_CALL,
         SHOJI_CMD_FACADE,
         SHOJI_CMD_DEBUG_MAP,
+        SHOJI_CMD_SETTINGS_LIST,
+        SHOJI_CMD_SETTINGS_DUMP,
+        SHOJI_CMD_SETTINGS_EXPORT,
+        SHOJI_CMD_SETTINGS_GET,
+        SHOJI_CMD_SETTINGS_SET,
 };
 
 struct shoji_options {
@@ -39,7 +44,7 @@ struct shoji_options {
         int ipc_argc;
         char **ipc_args;                  /* malloc'd strings */
 
-        char *facade_args[2];             /* normalized facade arguments */
+        char *facade_args[2];             /* normalized facade or settings arguments */
 };
 
 /* Parse argv (argv[0] excluded); returns 0 and fills *opts on success, or a

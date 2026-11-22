@@ -96,7 +96,11 @@ const struct shoji_cmd shoji_ipc_table[] = {
         { "colorpicker", "cancel", "colorpicker", "cancel", { { 0, NULL }, { 0, NULL } }, 0 },
         { "colorpicker", "hex", "colorpicker", "hex", { { 0, NULL }, { 0, NULL } }, 0 },
 
-        /* settings (minimal pass-through; no settings manager here) --------- */
+        /* settings (get/set are managed with result interpretation by the
+         * settings manager; list/dump/export drive the QML schema directly) - */
+        { "settings", "list", "settings", "list", { { 0, NULL }, { 0, NULL } }, 0 },
+        { "settings", "dump", "settings", "dump", { { 0, NULL }, { 0, NULL } }, 0 },
+        { "settings", "export", "settings", "exportOverrides", { { 0, NULL }, { 0, NULL } }, 0 },
         { "settings", "set", "settings", "set", { { SHOJI_ARG_STRING, "key" }, { SHOJI_ARG_STRING, "value" } }, 2 },
         { "settings", "get", "settings", "get", { { SHOJI_ARG_STRING, "key" }, { 0, NULL } }, 1 },
         { "settings", "reset", "settings", "reset", { { 0, NULL }, { 0, NULL } }, 0 },

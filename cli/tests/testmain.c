@@ -37,6 +37,7 @@ void test_instances(void);
 void test_instances_fast(void);
 void test_exitcodes(void);
 void test_proc(void);
+void test_settings(void);
 
 int main(void)
 {
@@ -44,6 +45,7 @@ int main(void)
         test_json();
         test_parser();
         test_commands();
+        test_settings();
         test_resolver();
         test_instances();
         test_instances_fast();

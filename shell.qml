@@ -310,6 +310,18 @@ ShellRoot {
             return Settings.defs[key] ? String(Settings.get(key)) : "";
         }
 
+        function list(): string {
+            return Settings.jsonList();
+        }
+
+        function dump(): string {
+            return Settings.jsonDump();
+        }
+
+        function exportOverrides(): string {
+            return Settings.jsonExport();
+        }
+
         function reset(): void {
             Settings.reset();
         }

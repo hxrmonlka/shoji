@@ -37,6 +37,8 @@ static const struct frozen frozen_handlers[] = {
         { "settings", "set" }, { "settings", "get" }, { "settings", "reset" },
         { "settings", "reload" }, { "settings", "open" }, { "settings", "close" },
         { "settings", "toggle" },
+        { "settings", "list" }, { "settings", "dump" },
+        { "settings", "exportOverrides" },
         { "theme", "scheme" }, { "theme", "mode" }, { "theme", "current" },
         { "theme", "list" }, { "theme", "preview" },
         { "clipboard", "toggle" }, { "clipboard", "open" }, { "clipboard", "close" },
@@ -113,6 +115,19 @@ void test_commands(void)
                 c = shoji_ipc_table_find("osd", "volume");
                 CHECK(c && c->arg_count == 1 && c->args[0].type == SHOJI_ARG_INT,
                       "osd volume takes one int");
+
+                c = shoji_ipc_table_find("settings", "export");
+                CHECK(c && strcmp(c->target, "settings") == 0 &&
+                      strcmp(c->function, "exportOverrides") == 0,
+                      "shoji settings export -> settings.exportOverrides");
+
+                c = shoji_ipc_table_find("settings", "list");
+                CHECK(c && strcmp(c->function, "list") == 0,
+                      "shoji settings list -> settings.list");
+
+                c = shoji_ipc_table_find("settings", "dump");
+                CHECK(c && strcmp(c->function, "dump") == 0,
+                      "shoji settings dump -> settings.dump");
         }
 
         /* Argument normalization. */

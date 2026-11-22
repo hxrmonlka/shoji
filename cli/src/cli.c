@@ -120,6 +120,107 @@ static int run_arg_is_config_selector(const char *arg)
                strcmp(arg, "--manifest") == 0 || strncmp(arg, "--manifest=", 11) == 0;
 }
 
+static int facade_fill_args(struct shoji_options *opts, const struct shoji_cmd *cmd,
+                            const char **rest, int n)
+{
+        if (n - 2 != cmd->arg_count) {
+                shj_msg("command '%s %s' expects %d argument%s, got %d",
+                        cmd->group, cmd->name, cmd->arg_count,
+                        cmd->arg_count == 1 ? "" : "s", n - 2);
+                return -1;
+        }
+        for (int a = 0; a < cmd->arg_count; a++) {
+                char *norm = shoji_arg_normalize(&cmd->args[a], rest[2 + a]);
+
+                if (!norm)
+                        return -1;
+                opts->facade_args[a] = norm;
+        }
+        return 0;
+}
+
+static int settings_managed_kind(const char *sub)
+{
+        if (strcmp(sub, "list") == 0)
+                return SHOJI_CMD_SETTINGS_LIST;
+        if (strcmp(sub, "dump") == 0)
+                return SHOJI_CMD_SETTINGS_DUMP;
+        if (strcmp(sub, "export") == 0)
+                return SHOJI_CMD_SETTINGS_EXPORT;
+        if (strcmp(sub, "get") == 0)
+                return SHOJI_CMD_SETTINGS_GET;
+        if (strcmp(sub, "set") == 0)
+                return SHOJI_CMD_SETTINGS_SET;
+        return SHOJI_CMD_NONE;
+}
+
+static int parse_settings_group(struct shoji_options *opts, const char **rest, int n)
+{
+        int skind = n >= 2 ? settings_managed_kind(rest[1]) : SHOJI_CMD_NONE;
+
+        if (skind == SHOJI_CMD_NONE) {
+                const struct shoji_cmd *cmd = n >= 2 ? shoji_ipc_table_find(rest[0], rest[1])
+                                                     : NULL;
+
+                if (!cmd) {
+                        shj_msg("missing or unknown subcommand for 'settings' (expected "
+                                "list, dump, export, get, set, reset, reload, open, close "
+                                "or toggle)");
+                        return SHOJI_EXIT_USAGE;
+                }
+                opts->kind = SHOJI_CMD_FACADE;
+                opts->facade = cmd;
+                if (facade_fill_args(opts, cmd, rest, n) != 0)
+                        return SHOJI_EXIT_USAGE;
+                return 0;
+        }
+
+        switch (skind) {
+        case SHOJI_CMD_SETTINGS_LIST:
+                if (n > 3) {
+                        shj_msg("usage: shoji settings list [category]");
+                        return SHOJI_EXIT_USAGE;
+                }
+                opts->kind = skind;
+                if (n == 3)
+                        opts->facade_args[0] = shj_strdup(rest[2]);
+                break;
+
+        case SHOJI_CMD_SETTINGS_DUMP:
+        case SHOJI_CMD_SETTINGS_EXPORT:
+                if (n != 2) {
+                        shj_msg("usage: shoji settings %s", rest[1]);
+                        return SHOJI_EXIT_USAGE;
+                }
+                opts->kind = skind;
+                break;
+
+        case SHOJI_CMD_SETTINGS_GET:
+                if (n != 3) {
+                        shj_msg("usage: shoji settings get <key>");
+                        return SHOJI_EXIT_USAGE;
+                }
+                opts->kind = skind;
+                opts->facade_args[0] = shj_strdup(rest[2]);
+                break;
+
+        case SHOJI_CMD_SETTINGS_SET:
+                if (n != 4) {
+                        shj_msg("usage: shoji settings set <key> <value>");
+                        return SHOJI_EXIT_USAGE;
+                }
+                opts->kind = skind;
+                opts->facade_args[0] = shj_strdup(rest[2]);
+                opts->facade_args[1] = shj_strdup(rest[3]);
+                break;
+
+        default:
+                shj_msg("unknown settings subcommand '%s'", rest[1]);
+                return SHOJI_EXIT_USAGE;
+        }
+        return 0;
+}
+
 int shoji_parse(int argc, char **argv, struct shoji_options *opts)
 {
         const char **rest;
@@ -244,26 +345,21 @@ int shoji_parse(int argc, char **argv, struct shoji_options *opts)
                         return SHOJI_EXIT_USAGE;
                 }
                 opts->kind = SHOJI_CMD_DEBUG_MAP;
+        } else if (strcmp(rest[0], "settings") == 0) {
+                int pcode = parse_settings_group(opts, rest, n);
+
+                if (pcode != 0) {
+                        free(rest);
+                        return pcode;
+                }
         } else if (shoji_ipc_table_find(rest[0], n >= 2 ? rest[1] : "") != NULL) {
                 const struct shoji_cmd *cmd = shoji_ipc_table_find(rest[0], rest[1]);
 
                 opts->kind = SHOJI_CMD_FACADE;
                 opts->facade = cmd;
-                if (n - 2 != cmd->arg_count) {
-                        shj_msg("command '%s %s' expects %d argument%s, got %d",
-                                cmd->group, cmd->name, cmd->arg_count,
-                                cmd->arg_count == 1 ? "" : "s", n - 2);
+                if (facade_fill_args(opts, cmd, rest, n) != 0) {
                         free(rest);
                         return SHOJI_EXIT_USAGE;
-                }
-                for (int a = 0; a < cmd->arg_count; a++) {
-                        char *norm = shoji_arg_normalize(&cmd->args[a], rest[2 + a]);
-
-                        if (!norm) {
-                                free(rest);
-                                return SHOJI_EXIT_USAGE;
-                        }
-                        opts->facade_args[a] = norm;
                 }
         } else if (shoji_ipc_table_group_exists(rest[0])) {
                 /* Known group but missing/unknown subcommand. */
@@ -334,12 +430,16 @@ void shoji_print_help(void)
         printf("  clipboard toggle|open|close\n");
         printf("  monitor   toggle|open|close\n");
         printf("  colorpicker copy|pick|gui|cancel|hex\n");
-        printf("  settings  get <key>|set <key> <value>|reset|reload|open|close|toggle\n");
+        printf("  settings  list [category]|dump|export|get <key>|set <key> <value>|\n");
+        printf("            reset|reload|open|close|toggle\n");
         printf("  theme     scheme <name>|mode <name>|current|list|preview\n\n");
         printf("examples:\n");
         printf("  shoji island tab calendar\n");
         printf("  shoji wallpaper set /path/to/image.jpg\n");
         printf("  shoji awake on 30\n");
+        printf("  shoji settings list features\n");
+        printf("  shoji settings set pillHeight 48\n");
+        printf("  shoji settings dump > effective.json\n");
         printf("  shoji run --daemonize --no-duplicate\n");
         printf("  shoji kill\n");
         printf("  shoji --store /nix/store/…-shoji/status\n");

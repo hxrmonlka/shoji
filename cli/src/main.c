@@ -13,6 +13,7 @@
 #include "ipctable.h"
 #include "proc.h"
 #include "report.h"
+#include "settings.h"
 #include "util.h"
 
 #include <errno.h>
@@ -212,6 +213,27 @@ int main(int argc, char **argv)
 
         case SHOJI_CMD_FACADE:
                 code = run_facade(&ctx, &opts, opts.facade);
+                break;
+
+        case SHOJI_CMD_SETTINGS_LIST:
+                code = shoji_cmd_settings_list(&ctx, &opts, opts.facade_args[0]);
+                break;
+
+        case SHOJI_CMD_SETTINGS_DUMP:
+                code = shoji_cmd_settings_dump(&ctx, &opts);
+                break;
+
+        case SHOJI_CMD_SETTINGS_EXPORT:
+                code = shoji_cmd_settings_export(&ctx, &opts);
+                break;
+
+        case SHOJI_CMD_SETTINGS_GET:
+                code = shoji_cmd_settings_get(&ctx, &opts, opts.facade_args[0]);
+                break;
+
+        case SHOJI_CMD_SETTINGS_SET:
+                code = shoji_cmd_settings_set(&ctx, &opts, opts.facade_args[0],
+                                              opts.facade_args[1]);
                 break;
 
         default:

@@ -31,13 +31,13 @@ BUILD   := obj
 
 LIB_OBJS := $(BUILD)/util.o $(BUILD)/json.o $(BUILD)/proc.o $(BUILD)/resolver.o \
             $(BUILD)/instances.o $(BUILD)/ipctable.o $(BUILD)/dispatch.o \
-            $(BUILD)/report.o $(BUILD)/cli.o
+            $(BUILD)/settings.o $(BUILD)/report.o $(BUILD)/cli.o
 
 CLI_OBJS := $(LIB_OBJS) $(BUILD)/main.o
 
 UNIT_OBJS := $(BUILD)/testmain.o $(BUILD)/test_parser.o $(BUILD)/test_commands.o \
              $(BUILD)/test_resolver.o $(BUILD)/test_instances.o $(BUILD)/test_json.o \
-             $(BUILD)/test_exitcodes.o $(BUILD)/test_proc.o
+             $(BUILD)/test_exitcodes.o $(BUILD)/test_proc.o $(BUILD)/test_settings.o
 
 CLI_BIN := $(BUILD)/shoji
 TEST_BIN := $(BUILD)/shoji-tests
