@@ -66,6 +66,7 @@ QtObject {
         { key: "themeSpotify", cat: "theming", section: "Apps", label: "Spotify", desc: "Uses the Shoji Matugen palette with the upstream Spicetify Text theme.", type: "bool", def: true },
         { key: "themeZed", cat: "theming", section: "Apps", label: "Zed", desc: "Four themes in zed/themes/shoji.json: Shoji Dark, Light and their Transparent variants.", type: "bool", def: true },
         { key: "themeRadius", cat: "theming", section: "Shape", label: "GTK corner radius", desc: "Cards and menus use this radius. Buttons and fields use two thirds of it.", min: 4, max: 24, step: 1, def: 12 },
+        { key: "shufflePasswordShapes", cat: "lock", section: "Password", label: "Shuffle password shapes", desc: "Randomize the shape order on each new password entry while keeping every sequence boundary distinct.", type: "bool", def: true },
         { key: "lockPamConfig", cat: "lock", section: "Authentication", label: "PAM service", desc: "Name of the PAM config used to check the password.", type: "string", def: "login" },
         { key: "logoutCommand", cat: "lock", section: "Power menu", label: "Logout command", desc: "Run by the Logout entry on the lock screen.", type: "string", def: "loginctl terminate-session \"$XDG_SESSION_ID\"" },
         { key: "screenshotDir", cat: "system", section: "Paths", label: "Screenshot folder", type: "string", def: "~/Pictures/Screenshots" },
@@ -123,6 +124,7 @@ QtObject {
     readonly property bool themeSpotify: get("themeSpotify")
     readonly property bool themeZed: get("themeZed")
     readonly property int themeRadius: get("themeRadius")
+    readonly property bool shufflePasswordShapes: get("shufflePasswordShapes")
     readonly property string lockPamConfig: get("lockPamConfig")
     readonly property string logoutCommand: get("logoutCommand")
     readonly property string screenshotDir: get("screenshotDir")
