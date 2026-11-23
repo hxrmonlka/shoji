@@ -249,7 +249,7 @@ Item {
         anchors.horizontalCenterOffset: shake
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 56
-        opacity: root.picking ? 0 : root.reveal
+        opacity: root.greeter && !root.picking ? root.reveal : 0
         width: 380
         height: 60
         radius: height / 2
@@ -408,12 +408,28 @@ Item {
                 id: rippleArea1
 
                 anchors.fill: parent
+                enabled: root.greeter
                 cursorShape: Qt.PointingHandCursor
                 onPressed: mouse => ripple1.press(rippleArea1, mouse)
                 onClicked: {
                     root.auth.submit();
                     root.refocus();
                 }
+            }
+        }
+    }
+
+    Loader {
+        active: !root.greeter
+        anchors.top: parent.top
+        anchors.topMargin: Settings.topMargin
+        anchors.horizontalCenter: parent.horizontalCenter
+
+        sourceComponent: LockBar {
+            auth: root.auth
+            onConfirmClicked: {
+                root.auth.submit();
+                root.refocus();
             }
         }
     }

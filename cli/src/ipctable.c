@@ -18,6 +18,7 @@ const struct shoji_cmd shoji_ipc_table[] = {
         { "island", "open", "island", "open", { { 0, NULL }, { 0, NULL } }, 0 },
         { "island", "close", "island", "close", { { 0, NULL }, { 0, NULL } }, 0 },
         { "island", "tab", "island", "tab", { { SHOJI_ARG_STRING, "name" }, { 0, NULL } }, 1 },
+        { "island", "glance", "island", "glance", { { 0, NULL }, { 0, NULL } }, 0 },
 
         /* wallpaper --------------------------------------------------------- */
         { "wallpaper", "toggle", "wallpaper", "toggle", { { 0, NULL }, { 0, NULL } }, 0 },

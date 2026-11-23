@@ -463,5 +463,9 @@ ShellRoot {
         function tab(name: string): void {
             ShellState.openTab(name);
         }
+
+        function glance(): void {
+            ShellState.toggleGlance();
+        }
     }
 }

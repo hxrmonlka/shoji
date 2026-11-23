@@ -360,7 +360,7 @@ Friendly commands mapping 1:1 onto the existing `IpcHandler`s in `shell.qml`
 (no shell behavior is implemented here):
 
 ```sh
-shoji island toggle | open | close | tab <name>     # tab: launcher|calendar|monitor|
+shoji island toggle | open | close | glance | tab <name>     # tab: launcher|calendar|monitor|
                                                     # wallpapers|clipboard|color
                                                     # (+media|control when merged)
 shoji wallpaper toggle | open | close | set <path> | next | previous | random

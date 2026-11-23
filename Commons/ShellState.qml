@@ -7,6 +7,7 @@ QtObject {
     id: root
 
     property bool expanded: false
+    property bool glance: false
     property bool spotlight: false
     property bool media: false
     property bool control: false
@@ -25,7 +26,7 @@ QtObject {
     property bool scrolling: false
     property string osdKind: "volume"
 
-    readonly property bool panelsOpen: expanded || media || control || power
+    readonly property bool panelsOpen: expanded || glance || media || control || power
 
     readonly property var baseTabs: [
         { id: "launcher", label: "Launcher", icon: "\uf00a" },
@@ -43,6 +44,7 @@ QtObject {
 
     function hidePanels(): void {
         expanded = false;
+        glance = false;
         media = false;
         control = false;
         power = false;
@@ -65,6 +67,20 @@ QtObject {
             closeSettings();
         else
             openSettings();
+    }
+
+    function openGlance(): void {
+        if (expanded || media || control || power)
+            return;
+        glance = true;
+        pin();
+    }
+
+    function toggleGlance(): void {
+        if (glance)
+            glance = false;
+        else
+            openGlance();
     }
 
     function openTab(id: string): void {
@@ -162,8 +178,19 @@ QtObject {
         root.syncAutoHide();
     }
 
+    onGlanceChanged: {
+        if (glance) {
+            expanded = false;
+            media = false;
+            control = false;
+            power = false;
+            spotlight = false;
+        }
+    }
+
     onExpandedChanged: {
         if (expanded) {
+            glance = false;
             tabOnly = false;
             media = false;
             control = false;
@@ -174,6 +201,7 @@ QtObject {
 
     onMediaChanged: {
         if (media) {
+            glance = false;
             expanded = false;
             control = false;
             power = false;
@@ -183,6 +211,7 @@ QtObject {
 
     onControlChanged: {
         if (control) {
+            glance = false;
             expanded = false;
             media = false;
             power = false;
@@ -193,6 +222,7 @@ QtObject {
 
     onSpotlightChanged: {
         if (spotlight) {
+            glance = false;
             expanded = false;
             media = false;
             control = false;
@@ -202,6 +232,7 @@ QtObject {
 
     onPowerChanged: {
         if (power) {
+            glance = false;
             expanded = false;
             media = false;
             control = false;

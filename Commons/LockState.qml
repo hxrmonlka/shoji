@@ -10,6 +10,7 @@ QtObject {
     id: root
 
     property bool locked: false
+    property bool unlocking: false
     property string password: ""
     property bool busy: false
     property bool failed: false
@@ -66,6 +67,7 @@ QtObject {
         failed = false;
         message = "";
         busy = false;
+        unlocking = false;
         locked = true;
     }
 
@@ -82,7 +84,8 @@ QtObject {
         busy = false;
         failed = false;
         message = "";
-        locked = false;
+        unlocking = true;
+        unlockTimer.restart();
     }
 
     function fail(text: string): void {
@@ -97,6 +100,14 @@ QtObject {
         if (password.length > 0 && failed) {
             failed = false;
             message = "";
+        }
+    }
+
+    readonly property Timer unlockTimer: Timer {
+        interval: 320
+        onTriggered: {
+            root.unlocking = false;
+            root.locked = false;
         }
     }
 

@@ -47,7 +47,7 @@ static const struct frozen frozen_handlers[] = {
         { "colorpicker", "cancel" }, { "colorpicker", "hex" },
         { "mic", "toggle" }, { "mic", "mute" }, { "mic", "unmute" }, { "mic", "state" },
         { "island", "toggle" }, { "island", "open" }, { "island", "close" },
-        { "island", "tab" },
+        { "island", "tab" }, { "island", "glance" },
 };
 
 static int table_has(const char *target, const char *function)

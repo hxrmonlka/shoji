@@ -42,13 +42,20 @@ PanelWindow {
     readonly property real popupProgress: Math.max(0, popupSpring.value)
     readonly property real osdProgress: Math.max(0, osdSpring.value)
     readonly property real mergeProgress: Math.max(popupProgress, osdProgress, powerProgress)
+    readonly property int glanceWidth: 420
+    readonly property int glanceHeight: 132
+    readonly property int glanceRadius: 28
+    property bool glanceFrom: false
+    readonly property bool glanceOpen: ShellState.glance || (win.expanded && glanceFrom)
+    readonly property real glanceProgress: Math.max(0, glanceSpring.value)
     readonly property real impact: 0.3
     readonly property real shellProgress: Motion.soft(morph.value, impact)
     readonly property real shellPopup: Motion.soft(popupSpring.value, impact)
     readonly property real shellOsd: Motion.soft(osdSpring.value, impact)
     readonly property real shellPower: Motion.soft(powerSpring.value, impact)
-    readonly property real shellRestWidth: Motion.lerp(Motion.lerp(pillWidth, popupWidth, shellPopup), osdWidth, shellOsd)
-    readonly property real shellRestHeight: Motion.lerp(Motion.lerp(pillHeight, popupHeight, shellPopup), osdHeight, shellOsd)
+    readonly property real shellGlance: Motion.soft(glanceSpring.value, impact)
+    readonly property real shellRestWidth: Motion.lerp(Motion.lerp(Motion.lerp(pillWidth, popupWidth, shellPopup), osdWidth, shellOsd), glanceWidth, shellGlance)
+    readonly property real shellRestHeight: Motion.lerp(Motion.lerp(Motion.lerp(pillHeight, popupHeight, shellPopup), osdHeight, shellOsd), glanceHeight, shellGlance)
 
     property bool keysGrabbed: false
     property bool handoff: false
@@ -128,6 +135,22 @@ PanelWindow {
         target: win.expanded ? 1 : 0
         token: win.expanded ? Motion.spatialDefault : Motion.settle
         epsilon: 0.0005
+    }
+
+    Spring {
+        id: glanceSpring
+
+        target: win.glanceOpen ? 1 : 0
+        token: win.glanceOpen ? Motion.spatialDefault : Motion.settle
+        epsilon: 0.0005
+    }
+
+    Connections {
+        target: ShellState
+
+        function onExpandedChanged(): void {
+            win.glanceFrom = ShellState.expanded && win.glanceProgress > 0.3;
+        }
     }
 
     Spring {
@@ -263,6 +286,7 @@ PanelWindow {
             }
         }
         Keys.onEscapePressed: {
+            ShellState.glance = false;
             ShellState.power = false;
             ShellState.expanded = false;
             ShellState.media = false;
@@ -324,7 +348,7 @@ PanelWindow {
         anchors.top: parent.top
         width: Motion.lerp(Motion.lerp(win.shellRestWidth, panelW.value, win.shellProgress), win.powerWidth, win.shellPower)
         height: Motion.lerp(Motion.lerp(win.shellRestHeight, panelH.value, win.shellProgress), win.powerHeight, win.shellPower)
-        radius: Motion.lerp(Motion.lerp(Motion.lerp(win.pillHeight / 2, Math.min(Settings.panelRadius, 28), win.popupProgress), win.osdHeight / 2, win.osdProgress), Settings.panelRadius, Math.max(win.progress, win.powerProgress))
+        radius: Motion.lerp(Motion.lerp(Motion.lerp(Motion.lerp(win.pillHeight / 2, Math.min(Settings.panelRadius, 28), win.popupProgress), win.osdHeight / 2, win.osdProgress), win.glanceRadius, Motion.clamp01(win.glanceProgress)), Settings.panelRadius, Math.max(win.progress, win.powerProgress))
         color: Theme.glass(Theme.m3SurfaceContainer)
         border.width: 1
         border.color: Theme.m3OutlineVariant
@@ -347,9 +371,16 @@ PanelWindow {
             anchors.right: parent.right
             anchors.top: parent.top
             height: win.pillHeight
-            enabled: !win.expanded && !win.powerOpen && win.mediaProgress < 0.05 && win.controlProgress < 0.05
+            enabled: !win.expanded && !ShellState.glance && !win.powerOpen && win.mediaProgress < 0.05 && win.controlProgress < 0.05
             cursorShape: Qt.PointingHandCursor
-            onClicked: ShellState.expanded = !ShellState.expanded
+            onClicked: ShellState.openGlance()
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            enabled: ShellState.glance && !win.expanded
+            cursorShape: Qt.PointingHandCursor
+            onClicked: ShellState.expanded = true
         }
 
         Row {
@@ -360,7 +391,7 @@ PanelWindow {
             height: win.pillHeight
             spacing: Settings.pillSpacing
             scale: 0.94 + 0.06 * headSpring.value
-            opacity: (1 - Motion.clamp01(win.progress / 0.25)) * Motion.clamp01(headSpring.value) * (1 - Motion.clamp01(win.mergeProgress / 0.3))
+            opacity: (1 - Motion.clamp01(win.progress / 0.25)) * Motion.clamp01(headSpring.value) * (1 - Motion.clamp01(win.mergeProgress / 0.3)) * (1 - Motion.clamp01(win.glanceProgress / 0.3))
             visible: opacity > 0
 
             UpdateStar {
@@ -408,6 +439,15 @@ PanelWindow {
             }
         }
 
+        Glance {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            width: win.glanceWidth
+            height: win.glanceHeight
+            opacity: Motion.clamp01((win.glanceProgress - 0.4) / 0.4) * (1 - Motion.clamp01(win.progress / 0.25))
+            visible: opacity > 0
+        }
+
         NotificationPopup {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.top: parent.top
@@ -450,7 +490,7 @@ PanelWindow {
 
         HoverOpener {
             armed: win.hoverArmed
-            onTriggered: ShellState.expanded = true
+            onTriggered: ShellState.openGlance()
         }
     }
 
@@ -464,7 +504,7 @@ PanelWindow {
         panelHeight: Settings.mediaPanelHeight
         panelRadius: Settings.panelRadius
         progress: win.mediaProgress
-        hiddenBy: Math.max(win.mediaOpen && win.handoff ? 0 : Math.max(win.progress, win.controlProgress) / 0.3, win.mergeProgress / 0.7, win.mergedHide)
+        hiddenBy: Math.max(win.mediaOpen && win.handoff ? 0 : Math.max(win.progress, win.controlProgress) / 0.3, win.mergeProgress / 0.7, win.glanceProgress / 0.3, win.mergedHide)
         handoff: win.handoff
         fromX: win.fromX
         fromW: win.fromW
@@ -491,7 +531,7 @@ PanelWindow {
         panelHeight: Settings.controlPanelHeight
         panelRadius: Settings.panelRadius
         progress: win.controlProgress
-        hiddenBy: Math.max(win.controlOpen && win.handoff ? 0 : Math.max(win.progress, win.mediaProgress) / 0.3, win.mergeProgress / 0.7, win.mergedHide)
+        hiddenBy: Math.max(win.controlOpen && win.handoff ? 0 : Math.max(win.progress, win.mediaProgress) / 0.3, win.mergeProgress / 0.7, win.glanceProgress / 0.3, win.mergedHide)
         handoff: win.handoff
         fromX: win.fromX
         fromW: win.fromW
