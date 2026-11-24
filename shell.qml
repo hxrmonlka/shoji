@@ -234,12 +234,7 @@ ShellRoot {
         }
 
         function open(): void {
-            if (Settings.mergeCircles) {
-                ShellState.openTabSolo("control");
-                return;
-            }
-            ShellState.control = true;
-            ShellState.pin();
+            ShellState.openControl();
         }
 
         function close(): void {

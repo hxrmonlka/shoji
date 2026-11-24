@@ -76,6 +76,15 @@ QtObject {
         pin();
     }
 
+    function openControl(): void {
+        if (Settings.mergeCircles) {
+            openTabSolo("control");
+            return;
+        }
+        control = true;
+        pin();
+    }
+
     function toggleGlance(): void {
         if (glance)
             glance = false;

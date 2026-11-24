@@ -5,6 +5,8 @@ import qs.Commons
 Item {
     id: root
 
+    required property var screen
+
     readonly property var btAdapter: Bluetooth.defaultAdapter
     readonly property bool btOn: btAdapter !== null && btAdapter.enabled
     readonly property bool wifiOn: Network.wifiEnabled
@@ -39,7 +41,7 @@ Item {
         anchors.right: parent.right
         anchors.rightMargin: 22
         anchors.verticalCenter: parent.verticalCenter
-        width: 168
+        width: 216
         spacing: 12
 
         Row {
@@ -103,42 +105,67 @@ Item {
             }
         }
 
-        Row {
-            spacing: 18
+        Item {
+            width: parent.width
+            height: 22
 
-            Text {
-                text: "\uf1eb"
-                color: root.wifiOn ? Theme.m3OnSurface : Theme.m3Outline
-                opacity: root.wifiOn ? 1 : 0.55
-                font.family: Theme.fontIcon
-                font.pixelSize: 15
+            Row {
+                id: icons
 
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 160
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 16
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "\uf1eb"
+                    color: root.wifiOn ? Theme.m3OnSurface : Theme.m3Outline
+                    opacity: root.wifiOn ? 1 : 0.55
+                    font.family: Theme.fontIcon
+                    font.pixelSize: 15
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 160
+                        }
                     }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "\uf293"
+                    color: root.btOn ? Theme.m3OnSurface : Theme.m3Outline
+                    opacity: root.btOn ? 1 : 0.55
+                    font.family: Theme.fontIcon
+                    font.pixelSize: 15
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 160
+                        }
+                    }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.volumeIcon
+                    color: Theme.m3OnSurface
+                    font.family: Theme.fontIcon
+                    font.pixelSize: 15
+                }
+
+                GlanceBell {
+                    anchors.verticalCenter: parent.verticalCenter
                 }
             }
 
-            Text {
-                text: "\uf293"
-                color: root.btOn ? Theme.m3OnSurface : Theme.m3Outline
-                opacity: root.btOn ? 1 : 0.55
-                font.family: Theme.fontIcon
-                font.pixelSize: 15
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 160
-                    }
-                }
-            }
-
-            Text {
-                text: root.volumeIcon
-                color: Theme.m3OnSurface
-                font.family: Theme.fontIcon
-                font.pixelSize: 15
+            Workspaces {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                width: Math.min(implicitWidth, Math.max(0, parent.width - icons.width - 10))
+                clip: true
+                visible: Settings.showWorkspaces
+                screen: root.screen
             }
         }
     }

@@ -42,7 +42,7 @@ PanelWindow {
     readonly property real popupProgress: Math.max(0, popupSpring.value)
     readonly property real osdProgress: Math.max(0, osdSpring.value)
     readonly property real mergeProgress: Math.max(popupProgress, osdProgress, powerProgress)
-    readonly property int glanceWidth: 420
+    readonly property int glanceWidth: 460
     readonly property int glanceHeight: 132
     readonly property int glanceRadius: 28
     property bool glanceFrom: false
@@ -428,12 +428,6 @@ PanelWindow {
                 anchors.verticalCenter: parent.verticalCenter
             }
 
-            Workspaces {
-                visible: Settings.showWorkspaces
-                anchors.verticalCenter: parent.verticalCenter
-                screen: win.screen
-            }
-
             PillIndicators {
                 anchors.verticalCenter: parent.verticalCenter
             }
@@ -444,6 +438,7 @@ PanelWindow {
             anchors.top: parent.top
             width: win.glanceWidth
             height: win.glanceHeight
+            screen: win.screen
             opacity: Motion.clamp01((win.glanceProgress - 0.4) / 0.4) * (1 - Motion.clamp01(win.progress / 0.25))
             visible: opacity > 0
         }

@@ -42,7 +42,7 @@ QtObject {
         { key: "nightCommand", cat: "display", section: "Night mode", label: "Night command", desc: "Use {temp} for the temperature.", type: "string", def: "gammastep -m wayland -O {temp}" },
         { key: "updateStar", cat: "features", section: "Island", label: "Update star", desc: "Show the Lumina update star in the pill.", type: "bool", def: true },
         { key: "pillIndicators", cat: "features", section: "Island", label: "Mic and screen share icons", desc: "Show an icon in the pill while the microphone is muted or the screen is being shared or recorded.", type: "bool", def: true },
-        { key: "showWorkspaces", cat: "features", section: "Island", label: "Workspaces in the pill", desc: "Show the workspace switcher next to the date.", type: "bool", def: true },
+        { key: "showWorkspaces", cat: "features", section: "Island", label: "Workspaces in Glance", desc: "Show the workspace switcher in Glance, next to the status icons.", type: "bool", def: true },
         { key: "mergeCircles", cat: "features", section: "Island", label: "Merge media and controls into the island", desc: "Hide the two circles. Media and Control open from the island and join the tab strip.", type: "bool", def: false },
         { key: "ipcTabOnly", cat: "features", section: "Island", label: "Tab-only view for IPC", desc: "Hide the tab strip when a tab is opened with qs ipc.", type: "bool", def: false },
         { key: "notificationPopups", cat: "features", section: "Overlays", label: "Notification pop-ups", desc: "Notifications still reach the notification center when off.", type: "bool", def: true },
