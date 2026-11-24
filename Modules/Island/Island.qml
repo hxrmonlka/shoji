@@ -42,7 +42,7 @@ PanelWindow {
     readonly property real popupProgress: Math.max(0, popupSpring.value)
     readonly property real osdProgress: Math.max(0, osdSpring.value)
     readonly property real mergeProgress: Math.max(popupProgress, osdProgress, powerProgress)
-    readonly property int glanceWidth: 460
+    readonly property int glanceWidth: 500
     readonly property int glanceHeight: 132
     readonly property int glanceRadius: 28
     property bool glanceFrom: false
