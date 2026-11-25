@@ -83,14 +83,67 @@ Item {
                 width: parent.width - 62
                 spacing: 2
 
-                Text {
+                Row {
                     width: parent.width
-                    text: Media.available ? Media.title : "Nothing playing"
-                    color: Theme.m3OnSurface
-                    font.family: Theme.fontUi
-                    font.pixelSize: 14
-                    font.weight: Font.DemiBold
-                    elide: Text.ElideRight
+                    spacing: 8
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: miniViz.visible ? parent.width - miniViz.width - parent.spacing : parent.width
+                        text: Media.available ? Media.title : "Nothing playing"
+                        color: Theme.m3OnSurface
+                        font.family: Theme.fontUi
+                        font.pixelSize: 14
+                        font.weight: Font.DemiBold
+                        elide: Text.ElideRight
+                    }
+
+                    Item {
+                        id: miniViz
+
+                        readonly property bool wanted: Settings.visualizer && Media.anyPlaying
+                        readonly property int barCount: PillCava.bars
+                        readonly property real fullWidth: barCount * 3 + (barCount - 1) * 2
+
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.max(0, vizPresence.value) * fullWidth
+                        height: 16
+                        visible: vizPresence.value > 0.001
+                        opacity: Motion.clamp01(vizPresence.value)
+                        clip: true
+
+                        Spring {
+                            id: vizPresence
+
+                            target: miniViz.wanted ? 1 : 0
+                            token: Motion.effectsSlow
+                            epsilon: 0.002
+                        }
+
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: 2
+
+                            Repeater {
+                                model: miniViz.barCount
+
+                                Item {
+                                    required property int index
+
+                                    width: 3
+                                    height: 16
+
+                                    Rectangle {
+                                        anchors.centerIn: parent
+                                        width: 3
+                                        height: 3 + Math.max(0, Math.min(1, PillCava.values[parent.index] ?? 0)) * 13
+                                        radius: 1.5
+                                        color: Theme.m3Primary
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Text {
@@ -114,7 +167,7 @@ Item {
 
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 16
+                spacing: 12
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
@@ -156,6 +209,15 @@ Item {
 
                 GlanceBell {
                     anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: Power.laptopModeEnabled && Power.batteryAvailable
+                    text: Power.batteryIcon
+                    color: Power.batteryLow ? Theme.m3Error : Power.batteryCharging ? Theme.m3Primary : Theme.m3OnSurface
+                    font.family: Theme.fontIcon
+                    font.pixelSize: 15
                 }
             }
 

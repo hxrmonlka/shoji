@@ -81,6 +81,15 @@ Item {
         }
     }
 
+    Connections {
+        target: Power
+
+        function onLaptopModeEnabledChanged(): void {
+            if (!Power.laptopModeEnabled && root.detail === "power")
+                root.detail = "";
+        }
+    }
+
     readonly property bool menuWanted: trayItem !== null && trayItem.hasMenu && trayAnchor !== null
     property bool menuShown: false
 
@@ -405,7 +414,6 @@ Item {
 
                 Tile {
                     Layout.fillWidth: true
-                    Layout.columnSpan: 2
                     icon: "\uf0f4"
                     title: "Keep awake"
                     subtitle: KeepAwake.subtitle
@@ -414,6 +422,18 @@ Item {
                     expanded: root.detail === "awake"
                     onToggled: KeepAwake.toggle()
                     onExpandRequested: root.toggleDetail("awake")
+                }
+
+                Tile {
+                    Layout.fillWidth: true
+                    icon: Power.profileIcon
+                    title: "Laptop mode"
+                    subtitle: Power.laptopModeEnabled ? Power.profileLabel : (Power.hasPerformanceProfile ? "Off · Performance" : "Off")
+                    active: Power.laptopModeEnabled
+                    expandable: Power.laptopModeEnabled
+                    expanded: root.detail === "power"
+                    onToggled: Power.toggleLaptopMode()
+                    onExpandRequested: root.toggleDetail("power")
                 }
             }
 

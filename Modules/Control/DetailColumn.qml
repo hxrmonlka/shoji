@@ -12,16 +12,16 @@ Item {
 
     signal closeRequested
 
-    readonly property string title: kept === "wifi" ? "Wi-Fi" : kept === "bt" ? "Bluetooth" : kept === "vpn" ? "VPN" : kept === "awake" ? "Keep awake" : ""
-    readonly property var rows: kept === "wifi" ? Network.networks.slice(0, 8) : kept === "bt" ? btPaired : kept === "vpn" ? Network.vpns : kept === "awake" ? KeepAwake.choices : []
+    readonly property string title: kept === "wifi" ? "Wi-Fi" : kept === "bt" ? "Bluetooth" : kept === "vpn" ? "VPN" : kept === "awake" ? "Keep awake" : kept === "power" ? "Power profile" : ""
+    readonly property var rows: kept === "wifi" ? Network.networks.slice(0, 8) : kept === "bt" ? btPaired : kept === "vpn" ? Network.vpns : kept === "awake" ? KeepAwake.choices : kept === "power" ? Power.profileOptions : []
 
     onDetailChanged: {
         if (detail !== "")
             kept = detail;
     }
 
-    function rowIcon() {
-        return kept === "wifi" ? "\uf1eb" : kept === "bt" ? "\uf293" : kept === "awake" ? "\uf017" : "\uf023";
+    function rowIcon(m) {
+        return kept === "wifi" ? "\uf1eb" : kept === "bt" ? "\uf293" : kept === "awake" ? "\uf017" : kept === "power" ? m.icon : "\uf023";
     }
 
     function rowLabel(m) {
@@ -35,12 +35,16 @@ Item {
             return m.connected ? "\uf00c" : "";
         if (kept === "awake")
             return KeepAwake.active && KeepAwake.minutes === m.minutes ? "\uf00c" : "";
+        if (kept === "power")
+            return Power.profile === m.profile ? "\uf00c" : "";
         return m.active ? "\uf00c" : "";
     }
 
     function rowActive(m) {
         if (kept === "awake")
             return KeepAwake.active && KeepAwake.minutes === m.minutes;
+        if (kept === "power")
+            return Power.profile === m.profile;
         return kept === "bt" ? m.connected : m.active;
     }
 
@@ -51,6 +55,8 @@ Item {
             m.connected = !m.connected;
         else if (kept === "awake")
             KeepAwake.start(m.minutes);
+        else if (kept === "power")
+            Power.setProfile(m.profile);
         else
             Network.setVpn(m.name, !m.active);
     }
@@ -161,7 +167,7 @@ Item {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             height: 40
-                            icon: root.rowIcon()
+                            icon: root.rowIcon(slot.modelData)
                             label: root.rowLabel(slot.modelData)
                             trailing: root.rowTrailing(slot.modelData)
                             active: root.rowActive(slot.modelData)

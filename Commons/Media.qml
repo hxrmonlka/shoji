@@ -29,6 +29,7 @@ QtObject {
 
     readonly property bool available: player !== null
     readonly property bool playing: available && player.isPlaying
+    readonly property bool anyPlaying: playingPlayer !== null
     readonly property string title: available ? (player.trackTitle || "Unknown title") : ""
     readonly property string artist: available ? player.trackArtist : ""
     readonly property string source: available ? player.identity : ""

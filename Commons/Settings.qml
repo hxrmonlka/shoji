@@ -51,6 +51,7 @@ QtObject {
         { key: "visualizer", cat: "features", section: "Panels", label: "Audio visualizer", desc: "Run cava for the media panel bars and the island pill bars.", type: "bool", def: true },
         { key: "visualizerGain", cat: "features", section: "Panels", label: "Visualizer intensity (%)", desc: "Scales the bar height of the audio visualizer.", min: 50, max: 600, step: 10, def: 180 },
         { key: "clipboardHistory", cat: "features", section: "Background", label: "Clipboard history", desc: "Record copied text, images and files with cliphist.", type: "bool", def: true },
+        { key: "laptopMode", cat: "features", section: "System", label: "Laptop mode", desc: "Show the battery indicator in Glance and allow power profile switching. Turning it off selects Performance.", type: "bool", def: false },
         { key: "ripple", cat: "features", section: "Interface", label: "Ripple Effect", desc: "Show a ripple from the pointer when a button is pressed.", type: "bool", def: true },
         { key: "searchEngine", cat: "features", section: "Spotlight", label: "Web search engine", desc: "Used by the >w prefix. Results open in the default browser.", type: "choice", options: [{ value: "kagi", label: "Kagi" }, { value: "google", label: "Google" }], def: "kagi" },
         { key: "themeScheme", cat: "colors", section: "Palette", label: "Color scheme", desc: "Algorithm matugen uses to build the palette from the wallpaper.", type: "scheme", def: "scheme-tonal-spot" },
@@ -80,6 +81,7 @@ QtObject {
     }, {})
 
     property var values: ({})
+    property bool loaded: false
 
     readonly property int pillHeight: get("pillHeight")
     readonly property int pillPadding: get("pillPadding")
@@ -110,6 +112,7 @@ QtObject {
     readonly property bool visualizer: get("visualizer")
     readonly property int visualizerGain: get("visualizerGain")
     readonly property bool clipboardHistory: get("clipboardHistory")
+    readonly property bool laptopMode: get("laptopMode")
     readonly property bool ripple: get("ripple")
     readonly property string searchEngine: get("searchEngine")
     readonly property string themeScheme: get("themeScheme")
@@ -259,6 +262,7 @@ QtObject {
         } catch (e) {
             values = ({});
         }
+        loaded = true;
     }
 
     function reload() {
@@ -275,5 +279,6 @@ QtObject {
         atomicWrites: true
         printErrors: false
         onLoaded: root.restore(text())
+        onLoadFailed: root.loaded = true
     }
 }

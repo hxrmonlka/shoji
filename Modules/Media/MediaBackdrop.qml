@@ -162,7 +162,7 @@ Item {
         Spring {
             id: vizFade
 
-            target: Media.playing ? 1 : 0
+            target: Media.anyPlaying ? 1 : 0
             token: Motion.effectsDefault
         }
 

@@ -8,7 +8,7 @@ QtObject {
     id: root
 
     readonly property int bars: 6
-    readonly property bool wanted: Settings.mergeCircles && Settings.visualizer && Media.playing
+    readonly property bool wanted: (Settings.mergeCircles || ShellState.glance) && Settings.visualizer && Media.anyPlaying
     readonly property string path: Quickshell.env("HOME") + "/.local/state/shoji/cava-pill.conf"
     readonly property string config: "[general]\nbars = 6\nframerate = 25\nautosens = 0\nsensitivity = 45\nsleep_timer = 3\nlower_cutoff_freq = 50\nhigher_cutoff_freq = 12000\n\n[input]\nmethod = pipewire\nsource = auto\n\n[output]\nmethod = raw\nraw_target = /dev/stdout\ndata_format = ascii\nchannels = mono\nmono_option = average\n\n[smoothing]\nnoise_reduction = 35\nintegral = 90\ngravity = 95\nignore = 2\nmonstercat = 1.5\n"
 
