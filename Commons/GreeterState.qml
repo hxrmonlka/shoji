@@ -16,7 +16,6 @@ QtObject {
     property bool busy: false
     property bool failed: false
     property string message: ""
-    property int frameShape: 7
     property var sessions: []
     property var users: []
     property int highlighted: 0
@@ -77,7 +76,7 @@ QtObject {
     }
 
     function begin(name: string): void {
-        console.log("GREETER begin", name, "avatar", avatar);
+        console.log("GREETER begin", name);
         user = name;
         password = "";
         busy = true;
@@ -176,8 +175,6 @@ QtObject {
     onSecretChanged: syncShapes()
 
     Component.onCompleted: {
-        const pool = MaterialShapes.frameKinds;
-        frameShape = pool[Math.floor(Math.random() * pool.length)];
         Quickshell.execDetached(["mkdir", "-p", statePath.substring(0, statePath.lastIndexOf("/"))]);
     }
 

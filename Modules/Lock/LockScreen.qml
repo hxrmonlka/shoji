@@ -14,6 +14,7 @@ Item {
     property bool menuOpen: false
     property bool sessionsOpen: false
     readonly property bool picking: greeter && auth.picking
+    readonly property bool switchable: greeter && !picking && auth.user !== "" && auth.users.length > 1
     property real reveal: 0
 
     function refocus(): void {
@@ -161,14 +162,28 @@ Item {
         }
     }
 
-    Avatar {
+    ProfileCard {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: field.top
         anchors.bottomMargin: 24
-        opacity: root.picking ? 0 : root.reveal
-        kind: root.auth.frameShape
-        size: 96
-        override: root.greeter ? root.auth.avatar : null
+        opacity: root.picking ? 0 : 1
+        reveal: root.reveal
+        caption: Hostname.name
+        name: root.greeter ? root.auth.user : root.auth.userName
+        avatarSource: root.greeter ? root.auth.avatar : null
+        avatarKind: 7
+        clickable: root.switchable
+        showSwitch: root.switchable
+        onClicked: {
+            root.auth.reset();
+            root.refocus();
+        }
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 200
+            }
+        }
     }
 
     Row {
@@ -190,51 +205,22 @@ Item {
         Repeater {
             model: root.greeter ? root.auth.users : []
 
-            Rectangle {
+            ProfileCard {
                 id: card
 
                 required property var modelData
                 required property int index
 
-                width: 140
-                height: 168
-                radius: 32
-                color: card.index === root.auth.highlighted || cardArea.containsMouse ? Qt.alpha(Theme.m3SurfaceContainerHigh, 0.85) : "transparent"
-                border.width: card.index === root.auth.highlighted ? 1 : 0
-                border.color: Theme.m3Primary
-
-                Avatar {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    y: 16
-                    size: 96
-                    kind: MaterialShapes.frameKinds[card.index % MaterialShapes.frameKinds.length]
-                    override: card.modelData.icon
-                }
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 14
-                    width: parent.width - 16
-                    horizontalAlignment: Text.AlignHCenter
-                    elide: Text.ElideRight
-                    text: card.modelData.real
-                    color: Theme.m3OnSurface
-                    font.family: Theme.fontUi
-                    font.pixelSize: 15
-                }
-
-                MouseArea {
-                    id: cardArea
-
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        root.auth.highlighted = card.index;
-                        root.auth.submit();
-                        root.refocus();
-                    }
+                caption: card.modelData.real !== card.modelData.name ? card.modelData.real : ""
+                name: card.modelData.name
+                avatarSource: card.modelData.icon || ""
+                avatarKind: MaterialShapes.frameKinds[card.index % MaterialShapes.frameKinds.length]
+                clickable: true
+                highlighted: card.index === root.auth.highlighted
+                onClicked: {
+                    root.auth.highlighted = card.index;
+                    root.auth.submit();
+                    root.refocus();
                 }
             }
         }
@@ -575,28 +561,6 @@ Item {
                     root.menuOpen = !root.menuOpen;
                     root.refocus();
                 }
-            }
-        }
-    }
-
-    Text {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: field.bottom
-        anchors.topMargin: 14
-        visible: root.greeter && root.auth.user !== "" && !root.picking
-        opacity: root.reveal
-        text: root.auth.user + (root.auth.users.length > 1 ? "  \u00b7  switch user" : "")
-        color: Theme.m3OnSurfaceVariant
-        font.family: Theme.fontUi
-        font.pixelSize: 13
-
-        MouseArea {
-            anchors.fill: parent
-            enabled: root.auth.users.length > 1
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-                root.auth.reset();
-                root.refocus();
             }
         }
     }
