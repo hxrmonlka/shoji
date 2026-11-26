@@ -54,6 +54,8 @@ QtObject {
         { key: "laptopMode", cat: "features", section: "System", label: "Laptop mode", desc: "Show the battery indicator in Glance and allow power profile switching. Turning it off selects Performance.", type: "bool", def: false },
         { key: "ripple", cat: "features", section: "Interface", label: "Ripple Effect", desc: "Show a ripple from the pointer when a button is pressed.", type: "bool", def: true },
         { key: "searchEngine", cat: "features", section: "Spotlight", label: "Web search engine", desc: "Used by the >w prefix. Results open in the default browser.", type: "choice", options: [{ value: "kagi", label: "Kagi" }, { value: "google", label: "Google" }], def: "kagi" },
+        { key: "spotlightView", cat: "features", section: "Spotlight", label: "Default view", desc: "How apps are shown when Spotlight opens. The buttons beside the search field switch the view until Spotlight closes.", type: "choice", options: [{ value: "grid", label: "Grid" }, { value: "list", label: "List" }], def: "grid" },
+        { key: "spotlightFrecency", cat: "features", section: "Spotlight", label: "Frecency ordering", desc: "Show your most used apps first when Spotlight opens, and rank equal matches by use. Turning it off also stops recording launches.", type: "bool", def: true },
         { key: "themeScheme", cat: "colors", section: "Palette", label: "Color scheme", desc: "Algorithm matugen uses to build the palette from the wallpaper.", type: "scheme", def: "scheme-tonal-spot" },
         { key: "themeMode", cat: "colors", section: "Palette", label: "Mode", desc: "Dark or light colors for the shell and every themed app.", type: "choice", options: [{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }], def: "dark" },
         { key: "surfaceOpacity", cat: "colors", section: "Translucency", label: "Surface opacity (%)", desc: "How opaque panels and menus are. Lower values show more of the blurred background. The media panel is always opaque.", min: 55, max: 100, step: 1, def: 100 },
@@ -115,6 +117,8 @@ QtObject {
     readonly property bool laptopMode: get("laptopMode")
     readonly property bool ripple: get("ripple")
     readonly property string searchEngine: get("searchEngine")
+    readonly property string spotlightView: get("spotlightView")
+    readonly property bool spotlightFrecency: get("spotlightFrecency")
     readonly property string themeScheme: get("themeScheme")
     readonly property string themeMode: get("themeMode")
     readonly property int surfaceOpacity: get("surfaceOpacity")

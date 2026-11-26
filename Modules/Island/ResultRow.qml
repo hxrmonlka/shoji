@@ -12,19 +12,13 @@ Item {
     signal hovered
     signal activated
 
-    height: isHeader ? 30 : 52
+    height: isHeader ? 34 : 52
 
-    Text {
-        anchors.left: parent.left
-        anchors.leftMargin: 16
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 4
+    SectionHeader {
+        anchors.fill: parent
         visible: row.isHeader
-        text: row.modelData.title
-        color: Theme.m3OnSurfaceVariant
-        font.family: Theme.fontUi
-        font.pixelSize: 12
-        font.weight: Font.Medium
+        number: row.modelData.number ?? 0
+        title: row.isHeader ? row.modelData.title : ""
     }
 
     Rectangle {

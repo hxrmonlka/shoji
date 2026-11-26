@@ -26,10 +26,9 @@ QtObject {
     property bool scrolling: false
     property string osdKind: "volume"
 
-    readonly property bool panelsOpen: expanded || glance || media || control || power
+    readonly property bool panelsOpen: expanded || glance || media || control || power || spotlight
 
     readonly property var baseTabs: [
-        { id: "launcher", label: "Launcher", icon: "\uf00a" },
         { id: "calendar", label: "Calendar", icon: "\uf073" },
         { id: "monitor", label: "Monitor", icon: "\uf200", w: 820, h: 500, keep: true },
         { id: "wallpapers", label: "Wallpapers", icon: "\uf03e" },
@@ -48,6 +47,7 @@ QtObject {
         media = false;
         control = false;
         power = false;
+        spotlight = false;
     }
 
     function openSettings(category): void {
@@ -93,6 +93,10 @@ QtObject {
     }
 
     function openTab(id: string): void {
+        if (id === "launcher") {
+            spotlight = true;
+            return;
+        }
         if (!tabs.some(t => t.id === id))
             return;
         tabOnly = false;
@@ -175,7 +179,7 @@ QtObject {
     }
 
     function syncAutoHide(): void {
-        if (panelsOpen && !power && !pinned && pointersInside === 0 && holds === 0)
+        if (panelsOpen && !power && !spotlight && !pinned && pointersInside === 0 && holds === 0)
             autoHide.restart();
         else
             autoHide.stop();

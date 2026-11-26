@@ -8,6 +8,9 @@ QtObject {
 
     readonly property var all: DesktopEntries.applications.values.filter(e => !e.noDisplay).sort((a, b) => a.name.localeCompare(b.name))
 
+    readonly property var apps: all.filter(e => !root.isSetting(e))
+    readonly property var settingsEntries: all.filter(e => root.isSetting(e))
+
     property var iconCache: ({})
     property int warmIndex: 0
 
@@ -67,6 +70,16 @@ QtObject {
         const q = query.trim().toLowerCase();
         if (q.length === 0)
             return [];
-        return all.filter(e => root.isSetting(e) === settings).map(e => ({ entry: e, score: root.score(e, q) })).filter(r => r.score > 0).sort((a, b) => (b.score - a.score) || (a.entry.name.length - b.entry.name.length)).slice(0, limit).map(r => r.entry);
+        return all.filter(e => root.isSetting(e) === settings).map(e => ({ entry: e, score: root.score(e, q) })).filter(r => r.score > 0).sort((a, b) => (b.score - a.score) || (root.use(b.entry) - root.use(a.entry)) || (a.entry.name.length - b.entry.name.length)).slice(0, limit).map(r => r.entry);
+    }
+
+    function use(entry) {
+        return Settings.spotlightFrecency ? Frecency.score(entry.id) : 0;
+    }
+
+    function frequent() {
+        if (!Settings.spotlightFrecency)
+            return [];
+        return apps.map(e => ({ entry: e, use: Frecency.score(e.id) })).filter(r => r.use >= Frecency.minScore).sort((a, b) => (b.use - a.use) || a.entry.name.localeCompare(b.entry.name)).slice(0, Frecency.topCount).map(r => r.entry);
     }
 }

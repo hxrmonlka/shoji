@@ -7,7 +7,6 @@ import qs.Modules.Island
 import qs.Modules.Lock
 import qs.Modules.Screenshot
 import qs.Modules.Settings
-import qs.Modules.Spotlight
 import qs.Modules.Wallpaper
 
 ShellRoot {
@@ -42,15 +41,6 @@ ShellRoot {
         model: Quickshell.screens
 
         Wallpaper {
-            required property var modelData
-            screen: modelData
-        }
-    }
-
-    Variants {
-        model: Quickshell.screens.slice(0, 1)
-
-        Spotlight {
             required property var modelData
             screen: modelData
         }

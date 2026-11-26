@@ -21,8 +21,13 @@ PanelWindow {
     readonly property int controlBaseWidth: Settings.controlSideWidth + Settings.controlPanelWidth
     readonly property int powerWidth: 540
     readonly property int powerHeight: 240
-    readonly property int contentWidth: Math.max(maxTabWidth, powerWidth, Settings.mediaPanelWidth, controlBaseWidth + 2 * Settings.controlSideWidth, pillWidth + 2 * (circleGap + circleSize))
-    readonly property int contentHeight: Math.max(maxTabHeight, powerHeight, Settings.mediaPanelHeight, Settings.controlPanelHeight, circleSize)
+    readonly property int spotlightWidth: 680
+    readonly property int spotlightMaxHeight: 520
+    readonly property bool spotlightScreen: (win.screen ? win.screen.name : "") === (Quickshell.screens.length > 0 ? Quickshell.screens[0].name : "")
+    readonly property bool spotlightOpen: ShellState.spotlight && spotlightScreen
+    readonly property real spotlightProgress: Math.max(0, spotlightSpring.value)
+    readonly property int contentWidth: Math.max(maxTabWidth, powerWidth, spotlightWidth, Settings.mediaPanelWidth, controlBaseWidth + 2 * Settings.controlSideWidth, pillWidth + 2 * (circleGap + circleSize))
+    readonly property int contentHeight: Math.max(maxTabHeight, powerHeight, spotlightMaxHeight, Settings.mediaPanelHeight, Settings.controlPanelHeight, circleSize)
     readonly property bool expanded: ShellState.expanded
     readonly property real progress: Math.max(0, morph.value)
     readonly property bool mediaOpen: ShellState.media
@@ -41,7 +46,7 @@ PanelWindow {
     readonly property bool hoverArmed: !ShellState.panelsOpen && !ShellState.spotlight && !ShellState.scrolling && !keysGrabbed && !popupOpen
     readonly property real popupProgress: Math.max(0, popupSpring.value)
     readonly property real osdProgress: Math.max(0, osdSpring.value)
-    readonly property real mergeProgress: Math.max(popupProgress, osdProgress, powerProgress)
+    readonly property real mergeProgress: Math.max(popupProgress, osdProgress, powerProgress, spotlightProgress)
     readonly property int glanceWidth: 500
     readonly property int glanceHeight: 132
     readonly property int glanceRadius: 28
@@ -53,6 +58,7 @@ PanelWindow {
     readonly property real shellPopup: Motion.soft(popupSpring.value, impact)
     readonly property real shellOsd: Motion.soft(osdSpring.value, impact)
     readonly property real shellPower: Motion.soft(powerSpring.value, impact)
+    readonly property real shellSpotlight: Motion.soft(spotlightSpring.value, impact)
     readonly property real shellGlance: Motion.soft(glanceSpring.value, impact)
     readonly property real shellRestWidth: Motion.lerp(Motion.lerp(Motion.lerp(pillWidth, popupWidth, shellPopup), osdWidth, shellOsd), glanceWidth, shellGlance)
     readonly property real shellRestHeight: Motion.lerp(Motion.lerp(Motion.lerp(pillHeight, popupHeight, shellPopup), osdHeight, shellOsd), glanceHeight, shellGlance)
@@ -127,7 +133,7 @@ PanelWindow {
 
     WlrLayershell.namespace: "shoji-island"
     WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.keyboardFocus: keysGrabbed || ShellState.panelsOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
+    WlrLayershell.keyboardFocus: keysGrabbed || (ShellState.panelsOpen && (!ShellState.spotlight || spotlightOpen)) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.OnDemand
 
     Spring {
         id: morph
@@ -135,6 +141,22 @@ PanelWindow {
         target: win.expanded ? 1 : 0
         token: win.expanded ? Motion.spatialDefault : Motion.settle
         epsilon: 0.0005
+    }
+
+    Spring {
+        id: spotlightSpring
+
+        target: win.spotlightOpen ? 1 : 0
+        token: win.spotlightOpen ? Motion.spatialDefault : Motion.settle
+        epsilon: 0.0005
+    }
+
+    Spring {
+        id: spotlightH
+
+        target: spotlightPanel.wantedHeight
+        token: Motion.spatialDefault
+        epsilon: 0.05
     }
 
     Spring {
@@ -174,7 +196,7 @@ PanelWindow {
     }
 
     function claimFocus() {
-        if (ShellState.expanded && (ShellState.tab === "clipboard" || ShellState.tab === "launcher"))
+        if (ShellState.spotlight || (ShellState.expanded && ShellState.tab === "clipboard"))
             return;
         keys.forceActiveFocus();
     }
@@ -203,6 +225,10 @@ PanelWindow {
         }
 
         function onPowerChanged() {
+            Qt.callLater(win.claimFocus);
+        }
+
+        function onSpotlightChanged() {
             Qt.callLater(win.claimFocus);
         }
 
@@ -288,6 +314,7 @@ PanelWindow {
         Keys.onEscapePressed: {
             ShellState.glance = false;
             ShellState.power = false;
+            ShellState.spotlight = false;
             ShellState.expanded = false;
             ShellState.media = false;
             ShellState.control = false;
@@ -346,9 +373,9 @@ PanelWindow {
 
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        width: Motion.lerp(Motion.lerp(win.shellRestWidth, panelW.value, win.shellProgress), win.powerWidth, win.shellPower)
-        height: Motion.lerp(Motion.lerp(win.shellRestHeight, panelH.value, win.shellProgress), win.powerHeight, win.shellPower)
-        radius: Motion.lerp(Motion.lerp(Motion.lerp(Motion.lerp(win.pillHeight / 2, Math.min(Settings.panelRadius, 28), win.popupProgress), win.osdHeight / 2, win.osdProgress), win.glanceRadius, Motion.clamp01(win.glanceProgress)), Settings.panelRadius, Math.max(win.progress, win.powerProgress))
+        width: Motion.lerp(Motion.lerp(Motion.lerp(win.shellRestWidth, panelW.value, win.shellProgress), win.powerWidth, win.shellPower), win.spotlightWidth, win.shellSpotlight)
+        height: Motion.lerp(Motion.lerp(Motion.lerp(win.shellRestHeight, panelH.value, win.shellProgress), win.powerHeight, win.shellPower), spotlightH.value, win.shellSpotlight)
+        radius: Motion.lerp(Motion.lerp(Motion.lerp(Motion.lerp(win.pillHeight / 2, Math.min(Settings.panelRadius, 28), win.popupProgress), win.osdHeight / 2, win.osdProgress), win.glanceRadius, Motion.clamp01(win.glanceProgress)), Settings.panelRadius, Math.max(win.progress, win.powerProgress, win.spotlightProgress))
         color: Theme.glass(Theme.m3SurfaceContainer)
         border.width: 1
         border.color: Theme.m3OutlineVariant
@@ -371,7 +398,7 @@ PanelWindow {
             anchors.right: parent.right
             anchors.top: parent.top
             height: win.pillHeight
-            enabled: !win.expanded && !ShellState.glance && !win.powerOpen && win.mediaProgress < 0.05 && win.controlProgress < 0.05
+            enabled: !win.expanded && !ShellState.glance && !win.powerOpen && !ShellState.spotlight && win.mediaProgress < 0.05 && win.controlProgress < 0.05
             cursorShape: Qt.PointingHandCursor
             onClicked: ShellState.openGlance()
         }
@@ -467,6 +494,19 @@ PanelWindow {
             width: panelW.value
             height: panelH.value
             opacity: Motion.clamp01((win.progress - 0.4) / 0.4)
+            visible: opacity > 0
+        }
+
+        SpotlightPanel {
+            id: spotlightPanel
+
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            width: win.spotlightWidth
+            height: spotlightH.value
+            maxHeight: win.spotlightMaxHeight
+            active: win.spotlightScreen
+            opacity: Motion.clamp01((win.spotlightProgress - 0.4) / 0.4)
             visible: opacity > 0
         }
 

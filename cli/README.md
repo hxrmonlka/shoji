@@ -360,8 +360,8 @@ Friendly commands mapping 1:1 onto the existing `IpcHandler`s in `shell.qml`
 (no shell behavior is implemented here):
 
 ```sh
-shoji island toggle | open | close | glance | tab <name>     # tab: launcher|calendar|monitor|
-                                                    # wallpapers|clipboard|color
+shoji island toggle | open | close | glance | tab <name>     # tab: calendar|monitor|wallpapers|
+                                                    # clipboard|color (launcher opens Spotlight)
                                                     # (+media|control when merged)
 shoji wallpaper toggle | open | close | set <path> | next | previous | random
 shoji media toggle | open | close | play-pause | next | previous | player-next | player-previous
@@ -676,8 +676,9 @@ cli/
 - `qs ipc show` output is relayed verbatim; parsing it into richer forms is
   Phase II territory.
 - `island tab` names are passed through; the QML side silently ignores
-  unknown tab ids. Valid ids: `launcher calendar monitor wallpapers clipboard
-  color` (+ `media control` when `mergeCircles` is on).
+  unknown tab ids. Valid ids: `calendar monitor wallpapers clipboard color`
+  (+ `media control` when `mergeCircles` is on). `launcher` is kept as an alias
+  that opens Spotlight.
 - `qs` exit statuses other than 0/255 are all treated as generic failures
   (exit 1) after stderr classification.
 - Subprocess lifecycle: descriptors are initialized to -1 and every cleanup
