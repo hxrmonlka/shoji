@@ -41,7 +41,7 @@ Item {
         anchors.right: parent.right
         anchors.rightMargin: 22
         anchors.verticalCenter: parent.verticalCenter
-        width: 216
+        width: 232
         spacing: 12
 
         Row {
@@ -225,7 +225,6 @@ Item {
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 width: Math.min(implicitWidth, Math.max(0, parent.width - icons.width - 10))
-                clip: true
                 visible: Settings.showWorkspaces
                 screen: root.screen
             }
