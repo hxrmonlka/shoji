@@ -8,6 +8,9 @@ Rectangle {
     property bool active: false
     property int iconSize: 15
     property real iconRotation: 0
+    property bool squash: false
+    property bool plain: false
+    readonly property bool pressed: area.pressed
 
     signal clicked
 
@@ -15,11 +18,29 @@ Rectangle {
     implicitHeight: 36
     radius: height / 2
     color: fill.color
+    transform: Scale {
+        origin.x: root.width / 2
+        origin.y: root.height / 2
+        xScale: root.squash ? squasher.xScale : 1
+        yScale: root.squash ? squasher.yScale : 1
+    }
+
+    Squash {
+        id: squasher
+
+        pressed: root.squash && area.pressed
+    }
 
     ColorSpring {
         id: fill
 
-        target: root.active ? Theme.m3PrimaryContainer : area.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+        target: root.active && !root.plain ? Theme.m3PrimaryContainer : area.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+    }
+
+    ColorSpring {
+        id: glyph
+
+        target: root.active ? Theme.m3OnPrimaryContainer : Theme.m3OnSurfaceVariant
     }
 
     Ripple {
@@ -32,7 +53,7 @@ Rectangle {
     Text {
         anchors.centerIn: parent
         text: root.icon
-        color: root.active ? Theme.m3OnPrimaryContainer : Theme.m3OnSurfaceVariant
+        color: root.plain ? glyph.color : root.active ? Theme.m3OnPrimaryContainer : Theme.m3OnSurfaceVariant
         font.family: Theme.fontIcon
         font.pixelSize: root.iconSize
         rotation: root.iconRotation

@@ -114,6 +114,20 @@ Item {
         return { rows: rows, nav: nav, pos: pos };
     }
 
+    function listTop(index) {
+        let y = 0;
+        for (let k = 0; k < index; k++)
+            y += results[k].kind === "header" ? headerHeight : rowHeight;
+        return y;
+    }
+
+    function gridTop(row) {
+        let y = 0;
+        for (let k = 0; k < row; k++)
+            y += gridData.rows[k].kind === "header" ? headerHeight : tileHeight;
+        return y;
+    }
+
     function reveal() {
         if (selected < 0)
             return;
@@ -122,13 +136,13 @@ Item {
             if (!p)
                 return;
             if (p.nav === 0)
-                gridList.positionViewAtBeginning();
+                gridScroll.scrollTo(0);
             else
-                gridList.positionViewAtIndex(p.row, ListView.Contain);
+                gridScroll.reveal(gridTop(p.row), tileHeight);
         } else if (selected === firstItem()) {
-            list.positionViewAtBeginning();
+            listScroll.scrollTo(0);
         } else {
-            list.positionViewAtIndex(selected, ListView.Contain);
+            listScroll.reveal(listTop(selected), rowHeight);
         }
     }
 
@@ -289,10 +303,8 @@ Item {
     function refresh() {
         results = build(input.text, category, mode, Files.results);
         selected = firstItem();
-        Qt.callLater(() => {
-            list.positionViewAtBeginning();
-            gridList.positionViewAtBeginning();
-        });
+        listScroll.reset();
+        gridScroll.reset();
     }
 
     function activate(item) {
@@ -349,6 +361,11 @@ Item {
         }
     }
     onSelectedChanged: Qt.callLater(reveal)
+    onViewChanged: {
+        listScroll.reset();
+        gridScroll.reset();
+        Qt.callLater(reveal);
+    }
     Component.onCompleted: refresh()
 
     Connections {
@@ -368,23 +385,49 @@ Item {
         }
     }
 
-    component Chip: Rectangle {
+    component Chip: Item {
         id: chip
 
         property string label: ""
         property bool current: false
 
+        readonly property bool pressed: chipArea.pressed
+
         signal clicked
 
         height: 30
         width: chipLabel.implicitWidth + 24
-        radius: 15
-        color: chipFill.color
+
+        Squash {
+            id: chipSquash
+
+            pressed: chipArea.pressed
+        }
+
+        Rectangle {
+            id: chipBg
+
+            anchors.fill: parent
+            radius: 15
+            color: chipFill.color
+            transform: Scale {
+                origin.x: chipBg.width / 2
+                origin.y: chipBg.height / 2
+                xScale: chipSquash.xScale
+                yScale: chipSquash.yScale
+            }
+        }
+
+        ColorSpring {
+            id: chipText
+
+            target: chip.current ? Theme.m3OnPrimaryContainer : Theme.m3OnSurfaceVariant
+        }
 
         ColorSpring {
             id: chipFill
 
-            target: chip.current ? Theme.m3PrimaryContainer : chipArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
+            target: !chip.current && chipArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
         }
 
         Text {
@@ -392,7 +435,7 @@ Item {
 
             anchors.centerIn: parent
             text: chip.label
-            color: chip.current ? Theme.m3OnPrimaryContainer : Theme.m3OnSurfaceVariant
+            color: chipText.color
             font.family: Theme.fontUi
             font.pixelSize: 13
             font.weight: Font.Medium
@@ -472,19 +515,52 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 4
 
-            Row {
-                spacing: 2
+            Item {
+                id: chipBox
+
+                property real targetL: 0
+                property real targetR: 0
+                property bool currentPressed: false
+
+                width: chipRow.width
+                height: 30
                 visible: root.mode === ""
 
-                Repeater {
-                    model: root.categories
+                SlidePill {
+                    from: chipBox.targetL
+                    to: chipBox.targetR
+                    pressed: chipBox.currentPressed
+                }
 
-                    delegate: Chip {
-                        required property var modelData
+                Row {
+                    id: chipRow
 
-                        label: modelData.label
-                        current: root.category === modelData.id
-                        onClicked: root.setCategory(modelData.id)
+                    spacing: 2
+
+                    Repeater {
+                        model: root.categories
+
+                        delegate: Chip {
+                            id: chipItem
+
+                            required property var modelData
+
+                            function sync() {
+                                if (!current)
+                                    return;
+                                chipBox.targetL = x;
+                                chipBox.targetR = x + width;
+                            }
+
+                            label: modelData.label
+                            current: root.category === modelData.id
+                            onClicked: root.setCategory(modelData.id)
+                            onCurrentChanged: sync()
+                            onXChanged: sync()
+                            onWidthChanged: sync()
+                            onPressedChanged: if (current) chipBox.currentPressed = pressed
+                            Component.onCompleted: sync()
+                        }
                     }
                 }
             }
@@ -502,28 +578,50 @@ Item {
                 }
             }
 
-            IconButton {
-                width: 30
-                height: 30
-                visible: root.mode === ""
-                enabled: root.viewEnabled
-                opacity: root.viewEnabled ? 1 : 0.35
-                icon: "\uf00a"
-                iconSize: 13
-                active: root.view === "grid"
-                onClicked: root.view = "grid"
-            }
+            Item {
+                id: viewBox
 
-            IconButton {
-                width: 30
+                readonly property bool grid: root.view === "grid"
+
+                width: 64
                 height: 30
                 visible: root.mode === ""
                 enabled: root.viewEnabled
                 opacity: root.viewEnabled ? 1 : 0.35
-                icon: "\uf0ca"
-                iconSize: 13
-                active: root.view === "list"
-                onClicked: root.view = "list"
+
+                SlidePill {
+                    from: viewBox.grid ? 0 : 34
+                    to: viewBox.grid ? 30 : 64
+                    pressed: viewBox.grid ? gridButton.pressed : listButton.pressed
+                }
+
+                IconButton {
+                    id: gridButton
+
+                    x: 0
+                    width: 30
+                    height: 30
+                    icon: "\uf00a"
+                    iconSize: 13
+                    squash: true
+                    plain: true
+                    active: viewBox.grid
+                    onClicked: root.view = "grid"
+                }
+
+                IconButton {
+                    id: listButton
+
+                    x: 34
+                    width: 30
+                    height: 30
+                    icon: "\uf0ca"
+                    iconSize: 13
+                    squash: true
+                    plain: true
+                    active: !viewBox.grid
+                    onClicked: root.view = "list"
+                }
             }
         }
 
@@ -616,6 +714,7 @@ Item {
         anchors.bottomMargin: 8
         visible: !root.gridActive
         clip: true
+        interactive: false
         boundsBehavior: Flickable.StopAtBounds
         model: root.gridActive ? [] : root.results
 
@@ -638,6 +737,7 @@ Item {
         anchors.bottomMargin: 8
         visible: root.gridActive
         clip: true
+        interactive: false
         boundsBehavior: Flickable.StopAtBounds
         model: root.gridData.rows
 
@@ -722,6 +822,24 @@ Item {
                 }
             }
         }
+    }
+
+    SmoothScroll {
+        id: listScroll
+
+        anchors.fill: list
+        view: list
+        contentSize: root.contentHeight
+        enabled: !root.gridActive
+    }
+
+    SmoothScroll {
+        id: gridScroll
+
+        anchors.fill: gridList
+        view: gridList
+        contentSize: root.contentHeight
+        enabled: root.gridActive
     }
 
     Text {
