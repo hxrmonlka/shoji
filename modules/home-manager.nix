@@ -47,6 +47,8 @@
             }
           ];
           home.packages = lib.optionals cfg.cli.enable [packages.cli];
+          home.sessionVariables.QML_IMPORT_PATH = "${packages.m3shapes}/${pkgs.qt6.qtbase.qtQmlPrefix}";
+
           xdg.configFile = lib.mkIf cfg.config.enable {
             ${cfg.config.target} = {
               source = packages.shell.configPath;
