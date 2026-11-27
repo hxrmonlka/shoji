@@ -14,10 +14,13 @@ Scope {
         }
 
         WlSessionLockSurface {
+            id: surface
+
             color: Wallpapers.current ? "black" : Theme.m3Surface
 
             LockScreen {
                 anchors.fill: parent
+                screenName: surface.screen ? surface.screen.name : ""
             }
         }
     }

@@ -53,6 +53,7 @@ QtObject {
     function lock(): void {
         if (locked)
             return;
+        IslandHandoff.capture();
         ShellState.hidePanels();
         ShellState.spotlight = false;
         Network.refresh();

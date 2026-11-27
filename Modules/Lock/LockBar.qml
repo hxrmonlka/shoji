@@ -6,30 +6,72 @@ Item {
     id: root
 
     required property var auth
+    property string screenName: ""
+    property real screenWidth: 0
 
     signal confirmClicked
 
+    readonly property var from: IslandHandoff.frameFor(screenName)
+    readonly property var rest: IslandHandoff.restFor(screenName)
+    readonly property var shot: IslandHandoff.shotFor(screenName)
+    readonly property bool shotUsable: shot !== null && (!unlocking || from.atRest)
+    readonly property var held: unlocking ? rest : from
     readonly property int pillH: Settings.pillHeight
     readonly property int count: auth.shapes.count
     readonly property bool unlocking: auth.unlocking === true
     readonly property bool typing: count > 0 || auth.busy
+    readonly property bool started: frameElapsed && (from.fallback || shot !== null || waited)
     readonly property int phase: unlocking || !started ? 0 : typing ? 2 : 1
-    readonly property real restW: Math.round(pillH * 5)
-    readonly property real targetW: phase === 0 ? restW : phase === 1 ? restW + 28 : Math.min(480, Math.max(320, count * 18 + 140))
-    readonly property real targetH: phase === 0 ? pillH : phase === 1 ? pillH + 6 : pillH + 18
+    readonly property real baseW: rest.w + 28
+    readonly property real maxW: screenWidth > 0 ? screenWidth - 96 : 100000
+    readonly property real targetW: phase === 0 ? held.w : phase === 1 ? baseW : Math.min(maxW, baseW + Math.min(232, Math.max(72, count * 18 - 108)))
+    readonly property real targetH: phase === 0 ? held.h : phase === 1 ? rest.h + 6 : rest.h + 18
+    readonly property real targetR: phase === 0 ? held.r : targetH / 2
+    readonly property real targetCx: centerOf(phase === 0 ? held : rest)
+    readonly property real targetTop: phase === 0 ? held.top : rest.top
     readonly property int lastShape: count > 0 ? (auth.passwordShapeAssignments[count - 1] ?? 0) : 0
     readonly property bool ready: count > 0 && !auth.busy
     readonly property color errorColor: "#f2b8b5"
-    property bool started: false
+    readonly property color lockFill: Qt.alpha(Theme.m3SurfaceContainerHigh, 0.82)
+    readonly property color startFill: unlocking ? rest.fill : from.fill
+    readonly property real shotOpacity: shotUsable ? Motion.clamp01(1 - fillSpring.value) : 0
+    property bool frameElapsed: false
+    property bool waited: false
+    property bool positioned: false
     property real shake: 0
+
+    function centerOf(frame): real {
+        return frame.cx > 0 ? frame.cx : screenWidth / 2;
+    }
+
+    Component.onCompleted: {
+        if (targetCx > 0)
+            positioned = true;
+    }
+
+    onTargetCxChanged: {
+        if (!positioned && targetCx > 0) {
+            xSpring.value = targetCx;
+            xSpring.velocity = 0;
+            positioned = true;
+        }
+    }
 
     width: wSpring.value
     height: hSpring.value
+    x: xSpring.value - width / 2
+    y: ySpring.value
 
     Timer {
         running: true
-        interval: 90
-        onTriggered: root.started = true
+        interval: 16
+        onTriggered: root.frameElapsed = true
+    }
+
+    Timer {
+        running: true
+        interval: 70
+        onTriggered: root.waited = true
     }
 
     Spring {
@@ -46,6 +88,38 @@ Item {
         target: root.targetH
         token: root.unlocking ? Motion.settle : Motion.spatialDefault
         epsilon: 0.05
+    }
+
+    Spring {
+        id: rSpring
+
+        target: root.targetR
+        token: root.unlocking ? Motion.settle : Motion.spatialDefault
+        epsilon: 0.05
+    }
+
+    Spring {
+        id: xSpring
+
+        target: root.targetCx
+        token: root.unlocking ? Motion.settle : Motion.spatialDefault
+        epsilon: 0.05
+    }
+
+    Spring {
+        id: ySpring
+
+        target: root.targetTop
+        token: root.unlocking ? Motion.settle : Motion.spatialDefault
+        epsilon: 0.05
+    }
+
+    Spring {
+        id: fillSpring
+
+        target: root.started && !root.unlocking ? 1 : 0
+        token: Motion.effectsDefault
+        epsilon: 0.002
     }
 
     Spring {
@@ -112,13 +186,28 @@ Item {
         id: bar
 
         anchors.fill: parent
-        radius: height / 2
-        color: Qt.alpha(Theme.m3SurfaceContainerHigh, 0.82)
+        radius: Math.max(0, Math.min(rSpring.value, height / 2))
+        color: {
+            const c = Motion.mix(root.startFill, root.lockFill, Motion.clamp01(fillSpring.value));
+            return Qt.rgba(c.r, c.g, c.b, c.a * (1 - root.shotOpacity));
+        }
         border.width: 1
-        border.color: root.auth.failed ? root.errorColor : Theme.m3OutlineVariant
+        border.color: root.auth.failed ? root.errorColor : Qt.alpha(Theme.m3OutlineVariant, Theme.m3OutlineVariant.a * (1 - root.shotOpacity))
         clip: true
         transform: Translate {
             x: root.shake
+        }
+
+        Image {
+            anchors.centerIn: parent
+            width: root.from.w
+            height: root.from.h
+            source: root.shotUsable ? root.shot.url : ""
+            cache: false
+            smooth: true
+            fillMode: Image.Stretch
+            opacity: root.shotOpacity
+            visible: opacity > 0.01
         }
 
         Text {

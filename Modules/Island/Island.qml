@@ -89,6 +89,53 @@ PanelWindow {
         handoff = true;
     }
 
+    function captureSource() {
+        if (progress > 0.05)
+            return island;
+        if (mediaProgress > 0.05)
+            return media;
+        if (controlProgress > 0.05)
+            return control;
+        return island;
+    }
+
+    function captureFrame() {
+        const src = captureSource();
+        const isIsland = src === island;
+        const screenWidth = screen ? screen.width : win.width;
+        const resting = isIsland && progress < 0.01 && mediaProgress < 0.01 && controlProgress < 0.01 && mergeProgress < 0.01 && glanceProgress < 0.01;
+        return {
+            w: src.width,
+            h: src.height,
+            r: isIsland ? island.radius : src.radiusNow,
+            cx: screenWidth / 2 + (src.x + src.width / 2 - win.width / 2),
+            top: Settings.topMargin + src.y,
+            fill: isIsland ? island.color : Theme.m3SurfaceContainer,
+            border: Theme.m3OutlineVariant,
+            atRest: resting,
+            fallback: false
+        };
+    }
+
+    function restFrame() {
+        const screenWidth = screen ? screen.width : win.width;
+        return {
+            w: Math.round(pillWidth),
+            h: pillHeight,
+            r: pillHeight / 2,
+            cx: screenWidth / 2,
+            top: Settings.topMargin,
+            fill: Theme.glass(Theme.m3SurfaceContainer),
+            border: Theme.m3OutlineVariant,
+            atRest: true,
+            fallback: false
+        };
+    }
+
+    function grabCapture(done): bool {
+        return captureSource().grabToImage(done);
+    }
+
     function settleHandoff(): void {
         if (!handoff)
             return;
@@ -96,6 +143,9 @@ PanelWindow {
         if (p > 0.999)
             handoff = false;
     }
+
+    Component.onCompleted: IslandHandoff.register(screen ? screen.name : "", win)
+    Component.onDestruction: IslandHandoff.unregister(screen ? screen.name : "", win)
 
     onMediaProgressChanged: settleHandoff()
     onControlProgressChanged: settleHandoff()
@@ -112,7 +162,7 @@ PanelWindow {
             ShellState.adjust("brightness", dy);
     }
 
-    visible: !LockState.locked
+    visible: !LockState.locked || IslandHandoff.holding
     anchors.top: true
     margins.top: Settings.topMargin
     exclusiveZone: pillHeight

@@ -10,6 +10,7 @@ Item {
     readonly property string wallpaper: Wallpapers.current
     readonly property int span: Math.max(width, height)
     property var auth: LockState
+    property string screenName: ""
     property bool greeter: false
     property bool menuOpen: false
     property bool sessionsOpen: false
@@ -434,13 +435,12 @@ Item {
     }
 
     Loader {
-        active: !root.greeter
-        anchors.top: parent.top
-        anchors.topMargin: Settings.topMargin
-        anchors.horizontalCenter: parent.horizontalCenter
+        active: !root.greeter && root.width > 0 && root.screenName !== ""
 
         sourceComponent: LockBar {
             auth: root.auth
+            screenName: root.screenName
+            screenWidth: root.width
             onConfirmClicked: {
                 root.auth.submit();
                 root.refocus();
