@@ -35,7 +35,10 @@ Item {
         id: grow
 
         target: 1
-        token: ({ stiffness: 500, damping: 1 })
+        token: ({
+                stiffness: 500,
+                damping: 1
+            })
         epsilon: 0.002
     }
 
@@ -43,7 +46,10 @@ Item {
         id: fade
 
         target: 0
-        token: ({ stiffness: 90, damping: 1 })
+        token: ({
+                stiffness: 90,
+                damping: 1
+            })
         epsilon: 0.002
     }
 

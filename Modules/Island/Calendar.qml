@@ -59,7 +59,16 @@ ColumnLayout {
         }
 
         Repeater {
-            model: [{ glyph: "\uf104", step: -1 }, { glyph: "\uf105", step: 1 }]
+            model: [
+                {
+                    glyph: "\uf104",
+                    step: -1
+                },
+                {
+                    glyph: "\uf105",
+                    step: 1
+                }
+            ]
 
             Rectangle {
                 id: nav

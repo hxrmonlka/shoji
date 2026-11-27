@@ -22,8 +22,10 @@ Item {
 
     height: 44
 
-    onEditingChanged: if (editing) beginEdit()
-    Component.onCompleted: if (editing) beginEdit()
+    onEditingChanged: if (editing)
+        beginEdit()
+    Component.onCompleted: if (editing)
+        beginEdit()
 
     HoverHandler {
         id: hover
@@ -108,7 +110,8 @@ Item {
         Keys.onReturnPressed: row.committed(text)
         Keys.onEnterPressed: row.committed(text)
         Keys.onEscapePressed: row.cancelled()
-        onActiveFocusChanged: if (!activeFocus && row.editing) row.cancelled()
+        onActiveFocusChanged: if (!activeFocus && row.editing)
+            row.cancelled()
     }
 
     Row {
@@ -128,7 +131,16 @@ Item {
         }
 
         Repeater {
-            model: [{ glyph: "\uf040", action: "edit" }, { glyph: "\uf1f8", action: "remove" }]
+            model: [
+                {
+                    glyph: "\uf040",
+                    action: "edit"
+                },
+                {
+                    glyph: "\uf1f8",
+                    action: "remove"
+                }
+            ]
 
             Rectangle {
                 id: btn

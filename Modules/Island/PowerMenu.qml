@@ -9,12 +9,36 @@ Item {
     readonly property int columns: 3
 
     readonly property var actions: [
-        { id: "lock", label: "Lock", icon: "\uf023" },
-        { id: "suspend", label: "Suspend", icon: "\uf186" },
-        { id: "shoji", label: "Restart Shoji", icon: "\uf021" },
-        { id: "poweroff", label: "Shutdown", icon: "\uf011" },
-        { id: "reboot", label: "Reboot", icon: "\uf01e" },
-        { id: "firmware", label: "Reboot to firmware", icon: "\uf2db" }
+        {
+            id: "lock",
+            label: "Lock",
+            icon: "\uf023"
+        },
+        {
+            id: "suspend",
+            label: "Suspend",
+            icon: "\uf186"
+        },
+        {
+            id: "shoji",
+            label: "Restart Shoji",
+            icon: "\uf021"
+        },
+        {
+            id: "poweroff",
+            label: "Shutdown",
+            icon: "\uf011"
+        },
+        {
+            id: "reboot",
+            label: "Reboot",
+            icon: "\uf01e"
+        },
+        {
+            id: "firmware",
+            label: "Reboot to firmware",
+            icon: "\uf2db"
+        }
     ]
 
     function run(id: string): void {

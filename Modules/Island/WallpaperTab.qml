@@ -168,7 +168,8 @@ Item {
                                 radius: 14
                                 source: cell.useThumb ? Wallpapers.thumbUrl(cell.filePath) : cell.fileUrl
                                 sourceSize: Qt.size(400, 256)
-                                onStatusChanged: if (status === Image.Error && cell.useThumb) cell.failedRev = Wallpapers.thumbsRev
+                                onStatusChanged: if (status === Image.Error && cell.useThumb)
+                                    cell.failedRev = Wallpapers.thumbsRev
                             }
 
                             Rectangle {

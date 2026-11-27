@@ -49,15 +49,8 @@ QtObject {
         const pool = MaterialExpressiveShapes.catalog;
         while (passwordShapeAssignments.length < n) {
             const sequenceIndex = Math.floor(passwordShapeAssignments.length / pool.length);
-            const previousLast = passwordShapeAssignments.length > 0
-                ? passwordShapeAssignments[passwordShapeAssignments.length - 1]
-                : -1;
-            const sequence = PasswordShapeSequence.create(
-                pool,
-                sequenceIndex,
-                previousLast,
-                Settings.shufflePasswordShapes
-            );
+            const previousLast = passwordShapeAssignments.length > 0 ? passwordShapeAssignments[passwordShapeAssignments.length - 1] : -1;
+            const sequence = PasswordShapeSequence.create(pool, sequenceIndex, previousLast, Settings.shufflePasswordShapes);
             passwordShapeAssignments = passwordShapeAssignments.concat(sequence);
         }
 
@@ -65,7 +58,9 @@ QtObject {
             shapes.remove(shapes.count - 1);
         while (shapes.count < n) {
             const index = shapes.count;
-            shapes.append({ shape: passwordShapeAssignments[index] });
+            shapes.append({
+                shape: passwordShapeAssignments[index]
+            });
         }
     }
 
@@ -145,7 +140,10 @@ QtObject {
     }
 
     function save(): void {
-        stateFile.setText(JSON.stringify({ user: user, session: session ? session.name : "" }));
+        stateFile.setText(JSON.stringify({
+            user: user,
+            session: session ? session.name : ""
+        }));
     }
 
     function sessionCommand(): var {
@@ -224,8 +222,7 @@ QtObject {
                 const j = JSON.parse(text());
                 root.wantedSession = j.session || "";
                 root.lastUser = j.user || "";
-            } catch (e) {
-            }
+            } catch (e) {}
             root.stateLoaded = true;
             root.maybeStart();
         }
@@ -242,7 +239,13 @@ QtObject {
             onRead: line => {
                 const p = line.split("\t");
                 if (p.length >= 3)
-                    root.sessions = root.sessions.concat([{ name: p[0], exec: p[1], id: p[2] }]);
+                    root.sessions = root.sessions.concat([
+                        {
+                            name: p[0],
+                            exec: p[1],
+                            id: p[2]
+                        }
+                    ]);
             }
         }
         onExited: {
@@ -258,7 +261,13 @@ QtObject {
             onRead: line => {
                 const p = line.split("\t");
                 if (p[0].length > 0)
-                    root.users = root.users.concat([{ name: p[0], real: p[1] || p[0], icon: p[2] || "" }]);
+                    root.users = root.users.concat([
+                        {
+                            name: p[0],
+                            real: p[1] || p[0],
+                            icon: p[2] || ""
+                        }
+                    ]);
             }
         }
         onExited: {

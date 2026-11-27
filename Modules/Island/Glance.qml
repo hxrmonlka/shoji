@@ -24,7 +24,10 @@ Item {
             font.family: Theme.fontClock
             font.pixelSize: 56
             font.weight: Font.Black
-            font.variableAxes: ({ "wght": 900, "ROND": 100 })
+            font.variableAxes: ({
+                    "wght": 900,
+                    "ROND": 100
+                })
         }
 
         Text {

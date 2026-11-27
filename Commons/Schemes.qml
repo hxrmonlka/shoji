@@ -13,15 +13,51 @@ QtObject {
     readonly property string script: Quickshell.shellPath("scripts/schemes.sh")
 
     readonly property var schemes: [
-        { value: "scheme-tonal-spot", label: "Tonal Spot", desc: "Balanced palette with focused accents. The default." },
-        { value: "scheme-vibrant", label: "Vibrant", desc: "Lively palette with saturated accents." },
-        { value: "scheme-content", label: "Content", desc: "Colors that stay close to the wallpaper." },
-        { value: "scheme-expressive", label: "Expressive", desc: "Vibrant palette with playful saturation." },
-        { value: "scheme-fidelity", label: "Fidelity", desc: "Keeps the hue of the source color." },
-        { value: "scheme-fruit-salad", label: "Fruit Salad", desc: "Bright accents with strong contrast." },
-        { value: "scheme-monochrome", label: "Monochrome", desc: "Minimal palette built around one hue." },
-        { value: "scheme-neutral", label: "Neutral", desc: "Muted palette with subdued tones." },
-        { value: "scheme-rainbow", label: "Rainbow", desc: "Diverse palette across the spectrum." }
+        {
+            value: "scheme-tonal-spot",
+            label: "Tonal Spot",
+            desc: "Balanced palette with focused accents. The default."
+        },
+        {
+            value: "scheme-vibrant",
+            label: "Vibrant",
+            desc: "Lively palette with saturated accents."
+        },
+        {
+            value: "scheme-content",
+            label: "Content",
+            desc: "Colors that stay close to the wallpaper."
+        },
+        {
+            value: "scheme-expressive",
+            label: "Expressive",
+            desc: "Vibrant palette with playful saturation."
+        },
+        {
+            value: "scheme-fidelity",
+            label: "Fidelity",
+            desc: "Keeps the hue of the source color."
+        },
+        {
+            value: "scheme-fruit-salad",
+            label: "Fruit Salad",
+            desc: "Bright accents with strong contrast."
+        },
+        {
+            value: "scheme-monochrome",
+            label: "Monochrome",
+            desc: "Minimal palette built around one hue."
+        },
+        {
+            value: "scheme-neutral",
+            label: "Neutral",
+            desc: "Muted palette with subdued tones."
+        },
+        {
+            value: "scheme-rainbow",
+            label: "Rainbow",
+            desc: "Diverse palette across the spectrum."
+        }
     ]
     readonly property var values: schemes.map(e => e.value)
 
@@ -125,7 +161,10 @@ QtObject {
         previews = next;
         loadedKey = runKey;
         if (found === schemes.length)
-            store.setText(JSON.stringify({ key: runKey, items: next }, null, 1) + "\n");
+            store.setText(JSON.stringify({
+                key: runKey,
+                items: next
+            }, null, 1) + "\n");
     }
 
     function restore(raw) {

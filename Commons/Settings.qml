@@ -10,71 +10,590 @@ QtObject {
     readonly property string path: Quickshell.env("HOME") + "/.local/state/shoji/settings.json"
 
     readonly property var categories: [
-        { id: "island", title: "Island", icon: "\uf2d0" },
-        { id: "circles", title: "Circles", icon: "\uf111" },
-        { id: "display", title: "Display", icon: "\uf108" },
-        { id: "features", title: "Features", icon: "\uf205" },
-        { id: "colors", title: "Colors", icon: "\uf043" },
-        { id: "theming", title: "App theming", icon: "\uf1fc" },
-        { id: "lock", title: "Lock screen", icon: "\uf023" },
-        { id: "system", title: "System", icon: "\uf085" }
+        {
+            id: "island",
+            title: "Island",
+            icon: "\uf2d0"
+        },
+        {
+            id: "circles",
+            title: "Circles",
+            icon: "\uf111"
+        },
+        {
+            id: "display",
+            title: "Display",
+            icon: "\uf108"
+        },
+        {
+            id: "features",
+            title: "Features",
+            icon: "\uf205"
+        },
+        {
+            id: "colors",
+            title: "Colors",
+            icon: "\uf043"
+        },
+        {
+            id: "theming",
+            title: "App theming",
+            icon: "\uf1fc"
+        },
+        {
+            id: "lock",
+            title: "Lock screen",
+            icon: "\uf023"
+        },
+        {
+            id: "system",
+            title: "System",
+            icon: "\uf085"
+        }
     ]
 
     readonly property var schema: [
-        { key: "pillHeight", cat: "island", section: "Pill", label: "Pill height", min: 32, max: 72, step: 1, def: 44 },
-        { key: "pillPadding", cat: "island", section: "Pill", label: "Pill padding", min: 8, max: 40, step: 1, def: 16 },
-        { key: "pillSpacing", cat: "island", section: "Pill", label: "Pill spacing", min: 6, max: 28, step: 1, def: 14 },
-        { key: "topMargin", cat: "island", section: "Pill", label: "Top margin", min: 0, max: 40, step: 1, def: 8 },
-        { key: "panelWidth", cat: "island", section: "Panel", label: "Panel width", min: 560, max: 1000, step: 10, def: 720 },
-        { key: "panelHeight", cat: "island", section: "Panel", label: "Panel height", min: 360, max: 700, step: 10, def: 460 },
-        { key: "panelRadius", cat: "island", section: "Panel", label: "Panel radius", min: 12, max: 48, step: 1, def: 32 },
-        { key: "autoHideDelay", cat: "island", section: "Behavior", label: "Auto-hide delay (ms)", min: 200, max: 10000, step: 250, def: 2000 },
-        { key: "hoverOpenDelay", cat: "island", section: "Behavior", label: "Hover to open (ms)", desc: "0 turns hover opening off.", min: 0, max: 2000, step: 50, def: 500 },
-        { key: "scrollStep", cat: "island", section: "Behavior", label: "Scroll step (%)", desc: "Volume and brightness change per scroll notch.", min: 1, max: 20, step: 1, def: 2 },
-        { key: "circleSize", cat: "circles", section: "Buttons", label: "Circle size", min: 32, max: 72, step: 1, def: 44 },
-        { key: "circleGap", cat: "circles", section: "Buttons", label: "Circle gap", min: 4, max: 32, step: 1, def: 10 },
-        { key: "mediaPanelWidth", cat: "circles", section: "Media panel", label: "Media width", min: 400, max: 900, step: 10, def: 600 },
-        { key: "mediaPanelHeight", cat: "circles", section: "Media panel", label: "Media height", min: 240, max: 520, step: 10, def: 300 },
-        { key: "controlPanelWidth", cat: "circles", section: "Control panel", label: "Control width", min: 320, max: 560, step: 10, def: 380 },
-        { key: "controlSideWidth", cat: "circles", section: "Control panel", label: "Control side width", min: 240, max: 480, step: 10, def: 300 },
-        { key: "controlPanelHeight", cat: "circles", section: "Control panel", label: "Control height", min: 360, max: 640, step: 10, def: 500 },
-        { key: "nightTemperature", cat: "display", section: "Night mode", label: "Night temperature (K)", min: 2500, max: 6000, step: 100, def: 4000 },
-        { key: "nightCommand", cat: "display", section: "Night mode", label: "Night command", desc: "Use {temp} for the temperature.", type: "string", def: "gammastep -m wayland -O {temp}" },
-        { key: "updateStar", cat: "features", section: "Island", label: "Update star", desc: "Show the Lumina update star in the pill.", type: "bool", def: true },
-        { key: "pillIndicators", cat: "features", section: "Island", label: "Mic and screen share icons", desc: "Show an icon in the pill while the microphone is muted or the screen is being shared or recorded.", type: "bool", def: true },
-        { key: "showWorkspaces", cat: "features", section: "Island", label: "Workspaces in Glance", desc: "Show the workspace switcher in Glance, next to the status icons.", type: "bool", def: true },
-        { key: "mergeCircles", cat: "features", section: "Island", label: "Merge media and controls into the island", desc: "Hide the two circles. Media and Control open from the island and join the tab strip.", type: "bool", def: false },
-        { key: "ipcTabOnly", cat: "features", section: "Island", label: "Tab-only view for IPC", desc: "Hide the tab strip when a tab is opened with qs ipc.", type: "bool", def: false },
-        { key: "notificationPopups", cat: "features", section: "Overlays", label: "Notification pop-ups", desc: "Notifications still reach the notification center when off.", type: "bool", def: true },
-        { key: "osd", cat: "features", section: "Overlays", label: "Volume and brightness bar", desc: "Show the bar while scrolling with Ctrl or Alt.", type: "bool", def: true },
-        { key: "trayIcons", cat: "features", section: "Panels", label: "System tray", desc: "Show tray icons in the Control Panel.", type: "bool", def: true },
-        { key: "visualizer", cat: "features", section: "Panels", label: "Audio visualizer", desc: "Run cava for the media panel bars and the island pill bars.", type: "bool", def: true },
-        { key: "visualizerGain", cat: "features", section: "Panels", label: "Visualizer intensity (%)", desc: "Scales the bar height of the audio visualizer.", min: 50, max: 600, step: 10, def: 180 },
-        { key: "clipboardHistory", cat: "features", section: "Background", label: "Clipboard history", desc: "Record copied text, images and files with cliphist.", type: "bool", def: true },
-        { key: "laptopMode", cat: "features", section: "System", label: "Laptop mode", desc: "Show the battery indicator in Glance and allow power profile switching. Turning it off selects Performance.", type: "bool", def: false },
-        { key: "ripple", cat: "features", section: "Interface", label: "Ripple Effect", desc: "Show a ripple from the pointer when a button is pressed.", type: "bool", def: true },
-        { key: "searchEngine", cat: "features", section: "Spotlight", label: "Web search engine", desc: "Used by the >w prefix. Results open in the default browser.", type: "choice", options: [{ value: "kagi", label: "Kagi" }, { value: "google", label: "Google" }], def: "kagi" },
-        { key: "spotlightView", cat: "features", section: "Spotlight", label: "Default view", desc: "How apps are shown when Spotlight opens. The buttons beside the search field switch the view until Spotlight closes.", type: "choice", options: [{ value: "grid", label: "Grid" }, { value: "list", label: "List" }], def: "grid" },
-        { key: "spotlightFrecency", cat: "features", section: "Spotlight", label: "Frecency ordering", desc: "Show your most used apps first when Spotlight opens, and rank equal matches by use. Turning it off also stops recording launches.", type: "bool", def: true },
-        { key: "themeScheme", cat: "colors", section: "Palette", label: "Color scheme", desc: "Algorithm matugen uses to build the palette from the wallpaper.", type: "scheme", def: "scheme-tonal-spot" },
-        { key: "themeMode", cat: "colors", section: "Palette", label: "Mode", desc: "Dark or light colors for the shell and every themed app.", type: "choice", options: [{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }], def: "dark" },
-        { key: "surfaceOpacity", cat: "colors", section: "Translucency", label: "Surface opacity (%)", desc: "How opaque panels and menus are. Lower values show more of the blurred background. The media panel is always opaque.", min: 55, max: 100, step: 1, def: 100 },
-        { key: "blurEnabled", cat: "colors", section: "Translucency", label: "Background blur", desc: "Writes blur options to mango/shoji/colors.conf. Needs MangoWM theming turned on.", type: "bool", def: true },
-        { key: "themeMango", cat: "theming", section: "Apps", label: "MangoWM", desc: "Border, bar and shadow colors in mango/shoji/colors.conf.", type: "bool", def: true },
-        { key: "themeKitty", cat: "theming", section: "Apps", label: "kitty", desc: "Terminal and tab colors in kitty/shoji-theme.conf.", type: "bool", def: true },
-        { key: "themeBtop", cat: "theming", section: "Apps", label: "btop", desc: "Theme file btop/themes/shoji.theme.", type: "bool", def: true },
-        { key: "themeEquicord", cat: "theming", section: "Apps", label: "Equicord", desc: "Theme file Equicord/themes/shoji-equicord.css.", type: "bool", def: true },
-        { key: "themeGtk", cat: "theming", section: "Apps", label: "GTK 3 and 4", desc: "Colors and shapes for GTK apps, including Thunar.", type: "bool", def: true },
-        { key: "themeHelium", cat: "theming", section: "Apps", label: "Helium", desc: "Needs a writable /etc/chromium/policies/managed/shoji-color.json.", type: "bool", def: true },
-        { key: "themeSpotify", cat: "theming", section: "Apps", label: "Spotify", desc: "Uses the Shoji Matugen palette with the upstream Spicetify Text theme.", type: "bool", def: true },
-        { key: "themeZed", cat: "theming", section: "Apps", label: "Zed", desc: "Four themes in zed/themes/shoji.json: Shoji Dark, Light and their Transparent variants.", type: "bool", def: true },
-        { key: "themeRadius", cat: "theming", section: "Shape", label: "GTK corner radius", desc: "Cards and menus use this radius. Buttons and fields use two thirds of it.", min: 4, max: 24, step: 1, def: 12 },
-        { key: "shufflePasswordShapes", cat: "lock", section: "Password", label: "Shuffle password shapes", desc: "Randomize the shape order on each new password entry while keeping every sequence boundary distinct.", type: "bool", def: true },
-        { key: "materialPasswordShapes", cat: "lock", section: "Password", label: "Enable Material shapes for random password characters", desc: "Off shows simple circles. The enter button always cycles Material shapes.", type: "bool", def: false },
-        { key: "lockPamConfig", cat: "lock", section: "Authentication", label: "PAM service", desc: "Name of the PAM config used to check the password.", type: "string", def: "login" },
-        { key: "logoutCommand", cat: "lock", section: "Power menu", label: "Logout command", desc: "Run by the Logout entry on the lock screen.", type: "string", def: "loginctl terminate-session \"$XDG_SESSION_ID\"" },
-        { key: "screenshotDir", cat: "system", section: "Paths", label: "Screenshot folder", type: "string", def: "~/Pictures/Screenshots" },
-        { key: "aliceDotfiles", cat: "system", section: "Paths", label: "Alice dotfiles path", desc: "Used by the Lumina update check as ALICE_DOTFILES.", type: "string", def: "" }
+        {
+            key: "pillHeight",
+            cat: "island",
+            section: "Pill",
+            label: "Pill height",
+            min: 32,
+            max: 72,
+            step: 1,
+            def: 44
+        },
+        {
+            key: "pillPadding",
+            cat: "island",
+            section: "Pill",
+            label: "Pill padding",
+            min: 8,
+            max: 40,
+            step: 1,
+            def: 16
+        },
+        {
+            key: "pillSpacing",
+            cat: "island",
+            section: "Pill",
+            label: "Pill spacing",
+            min: 6,
+            max: 28,
+            step: 1,
+            def: 14
+        },
+        {
+            key: "topMargin",
+            cat: "island",
+            section: "Pill",
+            label: "Top margin",
+            min: 0,
+            max: 40,
+            step: 1,
+            def: 8
+        },
+        {
+            key: "panelWidth",
+            cat: "island",
+            section: "Panel",
+            label: "Panel width",
+            min: 560,
+            max: 1000,
+            step: 10,
+            def: 720
+        },
+        {
+            key: "panelHeight",
+            cat: "island",
+            section: "Panel",
+            label: "Panel height",
+            min: 360,
+            max: 700,
+            step: 10,
+            def: 460
+        },
+        {
+            key: "panelRadius",
+            cat: "island",
+            section: "Panel",
+            label: "Panel radius",
+            min: 12,
+            max: 48,
+            step: 1,
+            def: 32
+        },
+        {
+            key: "autoHideDelay",
+            cat: "island",
+            section: "Behavior",
+            label: "Auto-hide delay (ms)",
+            min: 200,
+            max: 10000,
+            step: 250,
+            def: 2000
+        },
+        {
+            key: "hoverOpenDelay",
+            cat: "island",
+            section: "Behavior",
+            label: "Hover to open (ms)",
+            desc: "0 turns hover opening off.",
+            min: 0,
+            max: 2000,
+            step: 50,
+            def: 500
+        },
+        {
+            key: "scrollStep",
+            cat: "island",
+            section: "Behavior",
+            label: "Scroll step (%)",
+            desc: "Volume and brightness change per scroll notch.",
+            min: 1,
+            max: 20,
+            step: 1,
+            def: 2
+        },
+        {
+            key: "circleSize",
+            cat: "circles",
+            section: "Buttons",
+            label: "Circle size",
+            min: 32,
+            max: 72,
+            step: 1,
+            def: 44
+        },
+        {
+            key: "circleGap",
+            cat: "circles",
+            section: "Buttons",
+            label: "Circle gap",
+            min: 4,
+            max: 32,
+            step: 1,
+            def: 10
+        },
+        {
+            key: "mediaPanelWidth",
+            cat: "circles",
+            section: "Media panel",
+            label: "Media width",
+            min: 400,
+            max: 900,
+            step: 10,
+            def: 600
+        },
+        {
+            key: "mediaPanelHeight",
+            cat: "circles",
+            section: "Media panel",
+            label: "Media height",
+            min: 240,
+            max: 520,
+            step: 10,
+            def: 300
+        },
+        {
+            key: "controlPanelWidth",
+            cat: "circles",
+            section: "Control panel",
+            label: "Control width",
+            min: 320,
+            max: 560,
+            step: 10,
+            def: 380
+        },
+        {
+            key: "controlSideWidth",
+            cat: "circles",
+            section: "Control panel",
+            label: "Control side width",
+            min: 240,
+            max: 480,
+            step: 10,
+            def: 300
+        },
+        {
+            key: "controlPanelHeight",
+            cat: "circles",
+            section: "Control panel",
+            label: "Control height",
+            min: 360,
+            max: 640,
+            step: 10,
+            def: 500
+        },
+        {
+            key: "nightTemperature",
+            cat: "display",
+            section: "Night mode",
+            label: "Night temperature (K)",
+            min: 2500,
+            max: 6000,
+            step: 100,
+            def: 4000
+        },
+        {
+            key: "nightCommand",
+            cat: "display",
+            section: "Night mode",
+            label: "Night command",
+            desc: "Use {temp} for the temperature.",
+            type: "string",
+            def: "gammastep -m wayland -O {temp}"
+        },
+        {
+            key: "updateStar",
+            cat: "features",
+            section: "Island",
+            label: "Update star",
+            desc: "Show the Lumina update star in the pill.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "pillIndicators",
+            cat: "features",
+            section: "Island",
+            label: "Mic and screen share icons",
+            desc: "Show an icon in the pill while the microphone is muted or the screen is being shared or recorded.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "showWorkspaces",
+            cat: "features",
+            section: "Island",
+            label: "Workspaces in Glance",
+            desc: "Show the workspace switcher in Glance, next to the status icons.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "mergeCircles",
+            cat: "features",
+            section: "Island",
+            label: "Merge media and controls into the island",
+            desc: "Hide the two circles. Media and Control open from the island and join the tab strip.",
+            type: "bool",
+            def: false
+        },
+        {
+            key: "ipcTabOnly",
+            cat: "features",
+            section: "Island",
+            label: "Tab-only view for IPC",
+            desc: "Hide the tab strip when a tab is opened with qs ipc.",
+            type: "bool",
+            def: false
+        },
+        {
+            key: "notificationPopups",
+            cat: "features",
+            section: "Overlays",
+            label: "Notification pop-ups",
+            desc: "Notifications still reach the notification center when off.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "osd",
+            cat: "features",
+            section: "Overlays",
+            label: "Volume and brightness bar",
+            desc: "Show the bar while scrolling with Ctrl or Alt.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "trayIcons",
+            cat: "features",
+            section: "Panels",
+            label: "System tray",
+            desc: "Show tray icons in the Control Panel.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "visualizer",
+            cat: "features",
+            section: "Panels",
+            label: "Audio visualizer",
+            desc: "Run cava for the media panel bars and the island pill bars.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "visualizerGain",
+            cat: "features",
+            section: "Panels",
+            label: "Visualizer intensity (%)",
+            desc: "Scales the bar height of the audio visualizer.",
+            min: 50,
+            max: 600,
+            step: 10,
+            def: 180
+        },
+        {
+            key: "clipboardHistory",
+            cat: "features",
+            section: "Background",
+            label: "Clipboard history",
+            desc: "Record copied text, images and files with cliphist.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "laptopMode",
+            cat: "features",
+            section: "System",
+            label: "Laptop mode",
+            desc: "Show the battery indicator in Glance and allow power profile switching. Turning it off selects Performance.",
+            type: "bool",
+            def: false
+        },
+        {
+            key: "ripple",
+            cat: "features",
+            section: "Interface",
+            label: "Ripple Effect",
+            desc: "Show a ripple from the pointer when a button is pressed.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "searchEngine",
+            cat: "features",
+            section: "Spotlight",
+            label: "Web search engine",
+            desc: "Used by the >w prefix. Results open in the default browser.",
+            type: "choice",
+            options: [
+                {
+                    value: "kagi",
+                    label: "Kagi"
+                },
+                {
+                    value: "google",
+                    label: "Google"
+                }
+            ],
+            def: "kagi"
+        },
+        {
+            key: "spotlightView",
+            cat: "features",
+            section: "Spotlight",
+            label: "Default view",
+            desc: "How apps are shown when Spotlight opens. The buttons beside the search field switch the view until Spotlight closes.",
+            type: "choice",
+            options: [
+                {
+                    value: "grid",
+                    label: "Grid"
+                },
+                {
+                    value: "list",
+                    label: "List"
+                }
+            ],
+            def: "grid"
+        },
+        {
+            key: "spotlightFrecency",
+            cat: "features",
+            section: "Spotlight",
+            label: "Frecency ordering",
+            desc: "Show your most used apps first when Spotlight opens, and rank equal matches by use. Turning it off also stops recording launches.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "themeScheme",
+            cat: "colors",
+            section: "Palette",
+            label: "Color scheme",
+            desc: "Algorithm matugen uses to build the palette from the wallpaper.",
+            type: "scheme",
+            def: "scheme-tonal-spot"
+        },
+        {
+            key: "themeMode",
+            cat: "colors",
+            section: "Palette",
+            label: "Mode",
+            desc: "Dark or light colors for the shell and every themed app.",
+            type: "choice",
+            options: [
+                {
+                    value: "dark",
+                    label: "Dark"
+                },
+                {
+                    value: "light",
+                    label: "Light"
+                }
+            ],
+            def: "dark"
+        },
+        {
+            key: "surfaceOpacity",
+            cat: "colors",
+            section: "Translucency",
+            label: "Surface opacity (%)",
+            desc: "How opaque panels and menus are. Lower values show more of the blurred background. The media panel is always opaque.",
+            min: 55,
+            max: 100,
+            step: 1,
+            def: 100
+        },
+        {
+            key: "blurEnabled",
+            cat: "colors",
+            section: "Translucency",
+            label: "Background blur",
+            desc: "Writes blur options to mango/shoji/colors.conf. Needs MangoWM theming turned on.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "themeMango",
+            cat: "theming",
+            section: "Apps",
+            label: "MangoWM",
+            desc: "Border, bar and shadow colors in mango/shoji/colors.conf.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "themeKitty",
+            cat: "theming",
+            section: "Apps",
+            label: "kitty",
+            desc: "Terminal and tab colors in kitty/shoji-theme.conf.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "themeBtop",
+            cat: "theming",
+            section: "Apps",
+            label: "btop",
+            desc: "Theme file btop/themes/shoji.theme.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "themeEquicord",
+            cat: "theming",
+            section: "Apps",
+            label: "Equicord",
+            desc: "Theme file Equicord/themes/shoji-equicord.css.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "themeGtk",
+            cat: "theming",
+            section: "Apps",
+            label: "GTK 3 and 4",
+            desc: "Colors and shapes for GTK apps, including Thunar.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "themeHelium",
+            cat: "theming",
+            section: "Apps",
+            label: "Helium",
+            desc: "Needs a writable /etc/chromium/policies/managed/shoji-color.json.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "themeSpotify",
+            cat: "theming",
+            section: "Apps",
+            label: "Spotify",
+            desc: "Uses the Shoji Matugen palette with the upstream Spicetify Text theme.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "themeZed",
+            cat: "theming",
+            section: "Apps",
+            label: "Zed",
+            desc: "Four themes in zed/themes/shoji.json: Shoji Dark, Light and their Transparent variants.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "themeRadius",
+            cat: "theming",
+            section: "Shape",
+            label: "GTK corner radius",
+            desc: "Cards and menus use this radius. Buttons and fields use two thirds of it.",
+            min: 4,
+            max: 24,
+            step: 1,
+            def: 12
+        },
+        {
+            key: "shufflePasswordShapes",
+            cat: "lock",
+            section: "Password",
+            label: "Shuffle password shapes",
+            desc: "Randomize the shape order on each new password entry while keeping every sequence boundary distinct.",
+            type: "bool",
+            def: true
+        },
+        {
+            key: "materialPasswordShapes",
+            cat: "lock",
+            section: "Password",
+            label: "Enable Material shapes for random password characters",
+            desc: "Off shows simple circles. The enter button always cycles Material shapes.",
+            type: "bool",
+            def: false
+        },
+        {
+            key: "lockPamConfig",
+            cat: "lock",
+            section: "Authentication",
+            label: "PAM service",
+            desc: "Name of the PAM config used to check the password.",
+            type: "string",
+            def: "login"
+        },
+        {
+            key: "logoutCommand",
+            cat: "lock",
+            section: "Power menu",
+            label: "Logout command",
+            desc: "Run by the Logout entry on the lock screen.",
+            type: "string",
+            def: "loginctl terminate-session \"$XDG_SESSION_ID\""
+        },
+        {
+            key: "screenshotDir",
+            cat: "system",
+            section: "Paths",
+            label: "Screenshot folder",
+            type: "string",
+            def: "~/Pictures/Screenshots"
+        },
+        {
+            key: "aliceDotfiles",
+            cat: "system",
+            section: "Paths",
+            label: "Alice dotfiles path",
+            desc: "Used by the Lumina update check as ALICE_DOTFILES.",
+            type: "string",
+            def: ""
+        }
     ]
 
     readonly property var defs: schema.reduce((m, e) => {
@@ -227,7 +746,10 @@ QtObject {
             rows.push(e);
         });
         return JSON.stringify({
-            categories: categories.map(c => ({ id: c.id, title: c.title })),
+            categories: categories.map(c => ({
+                        id: c.id,
+                        title: c.title
+                    })),
             settings: rows
         });
     }

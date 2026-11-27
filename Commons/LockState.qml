@@ -35,15 +35,8 @@ QtObject {
         const pool = MaterialExpressiveShapes.catalog;
         while (passwordShapeAssignments.length < n) {
             const sequenceIndex = Math.floor(passwordShapeAssignments.length / pool.length);
-            const previousLast = passwordShapeAssignments.length > 0
-                ? passwordShapeAssignments[passwordShapeAssignments.length - 1]
-                : -1;
-            const sequence = PasswordShapeSequence.create(
-                pool,
-                sequenceIndex,
-                previousLast,
-                Settings.shufflePasswordShapes
-            );
+            const previousLast = passwordShapeAssignments.length > 0 ? passwordShapeAssignments[passwordShapeAssignments.length - 1] : -1;
+            const sequence = PasswordShapeSequence.create(pool, sequenceIndex, previousLast, Settings.shufflePasswordShapes);
             passwordShapeAssignments = passwordShapeAssignments.concat(sequence);
         }
 
@@ -51,7 +44,9 @@ QtObject {
             shapes.remove(shapes.count - 1);
         while (shapes.count < n) {
             const index = shapes.count;
-            shapes.append({ shape: passwordShapeAssignments[index] });
+            shapes.append({
+                shape: passwordShapeAssignments[index]
+            });
         }
     }
 

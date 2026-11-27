@@ -7,7 +7,9 @@ import qs.Modules.Control
 Item {
     id: root
 
-    readonly property var warm: ({ wallpapers: 3000 })
+    readonly property var warm: ({
+            wallpapers: 3000
+        })
     property int curIdx: ShellState.tabs.findIndex(t => t.id === ShellState.tab)
     property int prevIdx: curIdx
 
@@ -117,8 +119,17 @@ Item {
                 opacity: Motion.clamp01(presence.value)
                 active: kept || current || presence.value > 0.001
                 visible: current || presence.value > 0.001
-                sourceComponent: ({ calendar: calendarTab, monitor: monitorTab, wallpapers: wallpaperTab, clipboard: clipboardTab, color: colorTab, media: mediaTab, control: controlTab })[modelData.id] ?? null
-                onLoaded: if (warmDelay > 0 || modelData.keep) kept = true
+                sourceComponent: ({
+                        calendar: calendarTab,
+                        monitor: monitorTab,
+                        wallpapers: wallpaperTab,
+                        clipboard: clipboardTab,
+                        color: colorTab,
+                        media: mediaTab,
+                        control: controlTab
+                    })[modelData.id] ?? null
+                onLoaded: if (warmDelay > 0 || modelData.keep)
+                    kept = true
 
                 Spring {
                     id: presence

@@ -112,7 +112,10 @@ Item {
             font.family: Theme.fontClock
             font.pixelSize: 144
             font.weight: Font.Black
-            font.variableAxes: ({ "wght": 900, "ROND": 100 })
+            font.variableAxes: ({
+                    "wght": 900,
+                    "ROND": 100
+                })
         }
 
         Text {
@@ -246,11 +249,36 @@ Item {
         SequentialAnimation {
             id: shaker
 
-            NumberAnimation { target: field; property: "shake"; to: -14; duration: 50 }
-            NumberAnimation { target: field; property: "shake"; to: 14; duration: 80 }
-            NumberAnimation { target: field; property: "shake"; to: -10; duration: 70 }
-            NumberAnimation { target: field; property: "shake"; to: 8; duration: 60 }
-            NumberAnimation { target: field; property: "shake"; to: 0; duration: 50 }
+            NumberAnimation {
+                target: field
+                property: "shake"
+                to: -14
+                duration: 50
+            }
+            NumberAnimation {
+                target: field
+                property: "shake"
+                to: 14
+                duration: 80
+            }
+            NumberAnimation {
+                target: field
+                property: "shake"
+                to: -10
+                duration: 70
+            }
+            NumberAnimation {
+                target: field
+                property: "shake"
+                to: 8
+                duration: 60
+            }
+            NumberAnimation {
+                target: field
+                property: "shake"
+                to: 0
+                duration: 50
+            }
         }
 
         Connections {
@@ -434,9 +462,21 @@ Item {
             id: menu
 
             readonly property var entries: [
-                { label: "Shutdown", icon: "\uf011", cmd: "systemctl poweroff" },
-                { label: "Reboot", icon: "\uf021", cmd: "systemctl reboot" },
-                { label: "Logout", icon: "\uf08b", cmd: Settings.logoutCommand }
+                {
+                    label: "Shutdown",
+                    icon: "\uf011",
+                    cmd: "systemctl poweroff"
+                },
+                {
+                    label: "Reboot",
+                    icon: "\uf021",
+                    cmd: "systemctl reboot"
+                },
+                {
+                    label: "Logout",
+                    icon: "\uf08b",
+                    cmd: Settings.logoutCommand
+                }
             ].slice(0, root.greeter ? 2 : 3)
 
             anchors.right: parent.right
@@ -454,7 +494,9 @@ Item {
             transformOrigin: Item.BottomRight
 
             Behavior on opacity {
-                NumberAnimation { duration: 140 }
+                NumberAnimation {
+                    duration: 140
+                }
             }
 
             Behavior on scale {

@@ -112,6 +112,5 @@ PopupWindow {
         }
     }
 
-    readonly property Process sig: Process {
-    }
+    readonly property Process sig: Process {}
 }

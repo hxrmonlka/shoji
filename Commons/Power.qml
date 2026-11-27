@@ -43,11 +43,23 @@ QtObject {
 
     readonly property var profileOptions: {
         const list = [
-            { name: "Battery Saver", profile: PowerProfile.PowerSaver, icon: "\uf06c" },
-            { name: "Balanced", profile: PowerProfile.Balanced, icon: "\uf24e" }
+            {
+                name: "Battery Saver",
+                profile: PowerProfile.PowerSaver,
+                icon: "\uf06c"
+            },
+            {
+                name: "Balanced",
+                profile: PowerProfile.Balanced,
+                icon: "\uf24e"
+            }
         ];
         if (hasPerformanceProfile)
-            list.unshift({ name: "Performance", profile: PowerProfile.Performance, icon: "\uf135" });
+            list.unshift({
+                name: "Performance",
+                profile: PowerProfile.Performance,
+                icon: "\uf135"
+            });
         return list;
     }
 

@@ -103,7 +103,8 @@ Item {
         }
     }
 
-    Component.onDestruction: if (root.menuWanted) ShellState.hold(false)
+    Component.onDestruction: if (root.menuWanted)
+        ShellState.hold(false)
 
     Timer {
         id: showTimer

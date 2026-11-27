@@ -10,7 +10,13 @@ QtObject {
     property bool dnd: false
     property var popup: null
     property bool clearing: false
-    property var popupInfo: ({ summary: "", body: "", appName: "", icon: "", image: "" })
+    property var popupInfo: ({
+            summary: "",
+            body: "",
+            appName: "",
+            icon: "",
+            image: ""
+        })
 
     readonly property var items: server.trackedNotifications.values.slice(-30).reverse()
     readonly property int count: server.trackedNotifications.values.length

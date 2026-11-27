@@ -13,10 +13,22 @@ QtObject {
     property real now: Date.now()
 
     readonly property var choices: [
-        { name: "30 minutes", minutes: 30 },
-        { name: "1 hour", minutes: 60 },
-        { name: "2 hours", minutes: 120 },
-        { name: "Always", minutes: 0 }
+        {
+            name: "30 minutes",
+            minutes: 30
+        },
+        {
+            name: "1 hour",
+            minutes: 60
+        },
+        {
+            name: "2 hours",
+            minutes: 120
+        },
+        {
+            name: "Always",
+            minutes: 0
+        }
     ]
 
     readonly property int remaining: active && endsAt > 0 ? Math.max(0, Math.ceil((endsAt - now) / 1000)) : 0

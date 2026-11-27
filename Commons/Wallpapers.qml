@@ -42,7 +42,10 @@ QtObject {
     }
 
     function save() {
-        store.setText(JSON.stringify({ path: current, dir: dir }));
+        store.setText(JSON.stringify({
+            path: current,
+            dir: dir
+        }));
     }
 
     function setDir(d) {

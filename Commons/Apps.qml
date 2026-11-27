@@ -70,7 +70,10 @@ QtObject {
         const q = query.trim().toLowerCase();
         if (q.length === 0)
             return [];
-        return all.filter(e => root.isSetting(e) === settings).map(e => ({ entry: e, score: root.score(e, q) })).filter(r => r.score > 0).sort((a, b) => (b.score - a.score) || (root.use(b.entry) - root.use(a.entry)) || (a.entry.name.length - b.entry.name.length)).slice(0, limit).map(r => r.entry);
+        return all.filter(e => root.isSetting(e) === settings).map(e => ({
+                    entry: e,
+                    score: root.score(e, q)
+                })).filter(r => r.score > 0).sort((a, b) => (b.score - a.score) || (root.use(b.entry) - root.use(a.entry)) || (a.entry.name.length - b.entry.name.length)).slice(0, limit).map(r => r.entry);
     }
 
     function use(entry) {
@@ -80,6 +83,9 @@ QtObject {
     function frequent() {
         if (!Settings.spotlightFrecency)
             return [];
-        return apps.map(e => ({ entry: e, use: Frecency.score(e.id) })).filter(r => r.use >= Frecency.minScore).sort((a, b) => (b.use - a.use) || a.entry.name.localeCompare(b.entry.name)).slice(0, Frecency.topCount).map(r => r.entry);
+        return apps.map(e => ({
+                    entry: e,
+                    use: Frecency.score(e.id)
+                })).filter(r => r.use >= Frecency.minScore).sort((a, b) => (b.use - a.use) || a.entry.name.localeCompare(b.entry.name)).slice(0, Frecency.topCount).map(r => r.entry);
     }
 }

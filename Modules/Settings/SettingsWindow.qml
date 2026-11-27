@@ -25,7 +25,10 @@ FloatingWindow {
             const title = q.length > 0 ? Settings.catTitle(e.cat) + "  /  " + e.section : e.section;
             if (!(title in index)) {
                 index[title] = out.length;
-                out.push({ title: title, items: [] });
+                out.push({
+                    title: title,
+                    items: []
+                });
             }
             out[index[title]].items.push(e);
         });

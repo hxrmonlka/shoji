@@ -35,7 +35,10 @@ QtObject {
             if (decayed(entries[k], now) >= pruneScore)
                 next[k] = entries[k];
         });
-        next[id] = { s: score(id) + 1, t: now };
+        next[id] = {
+            s: score(id) + 1,
+            t: now
+        };
         entries = next;
         saver.restart();
     }
@@ -48,11 +51,13 @@ QtObject {
                 Object.keys(data).forEach(k => {
                     const e = data[k];
                     if (e && typeof e.s === "number" && isFinite(e.s) && typeof e.t === "number" && isFinite(e.t))
-                        next[k] = { s: e.s, t: e.t };
+                        next[k] = {
+                            s: e.s,
+                            t: e.t
+                        };
                 });
             }
-        } catch (e) {
-        }
+        } catch (e) {}
         entries = next;
         loaded = true;
     }

@@ -46,7 +46,12 @@ QtObject {
             const clean = isDir ? p.slice(0, -1) : p;
             const name = clean.substring(clean.lastIndexOf("/") + 1);
             const lower = name.toLowerCase();
-            return { path: clean, name: name, dir: isDir, rank: lower === needle ? 0 : lower.startsWith(needle) ? 1 : 2 };
+            return {
+                path: clean,
+                name: name,
+                dir: isDir,
+                rank: lower === needle ? 0 : lower.startsWith(needle) ? 1 : 2
+            };
         }).sort((a, b) => (a.rank - b.rank) || (a.path.length - b.path.length)).slice(0, 8);
     }
 

@@ -67,11 +67,36 @@ Item {
     SequentialAnimation {
         id: shaker
 
-        NumberAnimation { target: root; property: "shake"; to: -14; duration: 50 }
-        NumberAnimation { target: root; property: "shake"; to: 14; duration: 80 }
-        NumberAnimation { target: root; property: "shake"; to: -10; duration: 70 }
-        NumberAnimation { target: root; property: "shake"; to: 8; duration: 60 }
-        NumberAnimation { target: root; property: "shake"; to: 0; duration: 50 }
+        NumberAnimation {
+            target: root
+            property: "shake"
+            to: -14
+            duration: 50
+        }
+        NumberAnimation {
+            target: root
+            property: "shake"
+            to: 14
+            duration: 80
+        }
+        NumberAnimation {
+            target: root
+            property: "shake"
+            to: -10
+            duration: 70
+        }
+        NumberAnimation {
+            target: root
+            property: "shake"
+            to: 8
+            duration: 60
+        }
+        NumberAnimation {
+            target: root
+            property: "shake"
+            to: 0
+            duration: 50
+        }
     }
 
     Connections {

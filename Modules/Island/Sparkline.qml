@@ -30,9 +30,9 @@ Canvas {
     function trace(ctx, data) {
         const step = width / (points - 1);
         const pts = data.map((v, i) => ({
-            x: width - (data.length - 1 - i) * step,
-            y: height - 2 - Math.min(1, Math.max(0, v / ceiling)) * (height - 4)
-        }));
+                    x: width - (data.length - 1 - i) * step,
+                    y: height - 2 - Math.min(1, Math.max(0, v / ceiling)) * (height - 4)
+                }));
         ctx.moveTo(pts[0].x, pts[0].y);
         for (let i = 1; i < pts.length; i++) {
             const mx = (pts[i - 1].x + pts[i].x) / 2;

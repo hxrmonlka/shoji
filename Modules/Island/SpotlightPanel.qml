@@ -10,17 +10,49 @@ Item {
     readonly property bool open: ShellState.spotlight && active
 
     readonly property var categories: [
-        { id: "apps", label: "Apps", placeholder: "Search apps" },
-        { id: "settings", label: "Settings", placeholder: "Search settings" },
-        { id: "files", label: "Files", placeholder: "Search files and folders" }
+        {
+            id: "apps",
+            label: "Apps",
+            placeholder: "Search apps"
+        },
+        {
+            id: "settings",
+            label: "Settings",
+            placeholder: "Search settings"
+        },
+        {
+            id: "files",
+            label: "Files",
+            placeholder: "Search files and folders"
+        }
     ]
     readonly property var modes: [
-        { id: "calc", token: ">calc", label: "Calculator", desc: "Evaluate math with variables", icon: "\uf1ec", placeholder: "Type an expression" },
-        { id: "web", token: ">w", label: "Web", desc: "Search the web", icon: "\uf0ac", placeholder: "Search the web" }
+        {
+            id: "calc",
+            token: ">calc",
+            label: "Calculator",
+            desc: "Evaluate math with variables",
+            icon: "\uf1ec",
+            placeholder: "Type an expression"
+        },
+        {
+            id: "web",
+            token: ">w",
+            label: "Web",
+            desc: "Search the web",
+            icon: "\uf0ac",
+            placeholder: "Search the web"
+        }
     ]
     readonly property var engines: ({
-            kagi: { name: "Kagi", url: "https://kagi.com/search?q=" },
-            google: { name: "Google", url: "https://www.google.com/search?q=" }
+            kagi: {
+                name: "Kagi",
+                url: "https://kagi.com/search?q="
+            },
+            google: {
+                name: "Google",
+                url: "https://www.google.com/search?q="
+            }
         })
     readonly property var engine: engines[Settings.searchEngine] ?? engines.kagi
 
@@ -31,7 +63,8 @@ Item {
     property int selected: -1
     readonly property var activeMode: modes.find(m => m.id === mode) ?? null
     property var lastMode: modes[0]
-    onActiveModeChanged: if (activeMode) lastMode = activeMode
+    onActiveModeChanged: if (activeMode)
+        lastMode = activeMode
     readonly property var activeCategory: categories.find(c => c.id === category) ?? categories[0]
 
     readonly property int barHeight: 60
@@ -43,7 +76,11 @@ Item {
     readonly property int maxList: Math.max(120, maxHeight - barHeight - listPad)
     readonly property bool gridActive: view === "grid" && category === "apps" && mode === "" && results.every(r => r.kind === "header" || r.type === "app")
     readonly property bool viewEnabled: category === "apps" && mode === ""
-    readonly property var gridData: gridActive ? buildRows(results) : ({ rows: [], nav: [], pos: [] })
+    readonly property var gridData: gridActive ? buildRows(results) : ({
+            rows: [],
+            nav: [],
+            pos: []
+        })
     readonly property bool noResults: results.length === 0 && input.text.trim().length > 0 && !(mode === "" && category === "files" && Files.running)
     readonly property int contentHeight: gridActive ? gridData.rows.reduce((s, r) => s + (r.kind === "header" ? headerHeight : tileHeight), 0) : results.reduce((s, r) => s + (r.kind === "header" ? headerHeight : rowHeight), 0)
     readonly property int listHeight: noResults ? 56 : Math.min(contentHeight, maxList)
@@ -57,7 +94,7 @@ Item {
         let i = selected;
         do {
             i += step;
-        } while (i >= 0 && i < results.length && results[i].kind === "header");
+        } while (i >= 0 && i < results.length && results[i].kind === "header")
         if (i >= 0 && i < results.length)
             selected = i;
     }
@@ -98,20 +135,38 @@ Item {
         let current = null;
         list.forEach((r, i) => {
             if (r.kind === "header") {
-                rows.push({ kind: "header", title: r.title, number: r.number });
+                rows.push({
+                    kind: "header",
+                    title: r.title,
+                    number: r.number
+                });
                 current = null;
                 return;
             }
             if (current === null || current.items.length === cols) {
-                current = { kind: "row", items: [] };
+                current = {
+                    kind: "row",
+                    items: []
+                };
                 rows.push(current);
                 nav.push([]);
             }
-            pos[i] = { nav: nav.length - 1, col: current.items.length, row: rows.length - 1 };
-            current.items.push({ data: r, index: i });
+            pos[i] = {
+                nav: nav.length - 1,
+                col: current.items.length,
+                row: rows.length - 1
+            };
+            current.items.push({
+                data: r,
+                index: i
+            });
             nav[nav.length - 1].push(i);
         });
-        return { rows: rows, nav: nav, pos: pos };
+        return {
+            rows: rows,
+            nav: nav,
+            pos: pos
+        };
     }
 
     function listTop(index) {
@@ -159,11 +214,17 @@ Item {
                 continue;
             if (text.length === m.token.length) {
                 if (!modes.some(o => o.token !== m.token && o.token.startsWith(m.token)))
-                    return { mode: m.id, rest: "" };
+                    return {
+                        mode: m.id,
+                        rest: ""
+                    };
                 continue;
             }
             if (/\s/.test(text[m.token.length]))
-                return { mode: m.id, rest: text.substring(m.token.length + 1) };
+                return {
+                    mode: m.id,
+                    rest: text.substring(m.token.length + 1)
+                };
         }
         return null;
     }
@@ -214,16 +275,32 @@ Item {
             if (r.kind !== "header")
                 return r;
             n++;
-            return { kind: "header", title: r.title, number: n };
+            return {
+                kind: "header",
+                title: r.title,
+                number: n
+            };
         });
     }
 
     function appItem(e) {
-        return { kind: "item", type: "app", title: e.name, subtitle: e.genericName || e.comment || "", entry: e };
+        return {
+            kind: "item",
+            type: "app",
+            title: e.name,
+            subtitle: e.genericName || e.comment || "",
+            entry: e
+        };
     }
 
     function settingItem(e) {
-        return { kind: "item", type: "setting", title: e.name, subtitle: e.genericName || e.comment || "", entry: e };
+        return {
+            kind: "item",
+            type: "setting",
+            title: e.name,
+            subtitle: e.genericName || e.comment || "",
+            entry: e
+        };
     }
 
     function buildCalc(q) {
@@ -231,16 +308,55 @@ Item {
         if (r.empty) {
             const vars = Calc.list();
             if (vars.length === 0)
-                return [{ kind: "item", type: "info", glyph: "\uf1ec", title: "Calculator", subtitle: "Try 2^8, sqrt(144), 9\u00b2 or x = 5 then x^2" }];
-            const out = [{ kind: "header", title: "Variables" }];
-            vars.forEach(v => out.push({ kind: "item", type: "var", glyph: "\uf1ec", title: v.name + " = " + v.text, subtitle: "Enter copies the value, Delete removes it", name: v.name, text: v.text }));
+                return [
+                    {
+                        kind: "item",
+                        type: "info",
+                        glyph: "\uf1ec",
+                        title: "Calculator",
+                        subtitle: "Try 2^8, sqrt(144), 9\u00b2 or x = 5 then x^2"
+                    }
+                ];
+            const out = [
+                {
+                    kind: "header",
+                    title: "Variables"
+                }
+            ];
+            vars.forEach(v => out.push({
+                    kind: "item",
+                    type: "var",
+                    glyph: "\uf1ec",
+                    title: v.name + " = " + v.text,
+                    subtitle: "Enter copies the value, Delete removes it",
+                    name: v.name,
+                    text: v.text
+                }));
             return out;
         }
         if (!r.ok)
-            return [{ kind: "item", type: "info", glyph: "\uf05a", title: r.msg, subtitle: "" }];
+            return [
+                {
+                    kind: "item",
+                    type: "info",
+                    glyph: "\uf05a",
+                    title: r.msg,
+                    subtitle: ""
+                }
+            ];
         return [
-            { kind: "header", title: "Result" },
-            { kind: "item", type: "calc", glyph: "\uf1ec", title: r.name.length > 0 ? r.name + " = " + r.text : r.text, subtitle: r.name.length > 0 ? "Press Enter to store " + r.name : "Press Enter to copy", result: r }
+            {
+                kind: "header",
+                title: "Result"
+            },
+            {
+                kind: "item",
+                type: "calc",
+                glyph: "\uf1ec",
+                title: r.name.length > 0 ? r.name + " = " + r.text : r.text,
+                subtitle: r.name.length > 0 ? "Press Enter to store " + r.name : "Press Enter to copy",
+                result: r
+            }
         ];
     }
 
@@ -248,10 +364,31 @@ Item {
         const q = text.toLowerCase();
         const rows = [];
         if (q.length === 0)
-            rows.push({ kind: "item", type: "shojiset", glyph: "\uf013", title: "Open Shoji Settings", subtitle: "Open the settings window", cat: "" });
-        Settings.categories.filter(c => q.length === 0 || c.title.toLowerCase().includes(q)).forEach(c => rows.push({ kind: "item", type: "shojiset", glyph: c.icon, title: c.title, subtitle: "Open in Shoji Settings", cat: c.id }));
+            rows.push({
+                kind: "item",
+                type: "shojiset",
+                glyph: "\uf013",
+                title: "Open Shoji Settings",
+                subtitle: "Open the settings window",
+                cat: ""
+            });
+        Settings.categories.filter(c => q.length === 0 || c.title.toLowerCase().includes(q)).forEach(c => rows.push({
+                kind: "item",
+                type: "shojiset",
+                glyph: c.icon,
+                title: c.title,
+                subtitle: "Open in Shoji Settings",
+                cat: c.id
+            }));
         if (q.length > 0) {
-            Settings.schema.filter(e => (e.label + " " + (e.desc ?? "") + " " + e.key).toLowerCase().includes(q)).slice(0, 8).forEach(e => rows.push({ kind: "item", type: "shojiset", glyph: "\uf013", title: e.label, subtitle: Settings.catTitle(e.cat) + "  /  " + e.section, cat: e.cat }));
+            Settings.schema.filter(e => (e.label + " " + (e.desc ?? "") + " " + e.key).toLowerCase().includes(q)).slice(0, 8).forEach(e => rows.push({
+                    kind: "item",
+                    type: "shojiset",
+                    glyph: "\uf013",
+                    title: e.label,
+                    subtitle: Settings.catTitle(e.cat) + "  /  " + e.section,
+                    cat: e.cat
+                }));
         }
         return rows;
     }
@@ -264,18 +401,37 @@ Item {
             if (rows.length === 0)
                 return;
             n++;
-            out.push({ kind: "header", title: title, number: n });
+            out.push({
+                kind: "header",
+                title: title,
+                number: n
+            });
             rows.forEach(r => out.push(r));
         };
         if (activeId === "calc")
             return numbered(buildCalc(q));
         if (activeId === "web") {
-            section("Web", [{ kind: "item", type: "web", title: text.length > 0 ? "Search " + engine.name + " for \"" + text + "\"" : "Search " + engine.name, subtitle: text.length > 0 ? "Open in the default browser" : "Type your query", query: text }]);
+            section("Web", [
+                {
+                    kind: "item",
+                    type: "web",
+                    title: text.length > 0 ? "Search " + engine.name + " for \"" + text + "\"" : "Search " + engine.name,
+                    subtitle: text.length > 0 ? "Open in the default browser" : "Type your query",
+                    query: text
+                }
+            ]);
             return out;
         }
         const hints = prefixHints(text);
         if (hints.length > 0) {
-            section("Prefixes", hints.map(m => ({ kind: "item", type: "prefix", glyph: m.icon, title: m.label, subtitle: m.token + "  " + m.desc, mode: m.id })));
+            section("Prefixes", hints.map(m => ({
+                        kind: "item",
+                        type: "prefix",
+                        glyph: m.icon,
+                        title: m.label,
+                        subtitle: m.token + "  " + m.desc,
+                        mode: m.id
+                    })));
             return out;
         }
         if (cat === "apps") {
@@ -292,10 +448,30 @@ Item {
             const system = text.length === 0 ? Apps.settingsEntries.slice(0, 60) : Apps.find(text, true, 30);
             section("System settings", system.map(settingItem));
         } else if (text.length < 2) {
-            out.push({ kind: "item", type: "info", glyph: "\uf002", title: "Search files and folders", subtitle: "Type at least 2 characters" });
+            out.push({
+                kind: "item",
+                type: "info",
+                glyph: "\uf002",
+                title: "Search files and folders",
+                subtitle: "Type at least 2 characters"
+            });
         } else {
-            section("Folders", files.filter(f => f.dir).map(f => ({ kind: "item", type: "file", title: f.name, subtitle: parentDir(f.path), path: f.path, dir: true })));
-            section("Files", files.filter(f => !f.dir).map(f => ({ kind: "item", type: "file", title: f.name, subtitle: parentDir(f.path), path: f.path, dir: false })));
+            section("Folders", files.filter(f => f.dir).map(f => ({
+                        kind: "item",
+                        type: "file",
+                        title: f.name,
+                        subtitle: parentDir(f.path),
+                        path: f.path,
+                        dir: true
+                    })));
+            section("Files", files.filter(f => !f.dir).map(f => ({
+                        kind: "item",
+                        type: "file",
+                        title: f.name,
+                        subtitle: parentDir(f.path),
+                        path: f.path,
+                        dir: false
+                    })));
         }
         return out;
     }
@@ -562,7 +738,8 @@ Item {
                             onCurrentChanged: sync()
                             onXChanged: sync()
                             onWidthChanged: sync()
-                            onPressedChanged: if (current) chipBox.currentPressed = pressed
+                            onPressedChanged: if (current)
+                                chipBox.currentPressed = pressed
                             Component.onCompleted: sync()
                         }
                     }
@@ -686,8 +863,10 @@ Item {
                 root.cycleCategory(-1);
                 event.accepted = true;
             }
-            Keys.onReturnPressed: if (root.selected >= 0) root.activate(root.results[root.selected])
-            Keys.onEnterPressed: if (root.selected >= 0) root.activate(root.results[root.selected])
+            Keys.onReturnPressed: if (root.selected >= 0)
+                root.activate(root.results[root.selected])
+            Keys.onEnterPressed: if (root.selected >= 0)
+                root.activate(root.results[root.selected])
             Keys.onEscapePressed: ShellState.spotlight = false
 
             Text {

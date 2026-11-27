@@ -71,7 +71,8 @@ Item {
             rest.restart();
     }
 
-    onMaxYChanged: if (goal > maxY) goal = maxY
+    onMaxYChanged: if (goal > maxY)
+        goal = maxY
 
     Timer {
         id: rest

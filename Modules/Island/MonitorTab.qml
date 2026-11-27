@@ -137,7 +137,12 @@ Item {
         prevNetTx = tx;
         procs = parts[3].trim().split("\n").slice(1).map(line => {
             const m = line.trim().match(/^(\d+)\s+([\d.]+)\s+(\d+)\s+(.+)$/);
-            return m ? { pid: Number(m[1]), cpu: Number(m[2]), mem: Number(m[3]), name: m[4] } : null;
+            return m ? {
+                pid: Number(m[1]),
+                cpu: Number(m[2]),
+                mem: Number(m[3]),
+                name: m[4]
+            } : null;
         }).filter(e => e !== null).slice(0, 15);
     }
 
@@ -207,7 +212,8 @@ Item {
     }
 
     Component.onCompleted: root.refresh()
-    Component.onDestruction: if (root.menuWanted) ShellState.hold(false)
+    Component.onDestruction: if (root.menuWanted)
+        ShellState.hold(false)
 
     readonly property Process probe: Process {
         stdout: StdioCollector {

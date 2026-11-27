@@ -8,7 +8,14 @@ QtObject {
     id: root
 
     readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/shoji/clip"
-    readonly property var mimes: ({ png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", bmp: "image/bmp", gif: "image/gif", webp: "image/webp" })
+    readonly property var mimes: ({
+            png: "image/png",
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            bmp: "image/bmp",
+            gif: "image/gif",
+            webp: "image/webp"
+        })
     readonly property string decodeScript: 'd="$1"; shift; mkdir -p "$d"; for f; do [ -s "$d/$f" ] || cliphist decode "${f%%.*}" > "$d/$f"; done; find "$d" -type f -mtime +7 -delete'
     readonly property string copyScript: 'if [ -n "$2" ]; then cliphist decode "$1" | wl-copy --type "$2"; else cliphist decode "$1" | wl-copy; fi'
     readonly property string textWatch: 't=$(wl-paste --list-types); case "$t" in *x-kde-passwordManagerHint*|*text/uri-list*) exit 0;; esac; cliphist store; echo c'
@@ -33,7 +40,15 @@ QtObject {
             const img = /^\[\[ binary data (\S+ \S+) (\w+) (\d+)x(\d+) \]\]$/.exec(preview);
             if (img) {
                 const ext = img[2].toLowerCase();
-                out.push({ id: id, kind: "image", preview: preview, ext: ext, size: img[1], dims: img[3] + "x" + img[4], path: root.cacheDir + "/" + id + "." + ext });
+                out.push({
+                    id: id,
+                    kind: "image",
+                    preview: preview,
+                    ext: ext,
+                    size: img[1],
+                    dims: img[3] + "x" + img[4],
+                    path: root.cacheDir + "/" + id + "." + ext
+                });
             } else if (preview.startsWith("file://")) {
                 const files = preview.split(/\s+(?=file:\/\/)/).map(u => {
                     let p = u.replace(/^file:\/\//, "");
@@ -42,9 +57,19 @@ QtObject {
                     } catch (e) {}
                     return p;
                 });
-                out.push({ id: id, kind: "files", preview: files.map(f => f.substring(f.lastIndexOf("/") + 1)).join(", "), count: files.length, first: files[0] });
+                out.push({
+                    id: id,
+                    kind: "files",
+                    preview: files.map(f => f.substring(f.lastIndexOf("/") + 1)).join(", "),
+                    count: files.length,
+                    first: files[0]
+                });
             } else {
-                out.push({ id: id, kind: "text", preview: preview });
+                out.push({
+                    id: id,
+                    kind: "text",
+                    preview: preview
+                });
             }
             if (out.length >= 200)
                 break;

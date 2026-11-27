@@ -28,7 +28,9 @@ QtObject {
     readonly property var activeVpns: vpns.filter(v => v.active)
     readonly property bool vpnActive: activeVpns.length > 0
     readonly property bool open: ShellState.control || (ShellState.expanded && ShellState.tab === "control")
-    readonly property var env: ({ LC_ALL: "C.UTF-8" })
+    readonly property var env: ({
+            LC_ALL: "C.UTF-8"
+        })
 
     readonly property string forgetFn: 'forget() { nmcli -t -f UUID,TYPE connection show | while IFS=: read -r u t; do [ "$t" = 802-11-wireless ] || continue; [ "$(nmcli -g 802-11-wireless.ssid connection show uuid "$u")" = "$1" ] && nmcli connection delete uuid "$u" >/dev/null; done; }; '
     readonly property string newScript: forgetFn + 'ssid="$1"; forget "$ssid"; nmcli -w 30 --ask device wifi connect "$ssid" || { forget "$ssid" >/dev/null 2>&1; exit 1; }'
@@ -171,7 +173,13 @@ QtObject {
             if (!name || (seen[name] !== undefined && !(f[0] === "*")))
                 return;
             const sec = f[3] || "";
-            const entry = { ssid: name, signal: parseInt(f[2]) || 0, secure: sec.length > 0 && sec !== "--", eap: sec.includes("802.1X"), active: f[0] === "*" };
+            const entry = {
+                ssid: name,
+                signal: parseInt(f[2]) || 0,
+                secure: sec.length > 0 && sec !== "--",
+                eap: sec.includes("802.1X"),
+                active: f[0] === "*"
+            };
             if (seen[name] !== undefined)
                 list[seen[name]] = entry;
             else {
@@ -196,13 +204,20 @@ QtObject {
             const f = l.split("\t");
             if (f.length < 4)
                 return;
-            map[f.slice(3).join("\t").replace(/\\(.)/g, "$1")] = { uuid: f[0], flags: f[1], keyMgmt: f[2] };
+            map[f.slice(3).join("\t").replace(/\\(.)/g, "$1")] = {
+                uuid: f[0],
+                flags: f[1],
+                keyMgmt: f[2]
+            };
         });
         saved = map;
     }
 
     function parseConns(text) {
-        vpns = text.split("\n").filter(l => l.length > 0).map(l => split(l)).filter(f => f[1] === "vpn" || f[1] === "wireguard").map(f => ({ name: f[0], active: (f[2] || "").length > 0 }));
+        vpns = text.split("\n").filter(l => l.length > 0).map(l => split(l)).filter(f => f[1] === "vpn" || f[1] === "wireguard").map(f => ({
+                    name: f[0],
+                    active: (f[2] || "").length > 0
+                }));
     }
 
     function setVpn(name, on) {

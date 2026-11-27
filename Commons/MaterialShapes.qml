@@ -68,15 +68,16 @@ QtObject {
             return polar(t => 0.84 + 0.16 * Math.cos(10 * t), 120);
         case 4:
             return rounded([[0, -0.95], [0.95, 0], [0, 0.95], [-0.95, 0]], 0.18);
-        case 5: {
-            const pts = [[-0.95, 0.55]];
-            for (let i = 0; i <= 14; i++) {
-                const a = Math.PI * i / 14;
-                pts.push([-Math.cos(a) * 0.95, 0.3 - Math.sin(a) * 0.95]);
+        case 5:
+            {
+                const pts = [[-0.95, 0.55]];
+                for (let i = 0; i <= 14; i++) {
+                    const a = Math.PI * i / 14;
+                    pts.push([-Math.cos(a) * 0.95, 0.3 - Math.sin(a) * 0.95]);
+                }
+                pts.push([0.95, 0.55]);
+                return rounded(pts, 0.14);
             }
-            pts.push([0.95, 0.55]);
-            return rounded(pts, 0.14);
-        }
         case 7:
             return "M 4 50 A 46 46 0 1 0 96 50 A 46 46 0 1 0 4 50 Z";
         case 9:
@@ -87,22 +88,24 @@ QtObject {
             return regular(3, 50, Math.PI, 37.5);
         case 12:
             return regular(8, 49, Math.PI / 8, 50);
-        case 8: {
-            const pts = [];
-            for (let i = 0; i < 6; i++) {
-                const a = i / 6 * Math.PI * 2;
-                pts.push([0.95 * Math.sin(a), -0.95 * Math.cos(a)]);
+        case 8:
+            {
+                const pts = [];
+                for (let i = 0; i < 6; i++) {
+                    const a = i / 6 * Math.PI * 2;
+                    pts.push([0.95 * Math.sin(a), -0.95 * Math.cos(a)]);
+                }
+                return rounded(pts, 0.22);
             }
-            return rounded(pts, 0.22);
-        }
-        default: {
-            const pts = [];
-            for (let i = 0; i < 5; i++) {
-                const a = i / 5 * Math.PI * 2;
-                pts.push([0.95 * Math.sin(a), -0.95 * Math.cos(a)]);
+        default:
+            {
+                const pts = [];
+                for (let i = 0; i < 5; i++) {
+                    const a = i / 5 * Math.PI * 2;
+                    pts.push([0.95 * Math.sin(a), -0.95 * Math.cos(a)]);
+                }
+                return rounded(pts, 0.28);
             }
-            return rounded(pts, 0.28);
-        }
         }
     }
 }

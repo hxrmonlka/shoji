@@ -27,7 +27,9 @@ QtObject {
             night = false;
         focusWanted = on;
         focus = on;
-        focusStore.setText(JSON.stringify({ focus: on }) + "\n");
+        focusStore.setText(JSON.stringify({
+            focus: on
+        }) + "\n");
         applyFocus();
     }
 

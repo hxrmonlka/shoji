@@ -29,16 +29,51 @@ QtObject {
     readonly property bool panelsOpen: expanded || glance || media || control || power || spotlight
 
     readonly property var baseTabs: [
-        { id: "calendar", label: "Calendar", icon: "\uf073" },
-        { id: "monitor", label: "Monitor", icon: "\uf200", w: 820, h: 500, keep: true },
-        { id: "wallpapers", label: "Wallpapers", icon: "\uf03e" },
-        { id: "clipboard", label: "Clipboard", icon: "\uf0ea" },
-        { id: "color", label: "Color", icon: "\uf1fb" }
+        {
+            id: "calendar",
+            label: "Calendar",
+            icon: "\uf073"
+        },
+        {
+            id: "monitor",
+            label: "Monitor",
+            icon: "\uf200",
+            w: 820,
+            h: 500,
+            keep: true
+        },
+        {
+            id: "wallpapers",
+            label: "Wallpapers",
+            icon: "\uf03e"
+        },
+        {
+            id: "clipboard",
+            label: "Clipboard",
+            icon: "\uf0ea"
+        },
+        {
+            id: "color",
+            label: "Color",
+            icon: "\uf1fb"
+        }
     ]
 
     readonly property var tabs: Settings.mergeCircles ? baseTabs.concat([
-        { id: "media", label: "Media", icon: "\uf001", w: Settings.mediaPanelWidth + 32, h: Settings.mediaPanelHeight + 68 },
-        { id: "control", label: "Control", icon: "\uf1de", w: Settings.controlSideWidth + Settings.controlPanelWidth + 32, h: Settings.controlPanelHeight + 68 }
+        {
+            id: "media",
+            label: "Media",
+            icon: "\uf001",
+            w: Settings.mediaPanelWidth + 32,
+            h: Settings.mediaPanelHeight + 68
+        },
+        {
+            id: "control",
+            label: "Control",
+            icon: "\uf1de",
+            w: Settings.controlSideWidth + Settings.controlPanelWidth + 32,
+            h: Settings.controlPanelHeight + 68
+        }
     ]) : baseTabs
 
     function hidePanels(): void {

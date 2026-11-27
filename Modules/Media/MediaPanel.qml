@@ -362,9 +362,21 @@ Item {
 
             Repeater {
                 model: [
-                    { glyph: "\uf048", action: "previous", size: 46 },
-                    { glyph: Media.playing ? "\uf04c" : "\uf04b", action: "toggle", size: 56 },
-                    { glyph: "\uf051", action: "next", size: 46 }
+                    {
+                        glyph: "\uf048",
+                        action: "previous",
+                        size: 46
+                    },
+                    {
+                        glyph: Media.playing ? "\uf04c" : "\uf04b",
+                        action: "toggle",
+                        size: 56
+                    },
+                    {
+                        glyph: "\uf051",
+                        action: "next",
+                        size: 46
+                    }
                 ]
 
                 Rectangle {

@@ -87,6 +87,7 @@ PanelWindow {
         target: 0
         token: Motion.effectsSlow
         epsilon: 0.002
-        onValueChanged: if (target === 1 && value >= 0.999) win.finish()
+        onValueChanged: if (target === 1 && value >= 0.999)
+            win.finish()
     }
 }

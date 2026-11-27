@@ -33,18 +33,29 @@ QtObject {
         const trimmed = text.trim();
         if (trimmed.length === 0)
             return;
-        commit(items.concat([{ id: nextId, date: key(day), text: trimmed, done: false }]), nextId + 1);
+        commit(items.concat([
+            {
+                id: nextId,
+                date: key(day),
+                text: trimmed,
+                done: false
+            }
+        ]), nextId + 1);
     }
 
     function edit(id, text) {
         const trimmed = text.trim();
         if (trimmed.length === 0)
             return;
-        commit(items.map(t => t.id === id ? Object.assign({}, t, { text: trimmed }) : t), nextId);
+        commit(items.map(t => t.id === id ? Object.assign({}, t, {
+                text: trimmed
+            }) : t), nextId);
     }
 
     function toggle(id) {
-        commit(items.map(t => t.id === id ? Object.assign({}, t, { done: !t.done }) : t), nextId);
+        commit(items.map(t => t.id === id ? Object.assign({}, t, {
+                done: !t.done
+            }) : t), nextId);
     }
 
     function remove(id) {
@@ -54,7 +65,10 @@ QtObject {
     function commit(list, next) {
         items = list;
         nextId = next;
-        file.setText(JSON.stringify({ nextId: nextId, items: items }, null, 2));
+        file.setText(JSON.stringify({
+            nextId: nextId,
+            items: items
+        }, null, 2));
     }
 
     function restore(raw) {
