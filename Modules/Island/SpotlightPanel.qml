@@ -390,6 +390,7 @@ Item {
 
         property string label: ""
         property bool current: false
+        property bool hoverBackground: true
 
         readonly property bool pressed: chipArea.pressed
 
@@ -427,7 +428,7 @@ Item {
         ColorSpring {
             id: chipFill
 
-            target: !chip.current && chipArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
+            target: !chip.current && chip.hoverBackground && chipArea.containsMouse ? Theme.glassInner(Theme.m3SurfaceContainerHighest) : "transparent"
         }
 
         Text {
@@ -521,12 +522,14 @@ Item {
                 property real targetL: 0
                 property real targetR: 0
                 property bool currentPressed: false
+                readonly property bool sliding: categorySlidePill.animating
 
                 width: chipRow.width
                 height: 30
                 visible: root.mode === ""
 
                 SlidePill {
+                    id: categorySlidePill
                     from: chipBox.targetL
                     to: chipBox.targetR
                     pressed: chipBox.currentPressed
@@ -554,6 +557,7 @@ Item {
 
                             label: modelData.label
                             current: root.category === modelData.id
+                            hoverBackground: !chipBox.sliding
                             onClicked: root.setCategory(modelData.id)
                             onCurrentChanged: sync()
                             onXChanged: sync()
@@ -582,6 +586,7 @@ Item {
                 id: viewBox
 
                 readonly property bool grid: root.view === "grid"
+                readonly property bool sliding: viewSlidePill.animating
 
                 width: 64
                 height: 30
@@ -590,6 +595,7 @@ Item {
                 opacity: root.viewEnabled ? 1 : 0.35
 
                 SlidePill {
+                    id: viewSlidePill
                     from: viewBox.grid ? 0 : 34
                     to: viewBox.grid ? 30 : 64
                     pressed: viewBox.grid ? gridButton.pressed : listButton.pressed
@@ -602,6 +608,7 @@ Item {
                     width: 30
                     height: 30
                     icon: "\uf00a"
+                    hoverBackground: !viewBox.sliding
                     iconSize: 13
                     squash: true
                     plain: true
@@ -616,6 +623,7 @@ Item {
                     width: 30
                     height: 30
                     icon: "\uf0ca"
+                    hoverBackground: !viewBox.sliding
                     iconSize: 13
                     squash: true
                     plain: true

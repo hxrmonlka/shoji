@@ -10,6 +10,7 @@ Rectangle {
     property real iconRotation: 0
     property bool squash: false
     property bool plain: false
+    property bool hoverBackground: true
     readonly property bool pressed: area.pressed
 
     signal clicked
@@ -34,7 +35,7 @@ Rectangle {
     ColorSpring {
         id: fill
 
-        target: root.active && !root.plain ? Theme.m3PrimaryContainer : area.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
+        target: root.active && !root.plain ? Theme.m3PrimaryContainer : root.hoverBackground && area.containsMouse ? Theme.m3SurfaceContainerHighest : "transparent"
     }
 
     ColorSpring {

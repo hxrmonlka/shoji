@@ -8,6 +8,7 @@ Rectangle {
     property real to: 0
     property bool pressed: false
     property int dir: 1
+    readonly property bool animating: left.running || right.running
 
     height: 30
     radius: height / 2
