@@ -51,7 +51,7 @@
         platforms = lib.platforms.linux;
       };
     };
-    cli = pkgs.stdenv.mkDerivation {
+    cliBinary = pkgs.stdenv.mkDerivation {
       pname = "shoji-cli";
       version = "0.1.0";
       src = cliSource;
@@ -61,6 +61,24 @@
       installPhase = "runHook preInstall; make install PREFIX=$out; runHook postInstall ";
       meta = {
         description = "Command-line interface for the Shoji Quickshell desktop environment";
+        mainProgram = "shoji";
+        platforms = lib.platforms.linux;
+      };
+    };
+    cliRuntime = pkgs.stdenvNoCC.mkDerivation {
+      pname = "shoji-cli-runtime";
+      version = "0.1.0";
+      dontUnpack = true;
+      dontBuild = true;
+      nativeBuildInputs = [pkgs.makeWrapper];
+      propagatedBuildInputs = [m3shapes];
+      installPhase = ''
+        mkdir -p "$out/bin"
+        makeWrapper ${cliBinary}/bin/shoji "$out/bin/shoji" \
+          --prefix QML_IMPORT_PATH : "${qmlImportPath}"
+      '';
+      meta = {
+        description = "Runtime wrapper for the Shoji command-line interface";
         mainProgram = "shoji";
         platforms = lib.platforms.linux;
       };
@@ -88,12 +106,14 @@
     packages = {
       inherit
         shell
-        cli
+        cliBinary
+        cliRuntime
         greeter
         m3shapes
         ;
+      cli = cliRuntime;
       shoji-shell = shell;
-      shoji-cli = cli;
+      shoji-cli = cliRuntime;
       shoji-greeter = greeter;
       default = shell;
     };
