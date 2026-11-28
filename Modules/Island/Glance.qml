@@ -214,13 +214,74 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
-                Text {
+                Row {
+                    id: battery
+
+                    readonly property color tint: Power.batteryLow ? Theme.m3Error : Power.batteryCharging ? Theme.m3Primary : Theme.m3OnSurface
+
                     anchors.verticalCenter: parent.verticalCenter
                     visible: Power.laptopModeEnabled && Power.batteryAvailable
-                    text: Power.batteryIcon
-                    color: Power.batteryLow ? Theme.m3Error : Power.batteryCharging ? Theme.m3Primary : Theme.m3OnSurface
-                    font.family: Theme.fontIcon
-                    font.pixelSize: 15
+                    spacing: 3
+
+                    Spring {
+                        id: batteryFill
+
+                        target: Power.batteryPercentage / 100
+                        token: Motion.effectsSlow
+                        epsilon: 0.002
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: Power.batteryCharging
+                        text: "\uf0e7"
+                        color: battery.tint
+                        font.family: Theme.fontIcon
+                        font.pixelSize: 11
+                    }
+
+                    Rectangle {
+                        id: batteryBody
+
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 22
+                        height: 12
+                        radius: 4
+                        color: "transparent"
+                        border.width: 1.5
+                        border.color: battery.tint
+
+                        Behavior on border.color {
+                            ColorAnimation {
+                                duration: 160
+                            }
+                        }
+
+                        Rectangle {
+                            x: 2.5
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Math.max(0, parent.width - 5) * Motion.clamp01(batteryFill.value)
+                            height: parent.height - 6
+                            radius: 1.5
+                            color: battery.tint
+
+                            Behavior on color {
+                                ColorAnimation {
+                                    duration: 160
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            anchors.left: parent.right
+                            anchors.leftMargin: -0.1
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 2
+                            height: 6
+                            radius: 1
+                            color: battery.tint
+                        }
+                    }
                 }
             }
 
